@@ -314,7 +314,7 @@ class RNASeqQCPipeline:
             sc.pl.pca(
                 self.adata, color=key, ax=axes_pca[i], show=False, 
                 cmap='RdBu_r' if is_numeric else None,
-                size=100, legend_loc='right margin', 
+                size=80, legend_loc='right margin', 
                 title=title # 제목 설정
             )
             axes_pca[i].set_xlabel(f"PC1 ({pc1_var:.1%})")
@@ -393,64 +393,88 @@ class RNASeqQCPipeline:
         plt.grid(alpha=0.1); plt.title(f"Correlation with {target}: Raw vs Controlled"); plt.show()
 
     def run_cascade_analysis(self, pcs_to_check=['PC1'], batch_method='combat'):
-        print(f"--- [Analysis] Cascade Correction (Method: {batch_method}) ---")
+        print(f"--- [Analysis] Sequential Cascade Correction (Step-by-Step) ---")
         
         adata_temp = self.adata.copy()
         
-        # Define groups of variables for stepwise removal
-        # 1. Technical Bias (Continuous)
-        tech_vars = [m for m in self.get_active_metrics() if 'platelet' not in m] # usually GC, Len, Counts
-        # 2. Biological/Contamination (e.g., Platelet)
-        bio_noise_vars = [m for m in self.get_active_metrics() if 'platelet' in m]
-        # 3. Batch (Categorical)
-        batch_vars = [self.cols['batch']] if self.cols['batch'] in adata_temp.obs.columns else []
+        # 1. 제거할 메트릭 목록 가져오기 (배치 컬럼은 제외)
+        batch_col = self.cols['batch']
+        metric_vars = [m for m in self.get_active_metrics() if m != batch_col]
         
-        steps = [
-            ('1. Raw', [], False),
-            ('2. -Tech', tech_vars, False),
-            ('3. -Platelet', bio_noise_vars, False),
-            ('4. -Batch', batch_vars, True)
-        ]
+        # 2. 단계(Steps) 정의
+        steps = [('Raw Data', [], False)]
         
-        # Evaluation Targets
-        eval_vars = tech_vars + bio_noise_vars + batch_vars + [self.cols['phenotype']]
-        eval_vars = list(set([v for v in eval_vars if v in adata_temp.obs.columns])) # unique & existing
+        # (1) Bias Metrics 하나씩 순차 추가
+        for metric in metric_vars:
+            steps.append((f"-{metric}", [metric], False))
+            
+        # (2) 마지막에 배치 제거 단계 추가
+        if batch_col in adata_temp.obs.columns:
+            steps.append((f"-Batch ({batch_col})", [batch_col], True))
+        
+        # 3. 평가 대상 변수 설정
+        eval_vars = metric_vars + [self.cols['phenotype']]
+        if batch_col in adata_temp.obs.columns:
+            eval_vars.append(batch_col)
+        eval_vars = list(set([v for v in eval_vars if v in adata_temp.obs.columns]))
 
         pc_results = {pc: {'val': [], 'var': []} for pc in pcs_to_check}
         
-        fig_pca, axes_pca = plt.subplots(1, len(steps), figsize=(5*len(steps), 5))
-        if len(steps) == 1: axes_pca = [axes_pca]
-        axes_pca = axes_pca.flatten()
+        # --- [수정] Grid Layout 설정 (최대 4열) ---
+        n_steps = len(steps)
+        n_cols = 4  # 최대 열 개수
+        n_rows = math.ceil(n_steps / n_cols) # 행 개수 계산
         
+        # 실제 그려질 열의 개수 (4개 미만일 경우를 위해)
+        current_cols = min(n_steps, n_cols)
+        
+        fig_pca, axes_pca = plt.subplots(n_rows, current_cols, 
+                                         figsize=(5 * current_cols, 4.5 * n_rows), 
+                                         constrained_layout=True)
+        
+        # axes가 1개이거나 1차원 배열일 경우 처리
+        if n_steps == 1: 
+            axes_flat = [axes_pca]
+        else:
+            axes_flat = axes_pca.flatten()
+        
+        # --- Main Loop ---
         for idx, (step_name, drop_vars, is_batch_step) in enumerate(steps):
-            # Correction
+            
+            # A. Correction
             if drop_vars:
                 try:
                     if is_batch_step and batch_method == 'combat':
-                        print(f"   -> ComBat on {drop_vars}")
+                        print(f" -> Step {idx}: ComBat on '{drop_vars[0]}'")
                         sc.pp.combat(adata_temp, key=drop_vars[0])
                     else:
-                        print(f"   -> Regress out {drop_vars}")
+                        print(f" -> Step {idx}: Regress out {drop_vars}")
                         sc.pp.regress_out(adata_temp, drop_vars)
                 except Exception as e:
-                    print(f"   [Warning] {step_name} failed: {e}")
+                    print(f"    [Warning] Step '{step_name}' failed: {e}")
 
-            # Recalculate PCA
+            # B. PCA Recalculate
             sc.tl.pca(adata_temp, n_comps=5)
             
-            # Plot
-            sc.pl.pca(adata_temp, color=self.cols['phenotype'], ax=axes_pca[idx], show=False, 
-                      title=step_name, legend_loc='none' if idx < len(steps)-1 else 'right margin')
+            # C. PCA Plot
+            ax = axes_flat[idx]
+            # 제목에 순서(Step 번호) 추가
+            full_title = f"Step {idx}: {step_name}"
+            
+            sc.pl.pca(adata_temp, color=self.cols['phenotype'], ax=ax, show=False, 
+                      size=200, alpha=0.7,
+                      title=full_title, 
+                      legend_loc='none' if idx < n_steps-1 else 'right margin')
 
-            # Evaluate Association
+            # D. Association Analysis
             pc_mat = pd.DataFrame(adata_temp.obsm['X_pca'], index=adata_temp.obs_names, 
                                   columns=[f'PC{i+1}' for i in range(5)])
             data_step = pd.concat([pc_mat, adata_temp.obs[eval_vars]], axis=1)
 
             for pc in pcs_to_check:
-                step_vals = {'Step': step_name}
+                step_vals = {'Step': step_name} # 나중에 그래프용 이름
+                
                 for v in eval_vars:
-                    # ANOVA for categorical, Spearman for numeric
                     if data_step[v].dtype.name in ['category', 'object']:
                         try:
                             model = smf.ols(f"{pc} ~ C({v})", data=data_step).fit()
@@ -466,9 +490,14 @@ class RNASeqQCPipeline:
                 pc_idx = int(pc.replace('PC','')) - 1
                 pc_results[pc]['var'].append({'Step': step_name, 'Var_Ratio': adata_temp.uns['pca']['variance_ratio'][pc_idx]})
 
-        plt.tight_layout(); plt.show()
+        # [수정] 남는(빈) 서브플롯 숨기기
+        for j in range(n_steps, len(axes_flat)):
+            axes_flat[j].axis('off')
 
-        # Trend Plot
+        plt.suptitle(f"Sequential Bias Correction (Method: {batch_method})", fontsize=14, y=1.02)
+        plt.show()
+
+        # --- Trend Plot ---
         print("Displaying Metric Evolution...")
         fig, axes = plt.subplots(len(pcs_to_check), 2, figsize=(16, 6 * len(pcs_to_check)))
         if len(pcs_to_check) == 1: axes = axes.reshape(1, -1)
@@ -478,19 +507,22 @@ class RNASeqQCPipeline:
             df_var = pd.DataFrame(pc_results[pc]['var']).set_index('Step')
             
             sns.heatmap(df_vals.T, cmap='Reds', annot=True, fmt='.2f', vmin=0, vmax=1, ax=axes[i,0])
-            axes[i,0].set_title(f"{pc} Association")
+            axes[i,0].set_title(f"{pc} Association Change")
             
             ax_twin = axes[i,1].twinx()
-            df_var.plot(kind='bar', y='Var_Ratio', ax=axes[i,1], color='lightgray', alpha=0.4, legend=False)
+            df_var.plot(kind='bar', y='Var_Ratio', ax=axes[i,1], color='lightgray', alpha=0.3, legend=False)
+            axes[i,1].set_ylabel("PC Variance Ratio")
             
-            # Plot lines for each metric
-            colors = sns.color_palette("husl", len(eval_vars))
+            colors = sns.color_palette("tab10", len(eval_vars)) 
             for j, v in enumerate(eval_vars):
                  if v in df_vals.columns:
-                    ax_twin.plot(range(len(df_vals)), df_vals[v], label=v, color=colors[j], marker='o', lw=2)
+                    ax_twin.plot(range(len(df_vals)), df_vals[v], label=v, color=colors[j % 10], marker='o', lw=2)
             
             ax_twin.set_ylim(0, 1.1)
-            ax_twin.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            axes[i,1].set_title(f"{pc} Trend")
+            ax_twin.set_ylabel("Correlation / Eta-sq")
+            ax_twin.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title="Metrics")
+            
+            axes[i,1].set_title(f"{pc} Association Trend")
+            axes[i,1].grid(False)
             
         plt.tight_layout(); plt.show()
