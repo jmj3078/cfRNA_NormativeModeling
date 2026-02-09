@@ -1,1 +1,4 @@
 /Data/*
+*.pt
+*.json
+*.h5ad
