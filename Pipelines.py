@@ -147,7 +147,7 @@ def calculate_bias_metrics(adata, layer=None,
     return metrics_df
 
 
-class RNASeqQCPipeline:
+class DataAnalysisPipeline:
     def __init__(self, adata, 
                  bias_metrics_df=None,
                  phenotype_col='Type', 
