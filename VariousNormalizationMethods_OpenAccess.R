@@ -8,7 +8,7 @@ library(limma)
 # -----------------------------------------------------------------------------
 # STEP 1: 데이터 로딩 및 병합
 # -----------------------------------------------------------------------------
-meta     <- read.table("/project/cfRNA_Disentaglement/Data/OpenAccess/Meta/Meta.tsv", header=TRUE, row.names=1, sep='\t')
+meta     <- read.table("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Meta/OpenAccessMeta_Processed.tsv", header=TRUE, row.names=1, sep='\t')
 annot    <- read.table("/project/cfRNA_Disentaglement/Data/GECODEv49_Annot.tsv", header=TRUE, row.names=1, sep='\t')
 palangodb <- read.table("/project/cfRNA_Disentaglement/Data/PalangoDB_CellTypeMarkers.tsv", header=TRUE, sep='\t')
 
