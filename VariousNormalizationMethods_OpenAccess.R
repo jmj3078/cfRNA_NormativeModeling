@@ -5,14 +5,14 @@ library(edgeR)
 library(dplyr)
 library(tidyr)
 library(limma)
+library(readxl)
+library(tibble)
 # -----------------------------------------------------------------------------
 # STEP 1: 데이터 로딩 및 병합
 # -----------------------------------------------------------------------------
-meta     <- read.table("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Meta/OpenAccessMeta_Processed.tsv", header=TRUE, row.names=1, sep='\t')
+meta     <- read_excel("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Meta/Meta_Processed.xlsx") %>% column_to_rownames(var = colnames(.)[1])
 annot    <- read.table("/project/cfRNA_Disentaglement/Data/GECODEv49_Annot.tsv", header=TRUE, row.names=1, sep='\t')
 palangodb <- read.table("/project/cfRNA_Disentaglement/Data/PalangoDB_CellTypeMarkers.tsv", header=TRUE, sep='\t')
-
-library(fs) 
 base_path <- "/project/cfRNA_Disentaglement/Data/OpenAccess/"
 target_files <- list.files(path = base_path, 
                            pattern = "_featureCounts_matrix.tsv$", 
@@ -53,30 +53,23 @@ if (length(zero_samples) > 0) {
 }
 
 print(dim(counts))
-
-target_indices <- meta$tissue %in% c("Plasma", "Serum")
-meta_filtered <- meta[target_indices, ]
-counts_filtered <- counts[, rownames(meta_filtered)]
-dim(meta_filtered)
-dim(counts_filtered)
-write.csv(counts_filtered, "/project/cfRNA_Disentaglement/Data/OpenAccess/Processed/Merged_featureCounts.csv")
-
+print(dim(meta))
+write.csv(counts, "/project/cfRNA_Disentaglement/Data/OpenAccess/Processed/Merged_featureCounts.csv")
 
 # -----------------------------------------------------------------------------
 # STEP 2: 전처리 (Metadata & Gene Filtering)
 # -----------------------------------------------------------------------------
 # 2.2 샘플 동기화
 common_samples <- intersect(colnames(counts), rownames(meta))
-dim(counts)
-dim(meta)
+counts_common <- counts[, common_samples]
+meta_common   <- meta[common_samples, ]
+dim(counts_common)
+dim(meta_common)
+stopifnot(all(colnames(counts_common) == rownames(meta_common)))
 
-counts <- counts[, common_samples]
-meta   <- meta[common_samples, ]
-stopifnot(all(colnames(counts) == rownames(meta)))
 # 2.3 Protein Coding 유전자 필터링
 pc_genes  <- rownames(annot)[annot$GeneType == "protein_coding"]
-
-counts_pc <- counts[rownames(counts) %in% pc_genes, ]
+counts_pc <- counts_common[rownames(counts_common) %in% pc_genes, ]
 annot_pc  <- annot[rownames(counts_pc), ] # 순서 동기화
 valid_len_gc <- !is.na(annot_pc$Length) & annot_pc$Length > 0 & !is.na(annot_pc$GC_Percent)
 counts_pc    <- counts_pc[valid_len_gc, ]
@@ -91,48 +84,54 @@ platelet_ids  <- rownames(annot_pc)[annot_pc$GeneName %in% platelet_syms]
 # -----------------------------------------------------------------------------
 out_base_dir <- "/project/cfRNA_Disentaglement/Data/OpenAccess/Processed/"
 if(!dir.exists(out_base_dir)) dir.create(out_base_dir, recursive = TRUE)
-cohort_list <- unique(meta$BioProject)
-cohort_list
+meta$Group <- paste(meta$BioProject, meta$tissue, sep = "_")
+group_list <- unique(meta$Group)
+print(group_list)
+# Group을 기준으로 루프 실행
 clean_matrix <- function(mat) {
     mat[is.na(mat)] <- 0
     mat[is.infinite(mat)] <- 0
     return(mat)
 }
 
-message(paste("Start processing for", length(cohort_list), "cohorts:", paste(cohort_list, collapse=", ")))
+group_list <- unique(meta$Group)
+message(paste("Start processing for", length(group_list), "groups:", paste(group_list, collapse=", ")))
 
-for (cohort in cohort_list) {
-
-    message(paste0("\n>>> Processing Cohort: ", cohort, " <<<"))
+for (group in group_list) {
+    message(paste0("\n>>> Processing Group: ", group, " <<<"))
     
-    # 2.1 Subset Data (해당 코호트 샘플만 추출)
-    cohort_samples <- rownames(meta)[meta$BioProject == cohort]
-    sub_counts <- counts_pc[, cohort_samples, drop=FALSE]
+    # 수정 1: meta_common -> meta 통일
+    group_samples <- rownames(meta)[meta$Group == group]
+    sub_counts <- counts_pc[, group_samples, drop=FALSE]
     
-    # 2.2 Low Expression Gene Filtering (이 코호트 내에서 발현 안되는 유전자 제거)
-    # 중요: TMM/EDASeq은 0이 너무 많으면 에러가 나거나 왜곡됨
+    # 0 라이브러리 샘플 필터링
+    valid_samples <- colSums(sub_counts) > 0
+    if (!all(valid_samples)) {
+        sub_counts <- sub_counts[, valid_samples, drop=FALSE]
+        if(ncol(sub_counts) == 0) {
+            message("  [SKIP] No valid samples left in this group.")
+            next
+        }
+    }
+    
+    # Low Expression Gene Filtering
     keep_genes <- rowSums(sub_counts) > 0
     sub_counts <- sub_counts[keep_genes, ]
     sub_annot  <- annot_pc[keep_genes, ]
     
-    # Platelet Gene도 현재 살아남은 유전자와 교집합
     control_genes <- intersect(platelet_ids, rownames(sub_counts))
-    
     message(paste("   Samples:", ncol(sub_counts), "| Genes:", nrow(sub_counts), "| Control Genes:", length(control_genes)))
     
-    # 저장용 리스트 초기화
     results_list <- list()
     results_list[["Raw"]] <- sub_counts
     
     # ---------------------------------------------------------
-    # 3.1 Basic Normalization (TMM, TPM, FPKM)
+    # 3.1 Basic Normalization
     # ---------------------------------------------------------
-    # TMM
     dge <- DGEList(counts = as.matrix(sub_counts))
     dge <- calcNormFactors(dge, method = "TMM")
-    results_list[["TMM_log2"]] <- cpm(dge, normalized.lib.sizes = TRUE, log = TRUE, prior.count = 1)
+    results_list[["TMM_log2"]] <- clean_matrix(cpm(dge, normalized.lib.sizes = TRUE, log = TRUE, prior.count = 1))
     
-    # TPM
     gene_len_kb <- sub_annot$Length / 1000
     rpk <- sub_counts / gene_len_kb
     scale_factor <- colSums(rpk)
@@ -140,13 +139,13 @@ for (cohort in cohort_list) {
     tpm_val <- t(t(rpk) * 1e6 / scale_factor)
     results_list[["TPM_log2"]] <- clean_matrix(log2(tpm_val + 1))
     
-    # FPKM
     results_list[["FPKM_log2"]] <- clean_matrix(rpkm(as.matrix(sub_counts), 
                                                      gene.length = sub_annot$Length, 
                                                      log = TRUE, 
                                                      prior.count = 1))
+    
     # ---------------------------------------------------------
-    # 3.2 EDASeq (GC/Length) - 코호트 내부 Bias 보정
+    # 3.2 EDASeq 
     # ---------------------------------------------------------
     eda_set <- newSeqExpressionSet(as.matrix(sub_counts),
                                    featureData = data.frame(
@@ -155,47 +154,44 @@ for (cohort in cohort_list) {
                                        row.names = rownames(sub_counts)
                                    ))
     
-    # GC -> Length -> Sequencing Depth 순차 보정
     set_within <- withinLaneNormalization(withinLaneNormalization(eda_set, "gc", which="full"), "length", which="full")
     norm_eda   <- betweenLaneNormalization(set_within, which="upper")
-    
     results_list[["EDA_Full_All"]] <- clean_matrix(log2(normCounts(norm_eda) + 1))
     
     # ---------------------------------------------------------
-    # 3.3 RUVg & Proposed Full (EDA + RUV)
+    # 3.3 RUVg
     # ---------------------------------------------------------
-    # RUV는 TMM Log값을 인풋으로 사용 (논문 권장)
     input_ruv <- results_list[["TMM_log2"]]
     if (length(control_genes) < 5) {
         message("   [WARNING] Too few control genes found. Skipping RUV.")
     } else {
         for (k in c(1, 2, 3)) {
-            # RUV 계산
             set_ruvg <- RUVg(input_ruv, control_genes, k = k, isLog = TRUE, center = TRUE)
-            # W (Noise Factor) 저장
             W_platelet <- set_ruvg$W
-            write.csv(W_platelet, file.path(out_base_dir, paste0(cohort, "_W_factor_k", k, ".csv")))
-            # 1) 순수 RUV 결과
+            
+            # 수정 2: cohort -> group 변수명 동기화
+            write.csv(W_platelet, file.path(out_base_dir, paste0(group, "_W_factor_k", k, ".csv")))
+            
             key_ruvg <- paste0("RUVg_Platelet_k", k)
             results_list[[key_ruvg]] <- clean_matrix(set_ruvg$normalizedCounts)
-            # 2) Proposed: EDA로 GC 잡고 + RUV로 Platelet 잡기 (Within Cohort)
+            
             key_full <- paste0("Proposed_Full_k", k)
             results_list[[key_full]] <- clean_matrix(
                 removeBatchEffect(results_list[["EDA_Full_All"]], covariates = W_platelet)
             )
         }
     }
-    # ---------------------------------------------------------
-    # 4. 저장 (Cohort 접두사 붙여서 저장)
-    # ---------------------------------------------------------
+    
     for(name in names(results_list)) {
-        # 파일명 예시: Norm_Seq1_TMM_log2.csv
-        file_path <- paste0(out_base_dir, "Norm_", cohort, "_", name, ".csv")
+        file_path <- paste0(out_base_dir, "Norm_", group, "_", name, ".csv")
         write.csv(as.data.frame(results_list[[name]]), file = file_path, row.names = TRUE)
     }
-    message(paste("   Saved files for:", cohort))
+    message(paste("   Saved files for:", group))
 }
 
+# -----------------------------------------------------------------------------
+# STEP 4: Summary 병합 및 Metadata 업데이트
+# -----------------------------------------------------------------------------
 summary_files <- list.files(path = base_path, 
                             pattern = "_featureCounts_summary.tsv$", 
                             recursive = TRUE, 
@@ -205,14 +201,14 @@ print(paste("Found summary files:", length(summary_files)))
 summary_combined <- NULL
 
 for (i in 1:length(summary_files)) {
-  file_path <- summary_files[i]
+    file_path <- summary_files[i]
     current_sum <- read.delim(file_path, header=TRUE, sep="\t", 
-                            check.names=FALSE, stringsAsFactors=FALSE)
-  if (is.null(summary_combined)) {
-    summary_combined <- current_sum
-  } else {
-    summary_combined <- merge(summary_combined, current_sum, by = 1, all = TRUE)
-  }
+                              check.names=FALSE, stringsAsFactors=FALSE)
+    if (is.null(summary_combined)) {
+        summary_combined <- current_sum
+    } else {
+        summary_combined <- merge(summary_combined, current_sum, by = 1, all = TRUE)
+    }
 }
 
 summary_combined[is.na(summary_combined)] <- 0
@@ -220,10 +216,12 @@ rownames(summary_combined) <- summary_combined[, 1]
 summary_combined <- summary_combined[, -1]
 summary_t <- as.data.frame(t(summary_combined))
 
-meta_new <- merge(meta_filtered, summary_t, 
-                  by = "row.names", all.x = TRUE)
+# 수정 4: row.names 소실 방지 파이프라인 적용
+library(tibble)
+meta_new <- merge(meta, summary_t, by = "row.names", all.x = TRUE) %>%
+    column_to_rownames("Row.names")
+
 head(meta_new)
 dim(meta_new)
 write.csv(meta_new, paste0(out_base_dir, "Meta_Processed.csv"))
-write.csv(annot, paste0(out_base_dir, "Annot.csv"))
-
+write.csv(annot_pc, paste0(out_base_dir, "Annot_PC.csv")) # 저장 객체를 전체 annot에서 실제로 사용된 annot_pc로 변경 권장
