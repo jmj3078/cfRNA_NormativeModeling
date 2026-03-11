@@ -236,6 +236,8 @@ class DataAnalysisPipeline:
             if key in self.adata.varm: del self.adata.varm[key]
         
         print(f"   PCA reset. Active layer ready.\n")
+        
+        
     def run_pca_diagnostics(self):
         if 'X_pca' not in self.adata.obsm: 
             sc.tl.pca(self.adata)
