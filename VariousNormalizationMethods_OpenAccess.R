@@ -225,3 +225,4 @@ head(meta_new)
 dim(meta_new)
 write.csv(meta_new, paste0(out_base_dir, "Meta_Processed.csv"))
 write.csv(annot_pc, paste0(out_base_dir, "Annot_PC.csv")) # 저장 객체를 전체 annot에서 실제로 사용된 annot_pc로 변경 권장
+

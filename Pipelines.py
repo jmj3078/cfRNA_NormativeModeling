@@ -59,7 +59,8 @@ def calculate_bias_metrics(adata, layer=None,
                            target_type='protein_coding',
                            gc_col='GC_Percent', 
                            len_col='log10_Length',
-                           platelet_col='is_platelet'):
+                           platelet_col='is_platelet',
+                           n_bins=20):
 
     print(f"--- Calculating Bias Metrics (Target Layer: {layer if layer else 'X'}) ---")
     
@@ -95,8 +96,18 @@ def calculate_bias_metrics(adata, layer=None,
             valid_feat = feat_vals[mask]
 
             if mode == 'lowess':
-                smoothed = lowess(valid_expr, valid_feat, frac=0.3, it=0)
-                bias_val = np.ptp(smoothed[:, 1]) 
+                df_tmp = pd.DataFrame({'expr': valid_expr, 'feat': valid_feat})
+                df_tmp['bin'] = pd.qcut(df_tmp['feat'], q=n_bins, duplicates='drop')
+                bin_stats = df_tmp.groupby('bin', observed=True).agg({
+                                    'expr': 'median', 
+                                    'feat': 'mean'
+                                }).dropna()
+                if len(bin_stats) < 2:
+                    scores.append(0)
+                    continue
+                
+                smoothed = lowess(bin_stats['expr'], bin_stats['feat'], frac=0.7, it=0)
+                bias_val = np.std(smoothed[:, 1]) 
                 scores.append(bias_val)
             else:
                 corr, _ = spearmanr(valid_expr, valid_feat)
