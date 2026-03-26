@@ -6,7 +6,7 @@ import seaborn as sns
 from statsmodels.nonparametric.smoothers_lowess import lowess
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, median_abs_deviation
 import math
 
 
@@ -78,40 +78,42 @@ def calculate_bias_metrics(adata, layer=None,
     metrics_df = pd.DataFrame(index=adata.obs_names)
 
     # Helper: Compute correlation/bias score
-    def _compute_score(X, feat_vals, mode='spearman'):
+    def _compute_score(X, feat_vals):
         scores = []
         # Ensure feature values are float array
         feat_vals = np.array(feat_vals, dtype=float)
 
         for i in range(X.shape[0]):
             sample_expr = np.ravel(X[i, :])
-            mask = sample_expr > 0 # Filter for detected genes only
-            
-            # Skip if too few genes detected
-            if np.sum(mask) < 50:
+            expressed_mask = sample_expr > 0
+            if np.sum(expressed_mask) < 50:
                 scores.append(0)
                 continue
             
-            valid_expr = sample_expr[mask]
-            valid_feat = feat_vals[mask]
-
-            if mode == 'lowess':
-                df_tmp = pd.DataFrame({'expr': valid_expr, 'feat': valid_feat})
-                df_tmp['bin'] = pd.qcut(df_tmp['feat'], q=n_bins, duplicates='drop')
-                bin_stats = df_tmp.groupby('bin', observed=True).agg({
-                                    'expr': 'median', 
-                                    'feat': 'mean'
-                                }).dropna()
-                if len(bin_stats) < 2:
-                    scores.append(0)
-                    continue
+            q99_thresh = np.percentile(sample_expr[expressed_mask], 99)
+            final_mask = expressed_mask & (sample_expr <= q99_thresh)
                 
-                smoothed = lowess(bin_stats['expr'], bin_stats['feat'], frac=0.7, it=0)
-                bias_val = np.std(smoothed[:, 1]) 
-                scores.append(bias_val)
+            valid_expr = sample_expr[final_mask]
+            valid_feat = feat_vals[final_mask]
+
+            df_tmp = pd.DataFrame({'expr': valid_expr, 'feat': valid_feat})
+            df_tmp['bin'] = pd.qcut(df_tmp['feat'], q=n_bins, duplicates='drop')
+            bin_stats = df_tmp.groupby('bin', observed=True).agg({
+                                'expr': 'median', 
+                                'feat': 'mean'
+                            }).dropna()
+            if len(bin_stats) < 2:
+                scores.append(0)
+                continue
+            
+            smoothed = lowess(bin_stats['expr'], bin_stats['feat'], frac=0.7, it=0)
+            curve_dispersion = median_abs_deviation(smoothed[:, 1], scale='normal')
+            total_dispersion = median_abs_deviation(valid_expr, scale='normal')
+            if total_dispersion > 0:
+                bias_score = curve_dispersion / total_dispersion
             else:
-                corr, _ = spearmanr(valid_expr, valid_feat)
-                scores.append(corr if not np.isnan(corr) else 0)
+                bias_score = 0 
+            scores.append(bias_score)
         return np.array(scores)
 
     if gene_type_col in adata.var.columns:
@@ -128,16 +130,16 @@ def calculate_bias_metrics(adata, layer=None,
     if gc_col in subset_var.columns:
         print("  > Computing GC bias score (LOESS)...")
         metrics_df['gc_bias_score'] = _compute_score(
-            subset_X, subset_var[gc_col], mode='lowess'
+            subset_X, subset_var[gc_col]
         )
     else:
         print(f"  [Skip] GC column '{gc_col}' not found.")
 
     # 4. Calculate Length Bias
     if len_col in subset_var.columns:
-        print("  > Computing Length bias score (Spearman)...")
+        print("  > Computing Length bias score (LOESS)...")
         metrics_df['len_bias_score'] = _compute_score(
-            subset_X, subset_var[len_col], mode='spearman'
+            subset_X, subset_var[len_col]
         )
     else:
         print(f"  [Skip] Length column '{len_col}' not found.")
@@ -336,228 +338,183 @@ class DataAnalysisPipeline:
         for j in range(i+1, len(axes_pca)): axes_pca[j].axis('off')
         plt.tight_layout(); plt.show()  
 
-    def analyze_pc_associations(self, n_pcs=5):
-        if 'X_pca' not in self.adata.obsm: sc.tl.pca(self.adata)
-        pc_df = pd.DataFrame(self.adata.obsm['X_pca'][:, :n_pcs], 
-                             columns=[f'PC{i+1}' for i in range(n_pcs)], index=self.adata.obs_names)
+    def analyze_pc_impact(self, n_pcs=50):
+        if 'X_pca' not in self.adata.obsm:
+            sc.tl.pca(self.adata, n_comps=n_pcs)
         
-        cont_vars = self.get_active_metrics()
-        cat_vars = [self.cols['phenotype'], self.cols['batch']]
-        assoc_matrix = pd.DataFrame(index=cont_vars + cat_vars, columns=pc_df.columns)
+        n_pcs_actual = min(n_pcs, self.adata.obsm['X_pca'].shape[1])
+        pc_coords = self.adata.obsm['X_pca'][:, :n_pcs_actual]
+        var_ratios = self.adata.uns['pca']['variance_ratio'][:n_pcs_actual]
+        target_vars = self.get_active_metrics() + [self.cols['phenotype'], self.cols['batch']]
+        if 'Author' in self.adata.obs.columns: target_vars.append('Author')
+        target_vars = list(dict.fromkeys([v for v in target_vars if v in self.adata.obs.columns]))
+        impact_results = []
 
-        # Continuous: Spearman
-        for col in cont_vars:
-            for pc in pc_df.columns:
-                corr, _ = spearmanr(self.adata.obs[col], pc_df[pc])
-                assoc_matrix.loc[col, pc] = abs(corr) if not np.isnan(corr) else 0
-        
-        # Categorical: ANOVA
-        for col in cat_vars:
-            if col not in self.adata.obs.columns or self.adata.obs[col].nunique() < 2:
-                assoc_matrix.loc[col, :] = 0
-                continue
-            for pc in pc_df.columns:
-                temp = pd.concat([self.adata.obs[col], pc_df[pc]], axis=1).dropna()
-                temp.columns = ['G', 'V']
+        for var in target_vars:
+            total_impact = 0
+            valid = self.adata.obs[var].notna()
+            if valid.sum() < 2: continue
+            
+            curr_obs = self.adata.obs[valid][var]
+            curr_pcs = pc_coords[valid]
+            # Determine variable type for OLS formula
+            is_cat = not pd.api.types.is_numeric_dtype(curr_obs) or (var in [self.cols['phenotype'], self.cols['batch'], 'Author'])
+            
+            for i in range(n_pcs_actual):
+                y = curr_pcs[:, i]
                 try:
-                    model = smf.ols('V ~ C(G)', data=temp).fit()
-                    anova = sm.stats.anova_lm(model, typ=2)
-                    assoc_matrix.loc[col, pc] = anova.loc['C(G)', 'sum_sq'] / anova['sum_sq'].sum()
+                    # Unified R^2 estimation via OLS
+                    df_tmp = pd.DataFrame({'y': y, 'x': curr_obs})
+                    formula = 'y ~ C(x)' if is_cat else 'y ~ x'
+                    res = smf.ols(formula, data=df_tmp).fit()
+                    score = res.rsquared # This is Pearson r^2 for continuous variables
                 except:
-                    assoc_matrix.loc[col, pc] = 0
-
-        plt.figure(figsize=(8, len(assoc_matrix)*0.5 + 2))
-        sns.heatmap(assoc_matrix.astype(float), annot=True, cmap='Reds', vmin=0, vmax=1, fmt='.2f')
-        plt.title(f"PC - Variable Association")
-        plt.show()
-
-    def analyze_partial_correlation(self, n_pcs=5):
-        print(f"--- [Analysis] Partial Correlation (Control Confounders) ---")
-        target = self.cols['phenotype']
-        confounders = self.get_active_metrics() + [self.cols['batch']]
-        
-        if 'X_pca' not in self.adata.obsm: sc.tl.pca(self.adata)
-        pc_df = pd.DataFrame(self.adata.obsm['X_pca'][:, :n_pcs], columns=[f'PC{i+1}' for i in range(n_pcs)], index=self.adata.obs_names)
-        data = pd.concat([pc_df, self.adata.obs[[target] + [c for c in confounders if c in self.adata.obs.columns]]], axis=1)
-        
-        # Numerize target
-        if data[target].dtype == 'object' or data[target].dtype.name == 'category':
-            data['target_num'] = pd.factorize(data[target])[0]
-        else: data['target_num'] = data[target]
-
-        results = {}
-        for pc in pc_df.columns:
-            # Raw Correlation
-            raw = spearmanr(data[pc], data['target_num'])[0]
-            
-            # Partial Correlation
-            conf_terms = [f"C({c})" if data[c].dtype.name in ['category', 'object'] else c for c in confounders if c in data.columns]
-            if not conf_terms: 
-                partial = raw
-            else:
-                try:
-                    res_pc = smf.ols(f"{pc} ~ {' + '.join(conf_terms)}", data=data).fit().resid
-                    res_tg = smf.ols(f"target_num ~ {' + '.join(conf_terms)}", data=data).fit().resid
-                    partial = spearmanr(res_pc, res_tg)[0]
-                except: partial = 0
-            results[pc] = {'Raw': abs(raw), 'Partial': abs(partial)}
-            
-        pd.DataFrame(results).T.plot(kind='bar', figsize=(8, 4), colormap='tab20')
-        plt.grid(alpha=0.1); plt.title(f"Correlation with {target}: Raw vs Controlled"); plt.show()
-
-    def run_cascade_analysis(self, pcs_to_check=['PC1'], batch_method='combat', corr_threshold=0.95):
-
-
-        print(f"--- [Analysis] Sequential Cascade Correction (Step-by-Step) ---")
-        
-        adata_temp = self.adata.copy()
-        batch_col = self.cols['batch']
-        
-        # 1. 초기 메트릭 목록 확보 및 다중공선성 필터링
-        initial_metrics = [m for m in self.get_active_metrics() if m != batch_col]
-        metric_vars = []
-        
-        if len(initial_metrics) > 1:
-            # 수치 안정성을 위해 결측치 임시 대치 후 상관계수 계산
-            obs_temp = adata_temp.obs[initial_metrics].copy()
-            for col in initial_metrics:
-                obs_temp[col] = pd.to_numeric(obs_temp[col], errors='coerce').fillna(obs_temp[col].median())
-            
-            corr_matrix = obs_temp.corr(method='spearman').abs()
-            upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            to_drop = [column for column in upper.columns if any(upper[column] > corr_threshold)]
-            metric_vars = [m for m in initial_metrics if m not in to_drop]
-            
-            if to_drop:
-                print(f" [Warning] Dropped collinear metrics to prevent matrix singularity: {to_drop}")
-        else:
-            metric_vars = initial_metrics
-
-        # 2. 단계(Steps) 정의
-        steps = [('Raw Data', [], False)]
-        for metric in metric_vars:
-            steps.append((f"-{metric}", [metric], False))
-        if batch_col in adata_temp.obs.columns:
-            steps.append((f"-Batch ({batch_col})", [batch_col], True))
-        
-        # 3. 평가 대상 변수 (Trend Plot에 표시될 모든 변수)
-        # 보정에서 제외된 다중공선성 변수들도 추세 확인을 위해 포함
-        eval_vars = list(set(initial_metrics + [self.cols['phenotype']]))
-        if batch_col in adata_temp.obs.columns:
-            eval_vars.append(batch_col)
-        eval_vars = [v for v in eval_vars if v in adata_temp.obs.columns]
-
-        pc_results = {pc: {'val': [], 'var': []} for pc in pcs_to_check}
-        
-        # PCA Grid Layout 설정
-        n_steps = len(steps)
-        n_cols = 4
-        n_rows = math.ceil(n_steps / n_cols)
-        fig_pca, axes_pca = plt.subplots(n_rows, min(n_steps, n_cols), 
-                                         figsize=(5 * min(n_steps, n_cols), 4.5 * n_rows), 
-                                         constrained_layout=True)
-        axes_flat = axes_pca.flatten() if n_steps > 1 else [axes_pca]
-        
-        failed_cascade = False 
-        
-        # --- Main Loop ---
-        for idx, (step_name, drop_vars, is_batch_step) in enumerate(steps):
-            ax = axes_flat[idx]
-            error_msg = None
-            
-            # A. Correction & PC Recalculate
-            if not failed_cascade:
-                try:
-                    if drop_vars:
-                        if is_batch_step and batch_method == 'combat':
-                            sc.pp.combat(adata_temp, key=drop_vars[0])
-                        else:
-                            sc.pp.regress_out(adata_temp, drop_vars)
-                        adata_temp.X = np.nan_to_num(adata_temp.X, 0.0)
-
-                    # 분산 체크: 최소 2개 이상의 유전자가 유의미한 분산을 가져야 PCA 가능
-                    gene_vars = np.var(adata_temp.X, axis=0)
-                    if np.sum(gene_vars > 1e-12) < 2:
-                        error_msg = "Error: No Residual Remained"
-                        failed_cascade = True
-                    else:
-                        sc.tl.pca(adata_temp, n_comps=5)
-                        sc.pl.pca(adata_temp, color=self.cols['phenotype'], ax=ax, show=False, 
-                                  size=150, alpha=0.6, title=f"Step {idx}: {step_name}", legend_loc='none')
-                except Exception as e:
-                    error_msg = f"Computation Failed:\n{str(e)[:30]}"
-                    failed_cascade = True
-            
-            # B. 에러 발생 시 시각화 처리
-            if failed_cascade or error_msg:
-                display_msg = error_msg if error_msg else "Cascade Terminated"
-                ax.text(0.5, 0.5, display_msg, ha='center', va='center', color='darkred', 
-                        fontweight='bold', fontsize=10, transform=ax.transAxes)
-                ax.set_title(f"Step {idx}: {step_name}", color='gray')
-                ax.set_xticks([]); ax.set_yticks([])
-
-            # C. Association Analysis (결과 저장 로직 - 에러 시 0으로 채움)
-            for pc in pcs_to_check:
-                step_vals = {'Step': step_name}
-                current_var_ratio = 0
-                
-                if not failed_cascade and 'X_pca' in adata_temp.obsm:
-                    pc_idx = int(pc.replace('PC','')) - 1
-                    current_var_ratio = adata_temp.uns['pca']['variance_ratio'][pc_idx]
+                    score = 0
                     
-                    pc_mat = pd.DataFrame(adata_temp.obsm['X_pca'], index=adata_temp.obs_names, 
-                                          columns=[f'PC{i+1}' for i in range(5)])
-                    data_step = pd.concat([pc_mat, adata_temp.obs[eval_vars]], axis=1)
-
-                    for v in eval_vars:
-                        val = 0
-                        try:
-                            if data_step[v].dtype.name in ['category', 'object']:
-                                model = smf.ols(f"{pc} ~ C({v})", data=data_step).fit()
-                                anova = sm.stats.anova_lm(model, typ=2)
-                                val = anova.loc[f'C({v})', 'sum_sq'] / anova['sum_sq'].sum()
-                            else:
-                                val = abs(spearmanr(data_step[pc], data_step[v])[0])
-                        except: val = 0
-                        step_vals[v] = val if not np.isnan(val) else 0
-                else:
-                    # 에러 상태인 경우 모든 metric과의 연관성을 0으로 기록
-                    for v in eval_vars: step_vals[v] = 0
+                # Weight by Eigenvalue (Explained Variance Ratio of the PC)
+                total_impact += score * var_ratios[i]
                 
-                pc_results[pc]['val'].append(step_vals)
-                pc_results[pc]['var'].append({'Step': step_name, 'Var_Ratio': current_var_ratio})
+            impact_results.append({'Variable': var, 'Impact_Score': total_impact})
 
-        # 빈 서브플롯 숨기기
-        for j in range(n_steps, len(axes_flat)): axes_flat[j].axis('off')
-        plt.show()
+        df_plot = pd.DataFrame(impact_results).sort_values('Impact_Score', ascending=False)
+        fig, ax = plt.subplots(figsize=(10, len(df_plot) * 0.45 + 2))
+        sns.barplot(
+            data=df_plot, 
+            x='Impact_Score', 
+            y='Variable', 
+            palette='magma', 
+            ax=ax,
+            edgecolor='0.3' # 막대 테두리를 살짝 주어 구분감 향상
+        )
 
-        # --- Trend Plot (Robust Implementation) ---
-        print("Displaying Metric Evolution...")
-        fig, axes = plt.subplots(len(pcs_to_check), 2, figsize=(18, 6 * len(pcs_to_check)))
-        if len(pcs_to_check) == 1: axes = axes.reshape(1, -1)
+        max_val = df_plot['Impact_Score'].max()
+        ax.set_xlim(0, max_val * 1.15)
+        for i, val in enumerate(df_plot['Impact_Score']):
+            # 0.0000인 경우 가독성을 위해 0으로 표시하거나 소수점 조정
+            display_val = f"{val:.4f}" if val > 0 else "0.0000"
+            ax.text(
+                val + (max_val * 0.01), # 약간의 여백
+                i, 
+                display_val, 
+                va='center', 
+                ha='left', 
+                fontsize=10, 
+                fontweight='bold',
+                color='#333333'
+            )
+            
+        ax.set_title(r"Global Impact Score ($\sum VarRatio \times R^2$) - Top 50 PCs", 
+                    fontsize=15, fontweight='bold', pad=20)
+        ax.set_xlabel("Weighted Explained Variance ($R^2$)", fontsize=12, fontweight='bold')
+        ax.set_ylabel("Variables", fontsize=12, fontweight='bold')
         
-        for i, pc in enumerate(pcs_to_check):
-            df_vals = pd.DataFrame(pc_results[pc]['val']).set_index('Step').fillna(0)
-            df_var = pd.DataFrame(pc_results[pc]['var']).set_index('Step').fillna(0)
+        # 그리드 설정 (X축 방향만 점선으로)
+        ax.xaxis.grid(True, linestyle='--', alpha=0.7)
+        ax.yaxis.grid(False) # Y축 그리드는 지워서 가로 막대 강조
+        
+        sns.despine(left=True, bottom=True) # 불필요한 테두리 제거
+        plt.tight_layout()
+        plt.show()
+        
+        return df_plot
+
+    def run_cascade_analysis(self, n_pcs=50, batch_method='combat'):
+        print(f"--- [Analysis] Global Cascade Analysis (Unified R² Tracking) ---")
+        adata_temp = self.adata.copy()
+        
+        initial_metrics = [m for m in self.get_active_metrics() if m != self.cols['batch']]
+        steps = [('Raw', [])]
+        for m in initial_metrics: 
+            steps.append((f"Reg__{m}", [m]))
+        if self.cols['batch'] in adata_temp.obs.columns: 
+            steps.append(("Corr_Batch", [self.cols['batch']]))
             
-            # Heatmap
-            sns.heatmap(df_vals.T, cmap='Reds', annot=True, fmt='.2f', vmin=0, vmax=1, ax=axes[i,0])
-            axes[i,0].set_title(f"{pc} Association Change Matrix", fontweight='bold')
+        eval_vars = list(dict.fromkeys(initial_metrics + [self.cols['phenotype'], self.cols['batch']]))
+        eval_vars = [v for v in eval_vars if v in adata_temp.obs.columns]
+        
+        cascade_results = []
+        failed_steps = set() # PCA가 불가능한 단계를 기록
+
+        for step_name, drop_vars in steps:
+            print(f"  > Processing: {step_name}")
             
-            # Trend Line + PC Variance Bar
-            ax_twin = axes[i,1].twinx()
-            df_var.plot(kind='bar', y='Var_Ratio', ax=axes[i,1], color='lightgray', alpha=0.3, legend=False)
-            axes[i,1].set_ylabel("PC Variance Ratio (Gray Bar)")
-            
-            colors = sns.color_palette("tab10", len(eval_vars))
-            for j, v in enumerate(eval_vars):
-                if v in df_vals.columns:
-                    ax_twin.plot(range(len(df_vals)), df_vals[v], label=v, color=colors[j % 10], marker='o', lw=2, alpha=0.8)
-            
-            ax_twin.set_ylim(-0.05, 1.1)
-            ax_twin.set_ylabel("Correlation / Eta-sq (Lines)")
-            ax_twin.legend(bbox_to_anchor=(1.15, 1), loc='upper left', title="Metrics", fontsize='small')
-            axes[i,1].set_xticklabels(df_vals.index, rotation=45, ha='right')
-            axes[i,1].grid(axis='y', linestyle='--', alpha=0.7)
-            
+            # 1. 보정 수행
+            if drop_vars:
+                try:
+                    if step_name == "Corr_Batch" and batch_method == 'combat':
+                        sc.pp.combat(adata_temp, key=drop_vars[0])
+                    else:
+                        sc.pp.regress_out(adata_temp, drop_vars)
+                    adata_temp.X = np.nan_to_num(adata_temp.X, 0.0)
+                except Exception as e:
+                    print(f"    [Skip] Correction failed: {e}")
+                    failed_steps.add(step_name)
+
+            # 2. PCA 가능 여부 체크 (분산 확인)
+            # 모든 유전자의 분산을 계산하여 0이 아닌 유전자가 최소 2개는 있어야 PCA 가능
+            gene_vars = np.var(adata_temp.X, axis=0)
+            if np.sum(gene_vars > 1e-12) < 2:
+                print(f"    [Skip] No meaningful variance left in Step: {step_name}")
+                failed_steps.add(step_name)
+                
+                # 모든 메트릭의 영향력을 0으로 기록하고 다음 단계로
+                step_impacts = {'Step': step_name}
+                for var in eval_vars: step_impacts[var] = 0
+                cascade_results.append(step_impacts)
+                continue
+
+            # 3. PCA 및 R^2 계산
+            try:
+                sc.tl.pca(adata_temp, n_comps=n_pcs)
+                pcs = adata_temp.obsm['X_pca']
+                v_ratios = adata_temp.uns['pca']['variance_ratio']
+                
+                step_impacts = {'Step': step_name}
+                for var in eval_vars:
+                    total_r2 = 0
+                    is_cat = not pd.api.types.is_numeric_dtype(adata_temp.obs[var]) or (var in [self.cols['phenotype'], self.cols['batch']])
+                    
+                    for i in range(min(n_pcs, pcs.shape[1])):
+                        df_tmp = pd.DataFrame({'y': pcs[:, i], 'x': adata_temp.obs[var]})
+                        formula = 'y ~ C(x)' if is_cat else 'y ~ x'
+                        r2 = smf.ols(formula, data=df_tmp).fit().rsquared
+                        total_r2 += r2 * v_ratios[i]
+                    step_impacts[var] = total_r2
+                
+                cascade_results.append(step_impacts)
+                
+            except Exception as e:
+                print(f"    [Error] PCA failed at {step_name}: {e}")
+                failed_steps.add(step_name)
+                step_impacts = {'Step': step_name}
+                for var in eval_vars: step_impacts[var] = 0
+                cascade_results.append(step_impacts)
+
+        # 4. 시각화 (데이터가 있는 경우에만 그림)
+        df_cascade = pd.DataFrame(cascade_results).set_index('Step')
+        
+        # Heatmap과 Line plot 구성
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(22, 8))
+        
+        sns.heatmap(df_cascade.T, annot=True, fmt='.3f', cmap='YlGnBu', ax=ax1)
+        ax1.set_xticklabels(ax1.get_xticklabels(), rotation=90)
+        ax1.set_title("Global Impact Score Heatmap (Weighted R²)")
+        
+        # Line plot에서는 실패한 단계를 제외하거나 끊어서 표시
+        df_plot_trace = df_cascade.copy()
+        # PCA가 실패한 지점은 선 그래프에서 시각적 왜곡을 줄이기 위해 NaN 처리하거나 그대로 0으로 둠
+        df_plot_trace.plot(marker='o', ax=ax2, linewidth=2)
+        ax2.set_title("Evolution of Variable Impacts (Weighted R² Trace)")
+        ax2.set_ylabel("Weighted R² Score")
+        ax2.set_xticks(range(len(df_cascade.index)))
+        ax2.set_xticklabels(df_cascade.index, rotation=90)
+        
+        # 실패한 단계에 대한 텍스트 안내 추가
+        for i, step in enumerate(df_cascade.index):
+            if step in failed_steps:
+                ax2.text(i, -0.05, "FAILED", color='red', ha='center', fontsize=8, fontweight='bold')
+                
+        ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title="Variables")
         plt.tight_layout(); plt.show()
+        
+        return df_cascade
