@@ -1,4 +1,5 @@
 /Data/*
+/OpenAccess_nfcore/*
 *.pt
 *.json
 *.h5ad
