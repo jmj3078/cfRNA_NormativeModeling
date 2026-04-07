@@ -1,5 +1,6 @@
 /Data/*
 /OpenAccess_nfcore/*
+/_legacy/*
 *.pt
 *.json
 *.h5ad

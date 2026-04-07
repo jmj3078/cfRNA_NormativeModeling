@@ -13,31 +13,7 @@ library(tibble)
 meta     <- read_excel("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Meta/Meta_Processed.xlsx") %>% column_to_rownames(var = colnames(.)[1])
 annot    <- read.table("/project/cfRNA_Disentaglement/Data/GECODEv49_Annot.tsv", header=TRUE, row.names=1, sep='\t')
 palangodb <- read.table("/project/cfRNA_Disentaglement/Data/PalangoDB_CellTypeMarkers.tsv", header=TRUE, sep='\t')
-base_path <- "/project/cfRNA_Disentaglement/Data/OpenAccess/"
-target_files <- list.files(path = base_path, 
-                           pattern = "_featureCounts_matrix.tsv$", 
-                           recursive = TRUE, 
-                           full.names = TRUE)
-counts <- NULL
-
-for (i in 1:length(target_files)) {
-  file_path <- target_files[i]
-  cat(sprintf("[%d/%d] Reading : %s\n", i, length(target_files), basename(file_path)))
-  current_data <- read.delim(file_path, 
-                             header = TRUE, 
-                             sep = "\t", 
-                             check.names = FALSE, 
-                             stringsAsFactors = FALSE)
-  
-  if (is.null(counts)) {
-    counts <- current_data
-  } else {
-    counts <- merge(counts, current_data, by = 1, all = TRUE)
-  }
-}
-
-rownames(counts) <- counts[, 1]
-counts <- counts[, -1]
+counts <- read.table("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Merged_filtered_salmon_quant_gene.tsv", header=TRUE, row.names=1, sep='\t')
 counts[is.na(counts)] <- 0
 lib_sizes <- colSums(counts)
 zero_samples <- names(lib_sizes[lib_sizes == 0])
@@ -54,8 +30,6 @@ if (length(zero_samples) > 0) {
 
 print(dim(counts))
 print(dim(meta))
-write.csv(counts, "/project/cfRNA_Disentaglement/Data/OpenAccess/Processed/Merged_featureCounts.csv")
-
 # -----------------------------------------------------------------------------
 # STEP 2: 전처리 (Metadata & Gene Filtering)
 # -----------------------------------------------------------------------------
@@ -82,9 +56,9 @@ platelet_ids  <- rownames(annot_pc)[annot_pc$GeneName %in% platelet_syms]
 # -----------------------------------------------------------------------------
 # STEP 3: 정규화 수행
 # -----------------------------------------------------------------------------
-out_base_dir <- "/project/cfRNA_Disentaglement/Data/OpenAccess/Processed/"
+out_base_dir <- "/project/cfRNA_Disentaglement/OpenAccess_nfcore/Processed/"
 if(!dir.exists(out_base_dir)) dir.create(out_base_dir, recursive = TRUE)
-meta$Group <- paste(meta$BioProject, meta$tissue, sep = "_")
+meta$Group <- paste(meta$Author, meta$tissue, sep = "_")
 group_list <- unique(meta$Group)
 print(group_list)
 # Group을 기준으로 루프 실행
@@ -101,9 +75,14 @@ for (group in group_list) {
     message(paste0("\n>>> Processing Group: ", group, " <<<"))
     
     # 수정 1: meta_common -> meta 통일
-    group_samples <- rownames(meta)[meta$Group == group]
-    sub_counts <- counts_pc[, group_samples, drop=FALSE]
+    target_samples <- rownames(meta)[meta$Group == group]
+    group_samples <- intersect(target_samples, colnames(counts_pc))
+    if (length(group_samples) == 0) {
+        message(paste("  [SKIP] No matching samples found in counts_pc for group:", group))
+        next
+    }
     
+    sub_counts <- counts_pc[, group_samples, drop=FALSE]
     # 0 라이브러리 샘플 필터링
     valid_samples <- colSums(sub_counts) > 0
     if (!all(valid_samples)) {
@@ -192,37 +171,37 @@ for (group in group_list) {
 # -----------------------------------------------------------------------------
 # STEP 4: Summary 병합 및 Metadata 업데이트
 # -----------------------------------------------------------------------------
-summary_files <- list.files(path = base_path, 
-                            pattern = "_featureCounts_summary.tsv$", 
-                            recursive = TRUE, 
-                            full.names = TRUE)
+# summary_files <- list.files(path = base_path, 
+#                             pattern = "_featureCounts_summary.tsv$", 
+#                             recursive = TRUE, 
+#                             full.names = TRUE)
 
-print(paste("Found summary files:", length(summary_files)))
-summary_combined <- NULL
+# print(paste("Found summary files:", length(summary_files)))
+# summary_combined <- NULL
 
-for (i in 1:length(summary_files)) {
-    file_path <- summary_files[i]
-    current_sum <- read.delim(file_path, header=TRUE, sep="\t", 
-                              check.names=FALSE, stringsAsFactors=FALSE)
-    if (is.null(summary_combined)) {
-        summary_combined <- current_sum
-    } else {
-        summary_combined <- merge(summary_combined, current_sum, by = 1, all = TRUE)
-    }
-}
+# for (i in 1:length(summary_files)) {
+#     file_path <- summary_files[i]
+#     current_sum <- read.delim(file_path, header=TRUE, sep="\t", 
+#                               check.names=FALSE, stringsAsFactors=FALSE)
+#     if (is.null(summary_combined)) {
+#         summary_combined <- current_sum
+#     } else {
+#         summary_combined <- merge(summary_combined, current_sum, by = 1, all = TRUE)
+#     }
+# }
 
-summary_combined[is.na(summary_combined)] <- 0
-rownames(summary_combined) <- summary_combined[, 1]
-summary_combined <- summary_combined[, -1]
-summary_t <- as.data.frame(t(summary_combined))
+# summary_combined[is.na(summary_combined)] <- 0
+# rownames(summary_combined) <- summary_combined[, 1]
+# summary_combined <- summary_combined[, -1]
+# summary_t <- as.data.frame(t(summary_combined))
 
-# 수정 4: row.names 소실 방지 파이프라인 적용
-library(tibble)
-meta_new <- merge(meta, summary_t, by = "row.names", all.x = TRUE) %>%
-    column_to_rownames("Row.names")
+# # 수정 4: row.names 소실 방지 파이프라인 적용
+# library(tibble)
+# meta <- merge(meta, summary_t, by = "row.names", all.x = TRUE) %>%
+#     column_to_rownames("Row.names")
 
-head(meta_new)
-dim(meta_new)
-write.csv(meta_new, paste0(out_base_dir, "Meta_Processed.csv"))
+head(meta)
+dim(meta)
+write.csv(meta, paste0(out_base_dir, "Meta_Processed.csv"))
 write.csv(annot_pc, paste0(out_base_dir, "Annot_PC.csv")) # 저장 객체를 전체 annot에서 실제로 사용된 annot_pc로 변경 권장
 
