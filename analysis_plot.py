@@ -1,4 +1,5 @@
 import math
+import os
 
 import numpy as np
 import pandas as pd
@@ -32,6 +33,17 @@ PALETTE = [
 ]
 
 
+def _save(fig_or_plt, save_path, dpi=300):
+    if save_path:
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        obj = fig_or_plt if hasattr(fig_or_plt, "savefig") else plt
+        obj.savefig(save_path, dpi=dpi, bbox_inches="tight")
+
+
+# ---------------------------------------------------------------------------
+# QC & Batch Visualization
+# ---------------------------------------------------------------------------
+
 def plot_knee(series, title="Knee Plot", threshold=None, save_path=None):
     sorted_vals = np.sort(series.dropna())
     plt.figure(figsize=(8, 5))
@@ -46,8 +58,7 @@ def plot_knee(series, title="Knee Plot", threshold=None, save_path=None):
         plt.legend()
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    _save(plt, save_path)
     plt.show()
 
 
@@ -77,7 +88,10 @@ def plot_batch_metric_violins(df_obs, metrics, batch_col="Batch_ID", author_col=
         plt.grid(axis="y", alpha=0.2)
         plt.tight_layout()
         if save_path:
-            plt.savefig(save_path, dpi=200, bbox_inches="tight")
+            stem, ext = os.path.splitext(save_path)
+            ext = ext or ".png"
+            safe_col = col.replace(" ", "_").replace("/", "_")
+            _save(plt, f"{stem}_{safe_col}{ext}")
         plt.show()
 
 
@@ -125,18 +139,20 @@ def plot_bias_correlations(df_obs, bias_cols, group_col, save_path=None):
             plot_kws={"alpha": 0.5, "s": 15, "edgecolor": "none"},
             palette=palette,
         )
-        g.fig.suptitle(f"Correlations by {group_col}", y=1.02, color="white",
-                       fontsize=16)
+        g.fig.suptitle(f"Correlations by {group_col}", y=1.02, color="white", fontsize=16)
         if g._legend:
             plt.setp(g._legend.get_texts(), color="white", fontsize=8)
             plt.setp(g._legend.get_title(), color="white", fontsize=10)
-        if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        _save(g.figure, save_path, dpi=150)
         plt.show()
 
 
+# ---------------------------------------------------------------------------
+# HC PCA & Variance
+# ---------------------------------------------------------------------------
+
 def plot_hc_variance_and_heatmap(adata, bias_metrics, hc_label="Healthy Control",
-                                  phenotype_col="Phenotype_Processed", n_pcs=50):
+                                  phenotype_col="Phenotype_Processed", n_pcs=50, save_path=None):
     adata_hc = adata[adata.obs[phenotype_col] == hc_label]
     v_ratios = adata_hc.uns["pca"]["variance_ratio"][:n_pcs]
 
@@ -155,11 +171,12 @@ def plot_hc_variance_and_heatmap(adata, bias_metrics, hc_label="Healthy Control"
                 cbar_kws={"label": "Z-score"}, xticklabels=False)
     ax[1].set_xlabel(f"Samples (n={len(adata_hc)})")
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
 def plot_hc_pca_grid(adata, plot_vars, hc_label="Healthy Control",
-                      phenotype_col="Phenotype_Processed"):
+                      phenotype_col="Phenotype_Processed", save_path=None):
     adata_hc = adata[adata.obs[phenotype_col] == hc_label].copy()
     v_ratios = adata_hc.uns["pca"]["variance_ratio"]
     pc1_v, pc2_v = v_ratios[0], v_ratios[1]
@@ -184,8 +201,13 @@ def plot_hc_pca_grid(adata, plot_vars, hc_label="Healthy Control",
     for j in range(i + 1, len(axes_flat)):
         axes_flat[j].axis("off")
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
+
+# ---------------------------------------------------------------------------
+# Classification / Batch Power
+# ---------------------------------------------------------------------------
 
 def _build_classifiers():
     return {
@@ -196,6 +218,7 @@ def _build_classifiers():
         "RF":     RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42),
         "GBM":    GradientBoostingClassifier(n_estimators=50, max_depth=3, random_state=42),
     }
+
 
 def check_batch_classification_power(adata, bias_list, target_col="Batch_ID",
                                       hc_label="Healthy Control",
@@ -274,7 +297,7 @@ def check_bias_power_dist(df_meta, bias_list, condition_col,
     return pd.DataFrame(records)
 
 
-def plot_model_auc_grid(final_df, author_col="Author", n_cols=6):
+def plot_model_auc_grid(final_df, author_col="Author", n_cols=6, save_path=None):
     authors = final_df[author_col].unique()
     n_rows = math.ceil(len(authors) / n_cols)
     my_pal = {"LogReg": "#A8D8EA", "SVM": "#AA96DA", "RF": "#FCBAD3", "GBM": "#FFFFD2"}
@@ -303,10 +326,15 @@ def plot_model_auc_grid(final_df, author_col="Author", n_cols=6):
 
     plt.suptitle("Bias ~ Phenotype AUC Scores (Binary)", fontsize=20)
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_pca_scree_and_bias(var_ratios, study, obs_df, active_metrics):
+# ---------------------------------------------------------------------------
+# Per-Study PCA Diagnostics (called from DataAnalysisPipeline)
+# ---------------------------------------------------------------------------
+
+def plot_pca_scree_and_bias(var_ratios, study, obs_df, active_metrics, save_path=None):
     """Scree plot + bias metrics heatmap for a single study."""
     fig, ax = plt.subplots(1, 2, figsize=(20, 5), gridspec_kw={"width_ratios": [3, 7]})
     ax[0].plot(range(1, len(var_ratios) + 1), var_ratios, "o-k", alpha=0.7)
@@ -326,15 +354,16 @@ def plot_pca_scree_and_bias(var_ratios, study, obs_df, active_metrics):
     ax[1].set_xlabel(f"Samples (n={len(obs_df)})")
     ax[1].set_xticks([])
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_pca_scatter_grid(adata_pca, plot_keys, var_ratios, key_title_map=None):
+def plot_pca_scatter_grid(adata_pca, plot_keys, var_ratios, key_title_map=None, save_path=None):
     """PCA scatter grid colored by each metadata key."""
     pc1_var, pc2_var = var_ratios[0], var_ratios[1]
     n_cols = 3
     n_rows = math.ceil(len(plot_keys) / n_cols)
-    fig2, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 4 * n_rows))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 4 * n_rows))
     axes_flat = [axes] if n_rows * n_cols == 1 else axes.flatten()
 
     for i, key in enumerate(plot_keys):
@@ -350,27 +379,34 @@ def plot_pca_scatter_grid(adata_pca, plot_keys, var_ratios, key_title_map=None):
         axes_flat[j].axis("off")
 
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_rda_unique_heatmap(df_unique, use_hvg):
+# ---------------------------------------------------------------------------
+# Partial RDA Visualization (called from DataAnalysisPipeline)
+# ---------------------------------------------------------------------------
+
+def plot_rda_unique_heatmap(df_unique, use_hvg, save_path=None):
     """Heatmap of per-variable unique R² contributions across studies."""
     fig_w = max(10, len(df_unique.columns) * .8)
     fig_h = max(6, len(df_unique) * 0.4 + 2)
-    plt.figure(figsize=(fig_w, fig_h))
-    ax = sns.heatmap(df_unique, annot=True, fmt=".3f", cmap="Reds", annot_kws={"size": 11},
-                     linewidths=0.5, mask=df_unique.isna())
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    sns.heatmap(df_unique, annot=True, fmt=".3f", cmap="Reds", annot_kws={"size": 11},
+                linewidths=0.5, mask=df_unique.isna(), ax=ax)
     sns.heatmap(df_unique.isna(), cmap=["white", "lightgrey"],
                 cbar=False, ax=ax, mask=~df_unique.isna(), linewidths=0.5)
-    plt.title(f"Per-Variable Unique Contribution (Partial RDA)\n(HVG: {use_hvg})", pad=15)
-    plt.ylabel("Studies (Authors)")
-    plt.xlabel("Covariates")
+    ax.set_title(f"Per-Variable Unique Contribution (Partial RDA)\n(HVG: {use_hvg})", pad=15)
+    ax.set_ylabel("Studies (Authors)")
+    ax.set_xlabel("Covariates")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_rda_variance_partition(df_partition, title, x_label="Studies (Authors)", figsize=None):
+def plot_rda_variance_partition(df_partition, title, x_label="Studies (Authors)",
+                                 figsize=None, save_path=None):
     """Stacked horizontal bar chart of variance partition."""
     part_cols   = ["pheno_unique", "conf_unique", "shared", "unexplained"]
     part_labels = ["Phenotype Unique", "Confounder Unique", "Shared", "Unexplained"]
@@ -378,23 +414,23 @@ def plot_rda_variance_partition(df_partition, title, x_label="Studies (Authors)"
     df_plot = df_partition[part_cols].fillna(0)
     fig_h = figsize[1] if figsize else max(5, len(df_plot) * 0.4 + 2)
     fig_w = figsize[0] if figsize else 10
-    plt.figure(figsize=(fig_w, fig_h))
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     bottom = np.zeros(len(df_plot))
     for col, label, color in zip(part_cols, part_labels, part_colors):
         vals = df_plot[col].values
-        plt.barh(df_plot.index, vals, left=bottom, color=color, label=label, edgecolor="black")
+        ax.barh(df_plot.index, vals, left=bottom, color=color, label=label, edgecolor="black")
         bottom += vals
-    plt.xlabel("Proportion of Total Variance")
-    plt.ylabel(x_label)
-    plt.title(title, pad=15)
-    plt.xlim(0, 1)
-
-    plt.legend(loc="center left", frameon=False, bbox_to_anchor=(1.01, 0.5))
+    ax.set_xlabel("Proportion of Total Variance")
+    ax.set_ylabel(x_label)
+    ax.set_title(title, pad=15)
+    ax.set_xlim(0, 1)
+    ax.legend(loc="center left", frameon=False, bbox_to_anchor=(1.01, 0.5))
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_cascade_spaghetti(df_metrics, palette=None):
+def plot_cascade_spaghetti(df_metrics, palette=None, save_path=None):
     """Spaghetti plot of phenotype R² trajectory across sequential confounders."""
     if df_metrics.empty:
         return
@@ -402,25 +438,27 @@ def plot_cascade_spaghetti(df_metrics, palette=None):
     all_steps = df_metrics.columns.tolist()
     x = np.arange(len(all_steps))
 
-    plt.figure(figsize=(max(10, len(all_steps) * 0.4), 6))
+    fig, ax = plt.subplots(figsize=(max(10, len(all_steps) * 0.4), 6))
     for i, study in enumerate(df_metrics.index):
         color = palette[i % len(palette)]
-        plt.plot(x, df_metrics.loc[study], marker="o", markersize=6,
-                 linewidth=2, alpha=0.85, color=color, label=study)
+        ax.plot(x, df_metrics.loc[study], marker="o", markersize=6,
+                linewidth=2, alpha=0.85, color=color, label=study)
 
-    plt.xticks(x, all_steps, rotation=90, ha="right")
-    plt.ylabel("Adjusted Partial R²")
-    plt.grid(True, linestyle="--", alpha=0.4)
-    plt.legend(bbox_to_anchor=(1.01, 1), loc="upper left", title='Studies', frameon=False)
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_steps, rotation=90, ha="right")
+    ax.set_ylabel("Adjusted Partial R²")
+    ax.grid(True, linestyle="--", alpha=0.4)
+    ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", title="Studies", frameon=False)
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_normalization_partition(df_partition_all, studies):
+def plot_normalization_partition(df_partition_all, studies, save_path=None):
     """Per-study variance partition bars across normalization layers."""
     n_cols = min(5, len(studies))
     n_rows = math.ceil(len(studies) / n_cols)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 4.5, n_rows * 4.5), sharey=True)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 4.5, n_rows * 6.5), sharey=True)
     axes_flat = [axes] if n_rows * n_cols == 1 else axes.flatten()
 
     part_cols   = ["pheno_unique", "conf_unique", "shared", "unexplained"]
@@ -435,13 +473,12 @@ def plot_normalization_partition(df_partition_all, studies):
 
         for col, color in zip(part_cols, part_colors):
             vals = df_study[col].values
-            ax.bar(x, vals, bottom=bottom, color=color, width=0.6, edgecolor="white", linewidth=0.5)
+            ax.bar(x, vals, bottom=bottom, color=color, width=0.6, edgecolor="black", linewidth=0.5)
             bottom += vals
         ax.set_xticks(x)
         ax.set_xticklabels(layers_plot, rotation=90, ha="right")
         if i % n_cols == 0:
             ax.set_ylabel("Proportion of Variance")
-
         ax.set_ylim(0, 1)
         ax.grid(axis="y", linestyle="--", alpha=0.4)
 
@@ -451,16 +488,22 @@ def plot_normalization_partition(df_partition_all, studies):
     patches = [mpatches.Patch(color=c, label=l) for c, l in zip(part_colors, part_labels)]
     fig.legend(handles=patches, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.05), frameon=False)
     plt.tight_layout()
+    _save(fig, save_path)
     plt.show()
 
 
-def plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict):
-    plt.figure(figsize=(7, max(4, len(sr_unique) * 0.45 + 1.5)))
-    plt.barh(sr_unique.index, sr_unique.values, color="steelblue", edgecolor="black")
-    plt.xlabel("Unique R² (Partial RDA)")
-    plt.axvline(0, color="black", linewidth=0.8)
-    plt.grid(axis="x", linestyle="--", alpha=0.4)
+def plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict, save_path=None):
+    """Two-panel HC RDA result: per-variable bar + joint variance partition."""
+    stem, ext = (os.path.splitext(save_path) if save_path else (None, ".png"))
+    ext = ext or ".png"
+
+    fig1, ax1 = plt.subplots(figsize=(7, max(4, len(sr_unique) * 0.45 + 1.5)))
+    ax1.barh(sr_unique.index, sr_unique.values, color="steelblue", edgecolor="black")
+    ax1.set_xlabel("Unique R² (Partial RDA)")
+    ax1.axvline(0, color="black", linewidth=0.8)
+    ax1.grid(axis="x", linestyle="--", alpha=0.4)
     plt.tight_layout()
+    _save(fig1, f"{stem}_bar{ext}" if stem else None)
     plt.show()
 
     conf_unique_sum = sum(v for v in unique_dict.values() if not np.isnan(v))
@@ -469,11 +512,56 @@ def plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict):
     part_vals = [conf_unique_sum, shared, unexplained]
     part_labels = ["Confounder Unique (sum)", "Shared", "Unexplained"]
     part_colors = ["coral", "mediumseagreen", "lightgrey"]
-    plt.figure(figsize=(6.5, 1.))
+    fig2, ax2 = plt.subplots(figsize=(6.5, 1.0))
     bottom = 0.0
     for val, label, color in zip(part_vals, part_labels, part_colors):
-        plt.barh(["HC"], [val], left=[bottom], color=color, label=label, height=0.3, edgecolor="black")
+        ax2.barh(["HC"], [val], left=[bottom], color=color, label=label, height=0.3, edgecolor="black")
         bottom += val
-    plt.xlabel("Proportion of Total Variance")
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.6), ncol=3, frameon=False)   
+    ax2.set_xlabel("Proportion of Total Variance")
+    ax2.legend(loc="upper center", bbox_to_anchor=(0.5, -0.6), ncol=3, frameon=False)
+    plt.tight_layout()
+    _save(fig2, f"{stem}_partition{ext}" if stem else None)
     plt.show()
+
+
+# ---------------------------------------------------------------------------
+# Gene-wise Bias RDA Visualization
+# ---------------------------------------------------------------------------
+
+def plot_gene_wise_bias_summary(df_detail, group_name, save_path=None):
+    """Joint R² histogram + contamination severity bar chart for one group."""
+    joint_r2 = df_detail["Joint_R2_All_Biases"]
+    bins_edges = [-np.inf, 0.05, 0.10, 0.30, np.inf]
+    sev_labels = ["Minimal (< 5%)", "Moderate (5–10%)", "High (10–30%)", "Severe (> 30%)"]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), constrained_layout=True)
+
+    sns.histplot(joint_r2, bins=75, color="steelblue", ax=ax1, edgecolor="black")
+    ax1.axvline(0.10, color="red", linestyle="--", linewidth=1.5, alpha=0.8)
+    ax1.set_xlim(0, 1.0)
+    ax1.set_xlabel("Total Variance Explained by All Biases (Joint R²)")
+    ax1.set_ylabel("Number of Genes")
+    ax1.set_title(group_name)
+    ax1.grid(axis="y", linestyle="--", alpha=0.3)
+
+    cats = pd.cut(joint_r2, bins=bins_edges, labels=sev_labels)
+    counts = cats.value_counts(sort=False)
+    n_total = len(joint_r2)
+    pcts = counts / n_total * 100
+    df_sev = pd.DataFrame({"Severity": sev_labels, "Pct": pcts.values, "N": counts.values})
+    df_sev = df_sev.iloc[::-1].reset_index(drop=True)
+
+    sns.barplot(data=df_sev, x="Pct", y="Severity", ax=ax2,
+                palette="Reds_r", hue="Severity", legend=False, edgecolor="black")
+    max_pct = df_sev["Pct"].max()
+    for idx, row in df_sev.iterrows():
+        ax2.text(row["Pct"] + max_pct * 0.02, idx,
+                 f"{row['Pct']:.1f}% ({int(row['N']):,})", va="center", fontsize=11, color="#333333")
+    ax2.set_xlim(0, max_pct * 1.35)
+    ax2.set_xlabel("Proportion of Total Genes (%)")
+    ax2.set_ylabel("Contamination Severity (Joint R²)")
+    ax2.grid(axis="x", linestyle="--", alpha=0.3)
+
+    _save(fig, save_path)
+    plt.show()
+

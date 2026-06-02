@@ -1,4 +1,6 @@
 import gc
+import os
+import re
 
 import numpy as np
 import pandas as pd
@@ -8,7 +10,6 @@ import scanpy as sc
 from scipy.stats import median_abs_deviation
 from scipy.stats import rankdata, t as t_dist, ks_2samp
 from statsmodels.nonparametric.smoothers_lowess import lowess
-from statsmodels.stats.multitest import multipletests
 
 from config import PARAMS
 from analysis_plot import (
@@ -137,7 +138,7 @@ def calculate_bias_metrics(
     len_col="log10_Length",
     platelet_col="is_platelet",
 ):
-    print(f"--- Calculating Bias Metrics (layer: {layer or 'X'}) ---")
+    print(f"--- Calculating Bfias Metrics (layer: {layer or 'X'}) ---")
 
     X_data = adata.layers[layer] if (layer and layer in adata.layers) else adata.X
     if not sp.issparse(X_data):
@@ -274,9 +275,11 @@ class DataAnalysisPipeline:
         sc.tl.pca(tmp, n_comps=n_pcs, svd_solver="arpack")
         return tmp
 
-    def run_study_pca_diagnostics(self, use_hvg=False):
+    def run_study_pca_diagnostics(self, use_hvg=False, save_dir=None):
         print(f"\n--- [Analysis] PCA Diagnostics per Study (HVG: {use_hvg}) ---")
         active_metrics = self.get_active_metrics()
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
 
         for study in self.valid_studies:
             print(f"\n{'=' * 60}\n > {study}\n{'=' * 60}")
@@ -284,7 +287,10 @@ class DataAnalysisPipeline:
             adata_pca = self._run_pca_for_study(adata_study, use_hvg=use_hvg)
             var_ratios = adata_pca.uns["pca"]["variance_ratio"]
 
-            plot_pca_scree_and_bias(var_ratios, study, adata_pca.obs, active_metrics)
+            slug = re.sub(r"[^\w.-]", "_", study)
+            scree_path = os.path.join(save_dir, f"{slug}_scree_bias.png") if save_dir else None
+            plot_pca_scree_and_bias(var_ratios, study, adata_pca.obs, active_metrics,
+                                    save_path=scree_path)
 
             batch_col = self.cols["batch"]
             plot_batch_key = batch_col
@@ -312,7 +318,9 @@ class DataAnalysisPipeline:
                 continue
 
             key_title_map = {plot_batch_key: "Batch (simplified)"} if plot_batch_key != batch_col else {}
-            plot_pca_scatter_grid(adata_pca, plot_keys, var_ratios, key_title_map=key_title_map)
+            grid_path = os.path.join(save_dir, f"{slug}_pca_grid.png") if save_dir else None
+            plot_pca_scatter_grid(adata_pca, plot_keys, var_ratios, key_title_map=key_title_map,
+                                  save_path=grid_path)
 
             del adata_study, adata_pca
             gc.collect()
@@ -444,7 +452,7 @@ class DataAnalysisPipeline:
 
     def analyze_partial_rda_per_study(self, vars, use_hvg=False,
                                        phenotype_var=None, batch_var=None,
-                                       customized_x_order=None):
+                                       customized_x_order=None, save_dir=None):
         phenotype_var = phenotype_var or self.cols["phenotype"]
         batch_var = batch_var or self.cols["batch"]
         print("\n--- [Analysis] Partial RDA Variance Decomposition per Study ---")
@@ -503,18 +511,26 @@ class DataAnalysisPipeline:
         df_partition = pd.DataFrame(partition_rows).set_index("Study")
         df_r2 = pd.DataFrame(r2_summary_rows).set_index("Study")
 
-        plot_rda_unique_heatmap(df_unique, use_hvg)
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+        hvg_tag = "hvg" if use_hvg else "all"
+        plot_rda_unique_heatmap(
+            df_unique, use_hvg,
+            save_path=os.path.join(save_dir, f"rda_unique_{hvg_tag}.png") if save_dir else None,
+        )
 
         if pheno_in_vars and conf_vars:
             plot_rda_variance_partition(
                 df_partition,
                 title="Variance Partition: Phenotype vs Confounders per Study",
+                save_path=os.path.join(save_dir, f"rda_partition_{hvg_tag}.png") if save_dir else None,
             )
 
         return {"unique_contributions": df_unique, "variance_partition": df_partition, "r2_summary": df_r2}
 
     def run_cascade_rda_per_study(self, vars, use_hvg=False,
-                                   phenotype_var=None, batch_var=None, show_plots=False):
+                                   phenotype_var=None, batch_var=None, show_plots=False,
+                                   save_path=None):
         phenotype_var = phenotype_var or self.cols["phenotype"]
         batch_var = batch_var or self.cols["batch"]
         print("\n--- [Analysis] Sequential Partial RDA (One-by-One Cascade) ---")
@@ -533,17 +549,6 @@ class DataAnalysisPipeline:
         }
 
         enc = self._encode_design_matrix
-        mr2 = self._compute_matrix_r2
-
-        def _get_adj_r2(Y, X):
-            r2, sst = mr2(Y, X)
-            n = Y.shape[0]
-            p = X.shape[1] - 1
-            if n <= p + 1 or sst < 1e-12:
-                return 0.0, sst
-            r2_adj = 1.0 - (1.0 - r2) * (n - 1) / (n - p - 1)
-            return max(0.0, r2_adj), sst
-
         all_metrics = {}
 
         for study in self.valid_studies:
@@ -561,7 +566,7 @@ class DataAnalysisPipeline:
             study_metrics = {}
 
             X_pheno, _ = enc(obs_sub, [phenotype_var], categorical_vars)
-            pheno_r2_adj, _ = _get_adj_r2(Y_sub, X_pheno)
+            pheno_r2_adj, _ = self._adj_r2(Y_sub, X_pheno)
             study_metrics["Raw"] = pheno_r2_adj
 
             cumulative_conf_vars = []
@@ -569,11 +574,11 @@ class DataAnalysisPipeline:
                 cumulative_conf_vars.append(cv)
 
                 X_conf, _ = enc(obs_sub, cumulative_conf_vars, categorical_vars)
-                r2_adj_conf, _ = _get_adj_r2(Y_sub, X_conf)
+                r2_adj_conf, _ = self._adj_r2(Y_sub, X_conf)
 
                 current_all_vars = [phenotype_var] + cumulative_conf_vars
                 X_all, _ = enc(obs_sub, current_all_vars, categorical_vars)
-                r2_adj_all, _ = _get_adj_r2(Y_sub, X_all)
+                r2_adj_all, _ = self._adj_r2(Y_sub, X_all)
 
                 partial_pheno_r2 = max(0.0, r2_adj_all - r2_adj_conf)
                 study_metrics[f"+ {cv}"] = partial_pheno_r2
@@ -582,13 +587,14 @@ class DataAnalysisPipeline:
 
         df_metrics = pd.DataFrame(all_metrics).T
 
-        if show_plots:
-            plot_cascade_spaghetti(df_metrics)
+        if show_plots or save_path:
+            plot_cascade_spaghetti(df_metrics, save_path=save_path)
 
         return df_metrics
 
     def analyze_normalization_rda(self, vars, layers=None, use_hvg=False,
-                                   phenotype_var=None, batch_var=None, show_plots=False):
+                                   phenotype_var=None, batch_var=None, show_plots=False,
+                                   save_path=None):
         phenotype_var = phenotype_var or self.cols["phenotype"]
         batch_var = batch_var or self.cols["batch"]
         print("\n--- [Analysis] Normalization Comparison (Partial RDA) per Study ---")
@@ -678,9 +684,9 @@ class DataAnalysisPipeline:
         df_partition_all = df_partition_all.reindex(existing_layers, level="Layer")
         df_r2_all = df_r2_all.reindex(existing_layers, level="Layer")
 
-        if show_plots and not df_partition_all.empty and phenotype_var in target_vars:
+        if (show_plots or save_path) and not df_partition_all.empty and phenotype_var in target_vars:
             studies = df_partition_all.index.get_level_values("Study").unique()
-            plot_normalization_partition(df_partition_all, studies)
+            plot_normalization_partition(df_partition_all, studies, save_path=save_path)
 
         return {"unique_contributions": df_unique_all,
                 "variance_partition": df_partition_all,
@@ -689,7 +695,7 @@ class DataAnalysisPipeline:
 
     def analyze_hc_partial_rda(self, vars, batch_col="Batch_ID",
                                 hc_label="Healthy Control", phenotype_col="Phenotype_Processed",
-                                use_hvg=False, layer=None):
+                                use_hvg=False, layer=None, save_path=None):
         print("\n--- [Analysis] HC Cohort Partial RDA ---")
         adata_hc = self.adata[self.adata.obs[phenotype_col] == hc_label].copy()
         target_vars = [v for v in vars if v in adata_hc.obs.columns and v != phenotype_col]
@@ -736,8 +742,8 @@ class DataAnalysisPipeline:
                 
             unique_dict[var] = max(0.0, r2_all - r2_minus_v)
         sr_unique = pd.Series(unique_dict).sort_values(ascending=True).dropna()
-        plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict)
-        
+        plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict, save_path=save_path)
+
         return {"unique_contributions": sr_unique, "r2_all": r2_all}
 
 
@@ -752,13 +758,16 @@ def compute_gene_wise_bias_rda(
 ):
     print(f"\n--- [{group_name}] Vectorized Gene-wise Partial RDA ---")
     
-    if isinstance(target_labels, str):
+    if target_labels is None:
+        sample_mask = np.ones(adata.n_obs, dtype=bool)
+    elif isinstance(target_labels, str):
         sample_mask = adata.obs[phenotype_col] == target_labels
     else:
         sample_mask = adata.obs[phenotype_col].isin(target_labels)
 
     adata_sub = adata[sample_mask].copy()
-    valid_obs_mask = adata_sub.obs[bias_metrics].notna().all(axis=1)
+    obs_cols = [m for m in bias_metrics if m in adata_sub.obs.columns]
+    valid_obs_mask = adata_sub.obs[obs_cols].notna().all(axis=1)
     adata_sub = adata_sub[valid_obs_mask].copy()
 
     n_samples = adata_sub.n_obs
@@ -780,8 +789,8 @@ def compute_gene_wise_bias_rda(
     sst = np.sum(Y_c ** 2, axis=0)
     valid_gene_mask = sst > 1e-12
 
-    categorical_vars = {v for v in bias_metrics if not pd.api.types.is_numeric_dtype(adata_sub.obs[v])}
-    
+    categorical_vars = {v for v in obs_cols if not pd.api.types.is_numeric_dtype(adata_sub.obs[v])}
+
     def _get_design_matrix(vars_list):
         return DataAnalysisPipeline._encode_design_matrix(adata_sub.obs, vars_list, categorical_vars)[0]
 
@@ -790,26 +799,26 @@ def compute_gene_wise_bias_rda(
         p = p_plus_1 - 1
         if n <= p + 1:
             return np.zeros(n_genes)
-            
+
         Q, _ = np.linalg.qr(design_X, mode='reduced')
         ss_reg = np.sum((Q.T @ Y_c) ** 2, axis=0)
-        
+
         r2 = np.zeros(n_genes)
         r2[valid_gene_mask] = ss_reg[valid_gene_mask] / sst[valid_gene_mask]
-        
+
         r2_adj = 1.0 - (1.0 - r2) * (n - 1) / (n - p - 1)
         return np.clip(r2_adj, 0.0, 1.0)
 
     print(f"[{group_name}] Computing multivariate R² via orthogonal projection...")
-    
-    X_all = _get_design_matrix(bias_metrics)
+
+    X_all = _get_design_matrix(obs_cols)
     r2_all = _vectorized_adj_r2(X_all)
-    
+
     gene_records = {"Gene": gene_names, "Joint_R2_All_Biases": r2_all}
     sum_unique = np.zeros(n_genes)
-    
-    for bias in bias_metrics:
-        remaining = [v for v in bias_metrics if v != bias]
+
+    for bias in obs_cols:
+        remaining = [v for v in obs_cols if v != bias]
         if remaining:
             X_minus = _get_design_matrix(remaining)
             r2_minus = _vectorized_adj_r2(X_minus)
@@ -826,7 +835,7 @@ def compute_gene_wise_bias_rda(
     df_detail = pd.DataFrame(gene_records)
     summary_data = []
     
-    n_joint_contaminated = np.sum(r2_all > 0.10) # 총 오염도가 10% 이상인 유전자
+    n_joint_contaminated = np.sum(r2_all > 0.10) 
     summary_data.append({
         "Variance_Component": "ALL_BIASES_COMBINED (Joint R²)",
         "Max_R2": round(np.max(r2_all), 4),
@@ -835,7 +844,7 @@ def compute_gene_wise_bias_rda(
         "Threshold": "> 10%"
     })
     
-    for bias in bias_metrics:
+    for bias in obs_cols:
         unique_col = f"Unique_{bias}"
         vals = df_detail[unique_col].values
         n_contaminated = np.sum(vals > 0.05) 
