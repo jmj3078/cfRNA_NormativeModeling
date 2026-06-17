@@ -5,3 +5,6 @@
 *.h5ad
 *.pkl
 *.pt
+*.npy
+*.csv
+*.log
