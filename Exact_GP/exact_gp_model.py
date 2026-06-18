@@ -1,5 +1,10 @@
 import os
+import sys
+from pathlib import Path
 from collections import defaultdict
+
+# config.py lives one level up (project root)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
 import numpy as np

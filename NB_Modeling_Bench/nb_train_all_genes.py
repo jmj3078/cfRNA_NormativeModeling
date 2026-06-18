@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Train NB-GLM / Bayesian NB-GLM / Laplace NB-GP on Healthy Control samples
 for every candidate protein-coding gene, and save the fitted models to
-NB_GP/saved_models.
+NB_Results/saved_models.
 
 Candidate genes are those passing the same filter used for stratified gene
 selection in the notebook: det_rate_hc >= det_rate_min AND mean_count_hc >= mean_count_min.
@@ -29,10 +29,10 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "OpenAccess_nfcore"
+DATA_DIR = BASE_DIR.parent / "OpenAccess_nfcore"
 H5AD_PATH = DATA_DIR / "Merged_Processed_AnnData_with_Batch_Biases_QC_Status.h5ad"
-SAVE_DIR = BASE_DIR / "NB_GP" / "saved_models"
-META_PATH = BASE_DIR / "NB_GP" / "training_meta.csv"
+SAVE_DIR = BASE_DIR / "NB_Results" / "saved_models"
+META_PATH = BASE_DIR / "NB_Results" / "training_meta.csv"
 
 BIAS_COLUMNS = [
     "log(Total Reads)",
