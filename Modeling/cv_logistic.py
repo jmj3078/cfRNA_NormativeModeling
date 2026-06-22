@@ -36,7 +36,7 @@ from pathlib import Path
 from joblib import Parallel, delayed
 
 import numpy as np
-from scipy.stats import anderson, norm, skew, kurtosis
+from scipy.stats import norm, skew, kurtosis
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
@@ -66,27 +66,24 @@ BIAS_COLUMNS = [
     "(NP80/NG80)",
 ]
 STRATIFY_COL   = "Batch_ID"
-DET_RATE_MAX   = 0.10   # upper bound — genes BELOW this threshold
-DET_RATE_MIN   = 0.01   # lower bound — genes with <1% detection rarely add signal
+DET_RATE_MAX   = 0.10   # Logistic: 1% ≤ det_rate < 10%
+DET_RATE_MIN   = 0.01   # genes with <1% detection excluded entirely
 N_SPLITS       = 5
 LR_C           = 1.0    # inverse regularization strength (L2)
 LR_MAX_ITER    = 1000
 
 META_FIELDS = [
-    "gene", "n_hc", "det_rate_hc", "n_detected",
-    # Full-sample AD
-    "ad_stat", "ad_crit5", "ad_pass",
-    # Subsampled AD (power-controlled)
-    "ad_sub_stat", "ad_sub_crit5", "ad_sub_pass",
+    "gene", "n_hc", "det_rate_hc", "mean_count_hc", "n_detected",
+    "w1",
     "mean_z", "std_z", "skew_z", "kurt_z", "n_valid",
     "p_detect_mean",     # mean predicted P(detected) across HC samples
     "fold_success_rate",
     # Flags
     "flag_fit_failure",  # fold_success_rate < 1.0
-    "flag_p_extreme",    # p_detect_mean < 0.01 or > 0.99
+    "flag_p_extreme",    # p_detect_mean < 0.005 or > 0.995
     "flag_z_bias",       # |mean_z| > 0.3
     "flag_z_unstable",   # std_z > 1.5 or std_z < 0.5
-    "flag_nonnormal",    # ads > 3.0
+    "flag_nonnormal",    # w1 > 0.25
     "any_flag",
     "time_s",
 ]
@@ -120,12 +117,14 @@ def load_hc_data():
     return X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices
 
 
-def select_low_det_genes(Y_raw, is_hc, pc_gene_names, pc_indices,
-                          det_rate_min, det_rate_max):
+def select_logistic_genes(Y_raw, is_hc, pc_gene_names, pc_indices,
+                           det_rate_min, det_rate_max):
+    """Select genes for the logistic branch: 1% ≤ det_rate < 10%."""
     Y_hc  = Y_raw[is_hc][:, pc_indices]
     det_r = (Y_hc > 0).mean(axis=0)
+    mean_c = Y_hc.mean(axis=0)
     cand  = (det_r >= det_rate_min) & (det_r < det_rate_max)
-    return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand]
+    return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand], mean_c[cand]
 
 
 # ── Logistic model ─────────────────────────────────────────────────
@@ -175,29 +174,16 @@ def make_stratified_folds(strata, n_splits=N_SPLITS):
 
 # ── Evaluation helpers ─────────────────────────────────────────────
 
-def ad_test_normal(z_arr):
-    z_valid = z_arr[np.isfinite(z_arr)]
-    if len(z_valid) < 8:
-        return np.nan, np.nan, False
-    res   = anderson(z_valid, dist="norm")
-    stat  = float(res.statistic)
-    crit5 = float(res.critical_values[4])
-    return stat, crit5, bool(stat <= crit5)
-
-
-def ad_test_subsampled(z_arr, n_sub=200, n_boot=100, seed=42):
+def wasserstein1_normal(z_arr: np.ndarray) -> float:
+    """1st Wasserstein distance between empirical z distribution and N(0,1).
+    N-robust: converges without inflating with n. Threshold: > 0.25 = poor calibration.
+    """
     z_valid = z_arr[np.isfinite(z_arr)]
     n = len(z_valid)
     if n < 8:
-        return np.nan, np.nan, False
-    if n <= n_sub:
-        return ad_test_normal(z_arr)
-    rng   = np.random.default_rng(seed)
-    stats = [anderson(rng.choice(z_valid, size=n_sub, replace=False),
-                      dist="norm").statistic for _ in range(n_boot)]
-    crit5 = float(anderson(rng.standard_normal(n_sub), dist="norm").critical_values[4])
-    median = float(np.median(stats))
-    return median, crit5, bool(median <= crit5)
+        return np.nan
+    z_ref = norm.ppf(np.linspace(1 / (2 * n), 1 - 1 / (2 * n), n))
+    return float(np.mean(np.abs(np.sort(z_valid) - z_ref)))
 
 
 def zscore_stats(z_arr):
@@ -219,8 +205,8 @@ def detect_flags(row):
     f["flag_z_bias"]      = int(np.isfinite(row["mean_z"]) and abs(row["mean_z"]) > 0.3)
     std = row["std_z"]
     f["flag_z_unstable"]  = int(not np.isfinite(std) or std > 1.5 or std < 0.5)
-    ads = row["ad_sub_stat"]
-    f["flag_nonnormal"]   = int(not np.isfinite(ads) or ads > 3.0)
+    w1 = row["w1"]
+    f["flag_nonnormal"]   = int(not np.isfinite(w1) or w1 > 0.25)
     f["any_flag"] = int(any(v for k, v in f.items() if k != "any_flag"))
     return f
 
@@ -248,7 +234,7 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, C=LR_C):
 
 # ── Parallel worker (top-level required for pickling) ─────────────
 
-def _eval_one_gene(g_name, y_hc, X_hc_scaled, folds, n_hc, ad_n_sub, ad_n_boot, lr_C):
+def _eval_one_gene(g_name, y_hc, mean_count, X_hc_scaled, folds, n_hc, lr_C):
     """Single-gene evaluation. Called by joblib workers."""
     import time, numpy as np
     det_rate   = float((y_hc > 0).mean())
@@ -257,17 +243,15 @@ def _eval_one_gene(g_name, y_hc, X_hc_scaled, folds, n_hc, ad_n_sub, ad_n_boot, 
     z_all, p_all, fold_ok = eval_gene_cv(y_hc, X_hc_scaled, folds, C=lr_C)
     elapsed = time.perf_counter() - t0
 
-    ad_stat,     ad_crit5,     ad_pass     = ad_test_normal(z_all)
-    ad_sub_stat, ad_sub_crit5, ad_sub_pass = ad_test_subsampled(
-        z_all, n_sub=ad_n_sub, n_boot=ad_n_boot)
+    w1 = wasserstein1_normal(z_all)
     m_z, s_z, sk_z, ku_z, nv = zscore_stats(z_all)
     p_mean = float(np.nanmean(p_all))
 
     row = {
         "gene": g_name, "n_hc": n_hc,
-        "det_rate_hc": det_rate, "n_detected": n_detected,
-        "ad_stat":      ad_stat,     "ad_crit5":     ad_crit5,     "ad_pass":     int(ad_pass),
-        "ad_sub_stat":  ad_sub_stat, "ad_sub_crit5": ad_sub_crit5, "ad_sub_pass": int(ad_sub_pass),
+        "det_rate_hc": det_rate, "mean_count_hc": float(mean_count),
+        "n_detected": n_detected,
+        "w1": w1,
         "mean_z": m_z, "std_z": s_z, "skew_z": sk_z, "kurt_z": ku_z, "n_valid": nv,
         "p_detect_mean": p_mean,
         "fold_success_rate": fold_ok,
@@ -294,19 +278,17 @@ def _load_done_genes(meta_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--det-rate-min",  type=float, default=DET_RATE_MIN,
+    parser.add_argument("--det-rate-min",   type=float, default=DET_RATE_MIN,
                         help=f"minimum detection rate (default {DET_RATE_MIN})")
-    parser.add_argument("--det-rate-max",  type=float, default=DET_RATE_MAX,
-                        help=f"upper detection rate threshold (default {DET_RATE_MAX})")
-    parser.add_argument("--n-folds",       type=int,   default=N_SPLITS)
-    parser.add_argument("--lr-C",          type=float, default=LR_C,
+    parser.add_argument("--det-rate-max",   type=float, default=DET_RATE_MAX,
+                        help=f"logistic/count boundary (default {DET_RATE_MAX})")
+    parser.add_argument("--n-folds",        type=int,   default=N_SPLITS)
+    parser.add_argument("--lr-C",           type=float, default=LR_C,
                         help="logistic regression L2 regularization inverse strength (default 1.0)")
-    parser.add_argument("--ad-n-sub",      type=int,   default=200)
-    parser.add_argument("--ad-n-boot",     type=int,   default=100)
     parser.add_argument("--n-jobs",         type=int,   default=1,
                         help="parallel workers: -1 = all cores, 1 = sequential (default)")
-    parser.add_argument("--no-resume",     action="store_true")
-    parser.add_argument("--limit",         type=int,   default=None)
+    parser.add_argument("--no-resume",      action="store_true")
+    parser.add_argument("--limit",          type=int,   default=None)
     args = parser.parse_args()
 
     SAVE_DIR.mkdir(parents=True, exist_ok=True)
@@ -316,15 +298,15 @@ def main():
 
     print("Loading HC data...")
     X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices = load_hc_data()
-    gene_names, gene_indices = select_low_det_genes(
+    gene_names, gene_indices, mean_counts = select_logistic_genes(
         Y_raw, is_hc, pc_gene_names, pc_indices,
         args.det_rate_min, args.det_rate_max,
     )
     Y_hc = Y_raw[is_hc]
 
     print(f"HC samples      : {is_hc.sum()}")
-    print(f"Low-det genes   : {len(gene_names)}"
-          f"  ({args.det_rate_min:.0%} ≤ det_rate < {args.det_rate_max:.0%})")
+    print(f"Logistic genes  : {len(gene_names)}"
+          f"  ({args.det_rate_min:.0%} ≤ det < {args.det_rate_max:.0%})")
 
     if args.limit is not None:
         gene_names   = gene_names[:args.limit]
@@ -352,7 +334,7 @@ def main():
 
     n_hc = int(is_hc.sum())
     # Pre-filter: skip already-done genes
-    todo = [(g, int(gi)) for g, gi in zip(gene_names, gene_indices)
+    todo = [(g, int(gi), float(mc)) for g, gi, mc in zip(gene_names, gene_indices, mean_counts)
             if g not in done_genes]
     n_skipped = len(gene_names) - len(todo)
     print(f"To evaluate: {len(todo)} genes  (skipped {n_skipped} already done)"
@@ -367,10 +349,10 @@ def main():
         verbose=0,
     )(
         delayed(_eval_one_gene)(
-            g_name, Y_hc[:, g_idx], X_hc_scaled, folds,
-            n_hc, args.ad_n_sub, args.ad_n_boot, args.lr_C,
+            g_name, Y_hc[:, g_idx], mean_count, X_hc_scaled, folds,
+            n_hc, args.lr_C,
         )
-        for g_name, g_idx in todo
+        for g_name, g_idx, mean_count in todo
     )
 
     # ── Write results (sequential after parallel completes) ────────
@@ -379,14 +361,11 @@ def main():
         meta_writer.writerow(row)
         zscores_dict[g_name] = z_all
         n_done += 1
-        ads   = row["ad_sub_stat"]
-        sub_ok = "ok" if row["ad_sub_pass"] else "F"
         flag_str = " [FLAG]" if row["any_flag"] else ""
         print(
             f"[{n_done:4d}/{len(todo)}] {g_name:<22s} "
-            f"det={row['det_rate_hc']:.3f}({row['n_detected']:3d}) | "
-            f"ADsub={ads:.3f}({sub_ok}) "
-            f"mean={row['mean_z']:+.3f} std={row['std_z']:.3f} | "
+            f"det={row['det_rate_hc']:.3f}({row['n_detected']:3d}) mean={row['mean_count_hc']:.1f} | "
+            f"W1={row['w1']:.3f} mean={row['mean_z']:+.3f} std={row['std_z']:.3f} | "
             f"folds={row['fold_success_rate']:.0%} {row['time_s']:.2f}s{flag_str}"
         )
 

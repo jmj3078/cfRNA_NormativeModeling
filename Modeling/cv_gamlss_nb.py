@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import scanpy as sc
 from scipy.sparse import issparse
-from scipy.stats import anderson, skew, kurtosis
+from scipy.stats import norm, skew, kurtosis
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
@@ -60,16 +60,12 @@ BIAS_COLUMNS = [
     "(NP80/NG80)",
 ]
 STRATIFY_COL   = "Batch_ID"
-DET_RATE_MIN   = 0.1
-MEAN_COUNT_MIN = 2.0
+DET_RATE_MIN   = 0.1    # NBI: det_rate >= 10% (mean_count 조건 제거)
 N_SPLITS       = 5
 
 META_FIELDS = [
     "gene", "n_hc", "det_rate_hc", "mean_count_hc",
-    # Full-sample AD (reference)
-    "ad_stat", "ad_crit5", "ad_pass",
-    # Subsampled AD (200-sample median, power-controlled)
-    "ad_sub_stat", "ad_sub_crit5", "ad_sub_pass",
+    "w1",
     "mean_z", "std_z", "skew_z", "kurt_z", "n_valid",
     "mu_mean", "sigma_mean",
     "n_removed",          # training samples removed by outlier refinement
@@ -115,11 +111,10 @@ def load_hc_data():
 
 
 def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices,
-                            det_rate_min, mean_count_min):
-    Y_hc   = Y_raw[is_hc][:, pc_indices]
-    det_r  = (Y_hc > 0).mean(axis=0)
-    mean_c = Y_hc.mean(axis=0)
-    cand   = (det_r >= det_rate_min) & (mean_c >= mean_count_min)
+                            det_rate_min):
+    Y_hc  = Y_raw[is_hc][:, pc_indices]
+    det_r = (Y_hc > 0).mean(axis=0)
+    cand  = det_r >= det_rate_min
     return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand]
 
 
@@ -132,46 +127,20 @@ def make_stratified_folds(strata, n_splits=N_SPLITS):
 
 # ── Evaluation helpers ─────────────────────────────────────────────
 
-def ad_test_normal(z_arr):
-    """Anderson-Darling against N(0,1). Returns (statistic, crit_5pct, passed)."""
-    z_valid = z_arr[np.isfinite(z_arr)]
-    if len(z_valid) < 8:
-        return np.nan, np.nan, False
-    res   = anderson(z_valid, dist="norm")
-    stat  = float(res.statistic)
-    crit5 = float(res.critical_values[2])
-    return stat, crit5, bool(stat <= crit5)
+def wasserstein1_normal(z_arr: np.ndarray) -> float:
+    """1st Wasserstein distance between empirical z distribution and N(0,1).
 
+    W1 = mean(|z_(i:n) - Phi^{-1}((i-0.5)/n)|)
 
-def ad_test_subsampled(z_arr, n_sub: int = 100, n_boot: int = 100, seed: int = 42):
-    """Subsampled Anderson-Darling test to mitigate excessive power at large n.
-
-    With n=996 the standard AD test rejects N(0,1) for any tiny real-world
-    deviation. By drawing n_boot random subsamples of size n_sub and taking
-    the median statistic, we obtain a test with the power appropriate for
-    n_sub rather than the full sample — giving a fairer comparison across
-    genes with different detection rates.
-
-    Returns (median_stat, crit_5pct, passed) using n_sub-calibrated critical
-    values (scipy's asymptotic values, which are conservative for n_sub=100).
+    N-robust: converges to the true population W1 without inflating with n.
+    Threshold guideline: > 0.25 indicates poor calibration.
     """
     z_valid = z_arr[np.isfinite(z_arr)]
     n = len(z_valid)
     if n < 8:
-        return np.nan, np.nan, False
-    if n <= n_sub:
-        return ad_test_normal(z_arr)
-
-    rng   = np.random.default_rng(seed)
-    stats = []
-    for _ in range(n_boot):
-        sub = rng.choice(z_valid, size=n_sub, replace=False)
-        res = anderson(sub, dist="norm")
-        stats.append(res.statistic)
-
-    crit5  = float(res.critical_values[4])   # same for all (asymptotic)
-    median = float(np.median(stats))
-    return median, crit5, bool(median <= crit5)
+        return np.nan
+    z_ref = norm.ppf(np.linspace(1 / (2 * n), 1 - 1 / (2 * n), n))
+    return float(np.mean(np.abs(np.sort(z_valid) - z_ref)))
 
 
 def zscore_stats(z_arr):
@@ -258,7 +227,6 @@ def _load_done_genes(meta_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--det-rate-min",  type=float, default=DET_RATE_MIN)
-    parser.add_argument("--mean-count-min",type=float, default=MEAN_COUNT_MIN)
     parser.add_argument("--n-folds",       type=int,   default=N_SPLITS)
     parser.add_argument("--outlier-z",     type=float, default=5.0,
                         help="remove training samples with |z_train| > this value (default 5.0)")
@@ -268,10 +236,6 @@ def main():
                         help="max fraction of training samples removable per iteration (default 0.10)")
     parser.add_argument("--lambda-sigma",   type=float, default=0.05,
                         help="L2 ridge penalty on sigma submodel coefficients (default 0.05; 0=disabled)")
-    parser.add_argument("--ad-n-sub",      type=int,   default=100,
-                        help="subsample size for power-controlled AD test (default 200)")
-    parser.add_argument("--ad-n-boot",     type=int,   default=100,
-                        help="number of bootstrap draws for subsampled AD (default 100)")
     parser.add_argument("--no-resume",     action="store_true")
     parser.add_argument("--limit",         type=int,   default=None,
                         help="only process first N genes (for testing)")
@@ -288,13 +252,13 @@ def main():
     X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices = load_hc_data()
     gene_names, gene_indices = select_candidate_genes(
         Y_raw, is_hc, pc_gene_names, pc_indices,
-        args.det_rate_min, args.mean_count_min,
+        args.det_rate_min,
     )
     Y_hc = Y_raw[is_hc]
 
     print(f"HC samples      : {is_hc.sum()}")
     print(f"Candidate genes : {len(gene_names)}"
-          f"  (det>={args.det_rate_min}, mean>={args.mean_count_min})")
+          f"  (det>={args.det_rate_min})")
 
     if args.limit is not None:
         gene_names   = gene_names[:args.limit]
@@ -349,9 +313,7 @@ def main():
         )
         elapsed = time.perf_counter() - t0
 
-        ad_stat,     ad_crit5,     ad_pass     = ad_test_normal(z_all)
-        ad_sub_stat, ad_sub_crit5, ad_sub_pass = ad_test_subsampled(
-            z_all, n_sub=args.ad_n_sub, n_boot=args.ad_n_boot)
+        w1 = wasserstein1_normal(z_all)
         m_z, s_z, sk_z, ku_z, nv = zscore_stats(z_all)
 
         mu_mean    = float(np.nanmean(mu_all))
@@ -360,8 +322,7 @@ def main():
         row = {
             "gene": g_name, "n_hc": int(is_hc.sum()),
             "det_rate_hc": det_rate, "mean_count_hc": mean_count,
-            "ad_stat":      ad_stat,     "ad_crit5":     ad_crit5,     "ad_pass":     int(ad_pass),
-            "ad_sub_stat":  ad_sub_stat, "ad_sub_crit5": ad_sub_crit5, "ad_sub_pass": int(ad_sub_pass),
+            "w1": w1,
             "mean_z":   m_z,  "std_z":    s_z,  "skew_z": sk_z, "kurt_z": ku_z, "n_valid": nv,
             "mu_mean":  mu_mean, "sigma_mean": sigma_mean,
             "n_removed": n_removed,
@@ -383,12 +344,10 @@ def main():
             pickle.dump(ppc_dict, f)
 
         n_done += 1
-        sub_status = "ok" if ad_sub_pass else "FAIL"
         print(
             f"[{i+1:4d}/{len(gene_names)}] {g_name:<22s} "
             f"det={det_rate:.2f} mean={mean_count:7.1f} | "
-            f"AD={ad_stat:.3f} sub={ad_sub_stat:.3f}({sub_status}) "
-            f"mean={m_z:+.3f} std={s_z:.3f} rmvd={n_removed} | "
+            f"W1={w1:.3f} mean={m_z:+.3f} std={s_z:.3f} rmvd={n_removed} | "
             f"folds={fold_ok:.0%} {elapsed:.1f}s"
         )
 

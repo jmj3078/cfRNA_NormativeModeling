@@ -208,7 +208,7 @@ class NormativeModelEngine:
         nbi_outlier_z:        float = 5.0,
         nbi_max_iter:         int   = 2,
         nbi_max_remove_frac:  float = 0.10,
-        lambda_sigma:         float = 0.1,
+        lambda_sigma:         float = 0.05,
     ):
         if count_model not in ("nbi", "zinbi"):
             raise ValueError("count_model must be 'nbi' or 'zinbi'")
@@ -273,10 +273,10 @@ class NormativeModelEngine:
             dr, mc = float(det_r[i]), float(mean_c[i])
             if dr < self.det_rate_min:
                 continue
-            if dr < self.low_det_thr or mc < self.mean_count_min:
-                branch = "logistic"
+            if dr < self.low_det_thr:
+                branch = "logistic"   # 1% ≤ det < 10%
             else:
-                branch = self.count_model
+                branch = self.count_model  # det ≥ 10% → NBI (mean_count 조건 제거)
             self.genes[g] = GeneRecord(name=g, branch=branch, det_rate=dr)
 
         self.logistic_genes = [g for g, r in self.genes.items() if r.branch == "logistic"]
@@ -544,6 +544,7 @@ class NormativeModelEngine:
                     ro.FloatVector([self.nbi_outlier_z]),
                     ro.IntVector([self.nbi_max_iter]),
                     ro.FloatVector([self.nbi_max_remove_frac]),
+                    ro.FloatVector([self.lambda_sigma]),
                 )
                 if res.rx2("success")[0]:
                     rec.mu_coef    = np.array(res.rx2("mu_coef"))

@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from scipy.sparse import issparse
-from scipy.stats import anderson, skew, kurtosis
+from scipy.stats import norm, skew, kurtosis
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
@@ -73,17 +73,14 @@ N_SPLITS       = 5
 META_FIELDS = [
     "gene", "n_hc", "det_rate_hc", "mean_count_hc",
     # binary z-score (detectability, all samples)
-    "ad_binary",     "ad_binary_pass",
-    "ads_binary",    "ads_binary_pass",    # subsampled AD
+    "w1_binary",
     "mean_binary_z", "std_binary_z", "skew_binary_z", "kurt_binary_z", "n_binary",
     # count conditional z-score (detected samples only)
-    "ad_count_cond",  "ad_count_cond_pass",
-    "ads_count_cond", "ads_count_cond_pass",
+    "w1_count_cond",
     "mean_count_cond_z", "std_count_cond_z",
     "skew_count_cond_z", "kurt_count_cond_z", "n_count_cond",
-    # full ZANBI z-score (all samples)
-    "ad_full",     "ad_full_pass",
-    "ads_full",    "ads_full_pass",
+    # full ZINB z-score (all samples)
+    "w1_full",
     "mean_full_z", "std_full_z", "skew_full_z", "kurt_full_z", "n_full",
     # model parameters
     "mu_mean", "sigma_mean", "nu_mean",
@@ -101,7 +98,7 @@ META_FIELDS = [
     "flag_z_bias",          # |mean_z| > 0.3 on binary or full z-score
     "flag_z_unstable",      # std_full_z > 1.5 or std_full_z < 0.5
     "flag_high_removal",    # n_removed > 5% of total training data
-    "flag_nonnormal",       # ads_full > 3.0 (very poor normality even subsampled)
+    "flag_nonnormal",       # w1_full > 0.25
     "any_flag",             # OR of all above flags
 ]
 
@@ -117,7 +114,7 @@ _THR = dict(
     std_hi            = 1.5,   # std_z > this → z_unstable
     std_lo            = 0.5,   # std_z < this → z_unstable
     removal_frac      = 0.05,  # n_removed/(n_hc*0.8) > this → high_removal
-    ad_sub_crit       = 3.0,   # ads_full > this → nonnormal
+    w1                = 0.25,  # w1_full > this → nonnormal
 )
 
 
@@ -167,10 +164,10 @@ def detect_flags(row: dict, n_hc: int, n_folds: int) -> dict:
         row["n_removed"] > n_tr_expected * T["removal_frac"]
     )
 
-    ads = row["ads_full"]
+    w1 = row["w1_full"]
     flags["flag_nonnormal"] = int(
-        (np.isfinite(ads) and ads > T["ad_sub_crit"])
-        or not np.isfinite(ads)
+        (np.isfinite(w1) and w1 > T["w1"])
+        or not np.isfinite(w1)
     )
 
     flags["any_flag"] = int(any(v for k, v in flags.items() if k != "any_flag"))
@@ -213,11 +210,10 @@ def load_hc_data():
 
 
 def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices,
-                            det_rate_min, mean_count_min):
-    Y_hc   = Y_raw[is_hc][:, pc_indices]
-    det_r  = (Y_hc > 0).mean(axis=0)
-    mean_c = Y_hc.mean(axis=0)
-    cand   = (det_r >= det_rate_min) & (mean_c >= mean_count_min)
+                            det_rate_min):
+    Y_hc  = Y_raw[is_hc][:, pc_indices]
+    det_r = (Y_hc > 0).mean(axis=0)
+    cand  = det_r >= det_rate_min
     return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand]
 
 
@@ -230,32 +226,16 @@ def make_stratified_folds(strata, n_splits=N_SPLITS):
 
 # ── Evaluation helpers ─────────────────────────────────────────────
 
-def ad_test_normal(z_arr):
-    z_valid = z_arr[np.isfinite(z_arr)]
-    if len(z_valid) < 8:
-        return np.nan, np.nan, False
-    res   = anderson(z_valid, dist="norm")
-    stat  = float(res.statistic)
-    crit5 = float(res.critical_values[4])
-    return stat, crit5, bool(stat <= crit5)
-
-
-def ad_test_subsampled(z_arr, n_sub: int = 100, n_boot: int = 100, seed: int = 42):
+def wasserstein1_normal(z_arr: np.ndarray) -> float:
+    """1st Wasserstein distance between empirical z distribution and N(0,1).
+    N-robust: converges without inflating with n. Threshold: > 0.25 = poor calibration.
+    """
     z_valid = z_arr[np.isfinite(z_arr)]
     n = len(z_valid)
     if n < 8:
-        return np.nan, np.nan, False
-    if n <= n_sub:
-        return ad_test_normal(z_arr)
-    rng   = np.random.default_rng(seed)
-    stats = []
-    for _ in range(n_boot):
-        sub = rng.choice(z_valid, size=n_sub, replace=False)
-        res = anderson(sub, dist="norm")
-        stats.append(res.statistic)
-    crit5  = float(res.critical_values[4])
-    median = float(np.median(stats))
-    return median, crit5, bool(median <= crit5)
+        return np.nan
+    z_ref = norm.ppf(np.linspace(1 / (2 * n), 1 - 1 / (2 * n), n))
+    return float(np.mean(np.abs(np.sort(z_valid) - z_ref)))
 
 
 def zscore_stats(z_arr):
@@ -372,7 +352,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--det-rate-min",        type=float, default=DET_RATE_MIN)
-    parser.add_argument("--mean-count-min",       type=float, default=MEAN_COUNT_MIN)
     parser.add_argument("--n-folds",              type=int,   default=N_SPLITS)
     parser.add_argument("--binary-z-threshold",   type=float, default=None,
                         metavar="T",
@@ -393,10 +372,6 @@ def main():
                         help="max fraction of training samples removable per iteration (default 0.10)")
     parser.add_argument("--lambda-sigma",   type=float, default=0.05,
                         help="L2 ridge penalty on sigma submodel coefficients (default 0.05; 0=disabled)")
-    parser.add_argument("--ad-n-sub",      type=int,   default=100,
-                        help="subsample size for power-controlled AD test (default 200)")
-    parser.add_argument("--ad-n-boot",     type=int,   default=100,
-                        help="number of bootstrap draws for subsampled AD (default 100)")
     parser.add_argument("--no-resume",  action="store_true")
     parser.add_argument("--limit",      type=int,   default=None,
                         help="process only first N genes (for testing)")
@@ -417,13 +392,13 @@ def main():
     X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices = load_hc_data()
     gene_names, gene_indices = select_candidate_genes(
         Y_raw, is_hc, pc_gene_names, pc_indices,
-        args.det_rate_min, args.mean_count_min,
+        args.det_rate_min,
     )
     Y_hc = Y_raw[is_hc]
 
     print(f"HC samples      : {is_hc.sum()}")
     print(f"Candidate genes : {len(gene_names)}"
-          f"  (det>={args.det_rate_min}, mean>={args.mean_count_min})")
+          f"  (det>={args.det_rate_min})")
     print(f"nu formula      : {args.nu_formula}")
     if args.binary_z_threshold is not None:
         print(f"Binary_Z threshold (det_rate) : < {args.binary_z_threshold:.0%}")
@@ -481,14 +456,10 @@ def main():
         )
         elapsed = time.perf_counter() - t0
 
-        # ── AD tests (full-sample + subsampled) ───────────────────
-        ad_bin,  _, pass_bin   = ad_test_normal(z_bin)
-        ad_cond, _, pass_cond  = ad_test_normal(z_cond)
-        ad_full, _, pass_full  = ad_test_normal(z_full)
-
-        ads_bin,  _, spass_bin  = ad_test_subsampled(z_bin,  args.ad_n_sub, args.ad_n_boot)
-        ads_cond, _, spass_cond = ad_test_subsampled(z_cond, args.ad_n_sub, args.ad_n_boot)
-        ads_full, _, spass_full = ad_test_subsampled(z_full, args.ad_n_sub, args.ad_n_boot)
+        # ── W1 calibration metrics ────────────────────────────────
+        w1_bin  = wasserstein1_normal(z_bin)
+        w1_cond = wasserstein1_normal(z_cond)
+        w1_full = wasserstein1_normal(z_full)
 
         # ── Distribution stats ─────────────────────────────────────
         m_b, s_b, sk_b, ku_b, nv_b = zscore_stats(z_bin)
@@ -502,16 +473,13 @@ def main():
         row = {
             "gene": g_name, "n_hc": int(is_hc.sum()),
             "det_rate_hc": det_rate, "mean_count_hc": mean_count,
-            "ad_binary":      ad_bin,   "ad_binary_pass":      int(pass_bin),
-            "ads_binary":     ads_bin,  "ads_binary_pass":     int(spass_bin),
+            "w1_binary":   w1_bin,
             "mean_binary_z":  m_b,  "std_binary_z":  s_b,
             "skew_binary_z":  sk_b, "kurt_binary_z":  ku_b, "n_binary": nv_b,
-            "ad_count_cond":  ad_cond,  "ad_count_cond_pass":  int(pass_cond),
-            "ads_count_cond": ads_cond, "ads_count_cond_pass": int(spass_cond),
+            "w1_count_cond": w1_cond,
             "mean_count_cond_z": m_c, "std_count_cond_z": s_c,
             "skew_count_cond_z": sk_c, "kurt_count_cond_z": ku_c, "n_count_cond": nv_c,
-            "ad_full":        ad_full,  "ad_full_pass":        int(pass_full),
-            "ads_full":       ads_full, "ads_full_pass":       int(spass_full),
+            "w1_full":     w1_full,
             "mean_full_z":  m_f,  "std_full_z":  s_f,
             "skew_full_z":  sk_f, "kurt_full_z":  ku_f, "n_full": nv_f,
             "mu_mean":    float(np.nanmean(mu_all)),
@@ -550,9 +518,7 @@ def main():
         print(
             f"[{i+1:4d}/{len(gene_names)}] {g_name:<22s} "
             f"det={det_rate:.2f} rmvd={n_removed} | "
-            f"ADsub bin={ads_bin:.3f}({'ok' if spass_bin  else 'F'}) "
-            f"cnd={ads_cond:.3f}({'ok' if spass_cond else 'F'}) "
-            f"full={ads_full:.3f}({'ok' if spass_full else 'F'}) | "
+            f"W1 bin={w1_bin:.3f} cnd={w1_cond:.3f} full={w1_full:.3f} | "
             f"primary={ptype:<10s} folds={fold_ok:.0%} {elapsed:.1f}s{flag_str}"
         )
 
