@@ -2,18 +2,13 @@
 """Stratified 5-fold CV benchmark using NB-GAMLSS (via rpy2 + R gamlss package).
 
 For each candidate protein-coding gene the script:
-  1. Splits the 996 HC samples into 5 folds stratified by Batch_ID.
+  1. Splits the HC samples into 5 folds stratified by Batch_ID.
   2. Trains NB-GAMLSS (NBI family; both mu and sigma as linear functions of the
      10 batch-bias covariates) on each training fold in R via rpy2.
   3. Computes randomized quantile residual (RQR) z-scores on the held-out fold.
   4. Pools all 5 fold z-scores (length == N_hc) and evaluates normality via the
      Anderson-Darling test.
-
-Output (CV_Results/):
-    cv_gamlss_stats.csv   — per-gene: AD statistic, mean/std/skew/kurt, n_valid,
-                            mean mu_test, mean sigma_test (=1/theta), success rate
-    cv_gamlss_zscores.pkl — dict {gene: np.ndarray of z-scores (length N_hc)}
-
+     
 Resumable: genes already in cv_gamlss_stats.csv are skipped unless --no-resume.
 
 Usage:

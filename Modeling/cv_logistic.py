@@ -215,7 +215,7 @@ def detect_flags(row):
     f = {}
     f["flag_fit_failure"] = int(row["fold_success_rate"] < 1.0)
     p = row["p_detect_mean"]
-    f["flag_p_extreme"]   = int(not np.isfinite(p) or p < 0.01 or p > 0.99)
+    f["flag_p_extreme"]   = int(not np.isfinite(p) or p < 0.005 or p > 0.995)
     f["flag_z_bias"]      = int(np.isfinite(row["mean_z"]) and abs(row["mean_z"]) > 0.3)
     std = row["std_z"]
     f["flag_z_unstable"]  = int(not np.isfinite(std) or std > 1.5 or std < 0.5)

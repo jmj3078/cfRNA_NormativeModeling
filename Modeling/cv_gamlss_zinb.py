@@ -16,20 +16,6 @@ Three complementary z-scores are computed per gene per sample:
                    (only detected samples; NA for zeros)
     z_full       : Full ZINB CDF residual (all samples)
 
-Primary z-score selection:
-─────────────────────────────────────────────────────────────────────────────
-1. --binary-z-threshold T   genes with det_rate < T → primary = binary
-2. --nbi-stats PATH         genes with poor NBI fit → primary = binary
-Both flags may be combined (logical OR).
-If neither is given, primary_z = z_full.
-
-Outlier refinement: max 2 iterations, at most 5% of training samples removed.
-
-Output (CV_Results/):
-    cv_zinb_stats.csv    — per-gene summary for all three z-scores + primary
-    cv_zinb_zscores.pkl  — dict {gene: {"binary": z, "count_cond": z,
-                                          "full": z, "primary": z}}
-
 Usage:
     python cv_zanbi.py --limit 3
     python cv_zanbi.py --binary-z-threshold 0.10
