@@ -423,3 +423,91 @@ train_zinbi_coeffs <- function(y_train, X_train,
        nu_coef    = as.numeric(fit$nu.coefficients),
        success    = TRUE, msg = "", n_removed = n_removed)
 }
+
+
+# ══════════════════════════════════════════════════════════════════
+# Warm-start NBI fitting
+#
+# Uses the predictions from a previously fitted model (mu_start,
+# sigma_start) as starting values for the GAMLSS inner algorithm,
+# instead of the default link-function mean. This reduces the number
+# of backfitting cycles needed and preserves learned structure when
+# only a small amount of new data is added.
+#
+# mu_start, sigma_start : numeric vectors (length = nrow(X_train))
+#   Predicted fitted values from the old model on the TRAINING data,
+#   i.e. exp(X_train_aug %*% mu_coef_old) etc.
+# ══════════════════════════════════════════════════════════════════
+
+train_nbi_coeffs_warm <- function(y_train, X_train,
+                                   mu_start, sigma_start,
+                                   n_cyc = 50,
+                                   outlier_z = 5.0, max_iter = 2L,
+                                   max_remove_frac = 0.10) {
+  n_tr_orig  <- length(y_train)
+  safe_names <- sanitize_names(colnames(X_train))
+  mu_rhs     <- paste(safe_names, collapse = " + ")
+  mu_fml     <- as.formula(paste("y__ ~", mu_rhs))
+  sigma_fml  <- as.formula(paste("~",     mu_rhs))
+
+  df_tr <- as.data.frame(X_train)
+  colnames(df_tr) <- safe_names
+  df_tr$y__ <- as.integer(round(y_train))
+
+  p         <- ncol(X_train) + 1L
+  na_result <- list(mu_coef = rep(NA_real_, p), sigma_coef = rep(NA_real_, p),
+                    success = FALSE, msg = "", n_removed = 0L)
+
+  keep      <- rep(TRUE, n_tr_orig)
+  n_removed <- 0L
+  fit       <- NULL
+  mu_s      <- as.numeric(mu_start)
+  sigma_s   <- as.numeric(sigma_start)
+
+  for (iter in seq_len(max_iter)) {
+    df_sub    <- df_tr[keep, , drop = FALSE]
+    mu_sub    <- mu_s[keep]
+    sigma_sub <- sigma_s[keep]
+
+    fit <- tryCatch(
+      gamlss(
+        formula       = mu_fml,
+        sigma.formula = sigma_fml,
+        family        = NBI(),
+        data          = df_sub,
+        mu.start      = mu_sub,
+        sigma.start   = sigma_sub,
+        control       = gamlss.control(n.cyc = n_cyc, trace = FALSE)
+      ),
+      error = function(e) e
+    )
+    if (inherits(fit, "error")) {
+      na_result$msg <- conditionMessage(fit); return(na_result)
+    }
+
+    pred_tr <- tryCatch(
+      predictAll(fit, newdata = df_sub, type = "response", data = df_sub),
+      error = function(e) e
+    )
+    if (inherits(pred_tr, "error")) break
+
+    z_tr    <- rqr_nbi(df_sub$y__,
+                        mu = as.numeric(pred_tr$mu),
+                        sigma = as.numeric(pred_tr$sigma))
+    outlier <- is.finite(z_tr) & (abs(z_tr) > outlier_z)
+    if (!any(outlier)) break
+    if (sum(outlier) / n_tr_orig > max_remove_frac) break
+
+    keep[which(keep)[outlier]] <- FALSE
+    n_removed <- n_removed + sum(outlier)
+
+    # Update starting values for the surviving samples only (next iter)
+    mu_s    <- as.numeric(pred_tr$mu)
+    sigma_s <- as.numeric(pred_tr$sigma)
+  }
+
+  if (is.null(fit) || inherits(fit, "error")) return(na_result)
+  list(mu_coef    = as.numeric(fit$mu.coefficients),
+       sigma_coef = as.numeric(fit$sigma.coefficients),
+       success    = TRUE, msg = "", n_removed = n_removed)
+}

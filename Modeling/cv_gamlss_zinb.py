@@ -205,6 +205,7 @@ def load_hc_data():
     adata = adata[adata.obs["QC_Passed"] == True]
     adata = adata[adata.obs["Phenotype_Processed"].notna()]
     adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
+    adata = adata[adata.obs["broad_protocol_category"] != "Exome-based (EB)"]  # WTS only
     is_hc = (adata.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
 
     batch_raw  = adata.obs[STRATIFY_COL].astype(object)
@@ -448,6 +449,8 @@ def main():
 
     folds = make_stratified_folds(strata_hc, n_splits=args.n_folds)
 
+    ppc_path  = SAVE_DIR / "cv_zinb_ppc.pkl"   # per-sample mu, sigma, nu for PPC
+
     done_genes   = set() if args.no_resume else _load_done_genes(meta_path)
     zscores_dict = {}
     if not args.no_resume and zscores_path.exists():
@@ -457,6 +460,14 @@ def main():
         except (EOFError, pickle.UnpicklingError):
             print(f"[Warning] {zscores_path} is corrupted (truncated write). Starting fresh.")
             zscores_path.unlink()
+
+    ppc_dict = {}
+    if not args.no_resume and ppc_path.exists():
+        try:
+            with open(ppc_path, "rb") as f:
+                ppc_dict = pickle.load(f)
+        except (EOFError, pickle.UnpicklingError):
+            ppc_path.unlink()
 
     write_header = args.no_resume or not meta_path.exists()
     meta_file    = open(meta_path, "w" if args.no_resume else "a", newline="")
@@ -539,6 +550,15 @@ def main():
         }
         with open(zscores_path, "wb") as f:
             pickle.dump(zscores_dict, f)
+
+        # PPC용 파라미터 저장 (mu, sigma, nu per sample)
+        ppc_dict[g_name] = {
+            'mu':    mu_all.astype(np.float32),
+            'sigma': sigma_all.astype(np.float32),
+            'nu':    nu_all.astype(np.float32),
+        }
+        with open(ppc_path, "wb") as f:
+            pickle.dump(ppc_dict, f)
 
         n_done += 1
         flag_str = " [FLAG]" if flags["any_flag"] else ""

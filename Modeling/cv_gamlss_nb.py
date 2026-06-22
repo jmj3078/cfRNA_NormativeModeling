@@ -98,6 +98,7 @@ def load_hc_data():
     adata = adata[adata.obs["QC_Passed"] == True]
     adata = adata[adata.obs["Phenotype_Processed"].notna()]
     adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
+    adata = adata[adata.obs["broad_protocol_category"] != "Exome-based (EB)"]  # WTS only
     is_hc = (adata.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
 
     batch_raw = adata.obs[STRATIFY_COL].astype(object)
@@ -221,17 +222,18 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
     n_removed   = 0
 
     for fold_idx, (tr_idx, te_idx) in enumerate(folds):
-        seed_r    = ro.IntVector([42 + fold_idx])
-        n_cyc_r   = ro.IntVector([50])
-        outlier_z = ro.FloatVector([args.outlier_z])
-        max_iter  = ro.IntVector([args.max_iter])
+        seed_r          = ro.IntVector([42 + fold_idx])
+        n_cyc_r         = ro.IntVector([50])
+        outlier_z       = ro.FloatVector([args.outlier_z])
+        max_iter        = ro.IntVector([args.max_iter])
+        max_remove_frac = ro.FloatVector([args.max_remove_frac])
 
         res = r_fit_fn(
             _np_to_r_vec(y_hc[tr_idx]),
             _np_to_r_vec(y_hc[te_idx]),
             _np_to_r_matrix(X_hc_scaled[tr_idx], col_names),
             _np_to_r_matrix(X_hc_scaled[te_idx], col_names),
-            seed_r, n_cyc_r, outlier_z, max_iter,
+            seed_r, n_cyc_r, outlier_z, max_iter, max_remove_frac,
         )
 
         if res.rx2("success")[0]:
@@ -264,8 +266,10 @@ def main():
     parser.add_argument("--n-folds",       type=int,   default=N_SPLITS)
     parser.add_argument("--outlier-z",     type=float, default=5.0,
                         help="remove training samples with |z_train| > this value (default 5.0)")
-    parser.add_argument("--max-iter",      type=int,   default=2,
+    parser.add_argument("--max-iter",          type=int,   default=2,
                         help="max outlier-removal iterations per fold (default 2)")
+    parser.add_argument("--max-remove-frac",   type=float, default=0.10,
+                        help="max fraction of training samples removable per iteration (default 0.10)")
     parser.add_argument("--ad-n-sub",      type=int,   default=200,
                         help="subsample size for power-controlled AD test (default 200)")
     parser.add_argument("--ad-n-boot",     type=int,   default=100,
@@ -302,6 +306,8 @@ def main():
     folds    = make_stratified_folds(strata_hc, n_splits=args.n_folds)
     col_names = BIAS_COLUMNS   # passed to R for column names
 
+    ppc_path  = SAVE_DIR / "cv_gamlss_nb_ppc.pkl"   # per-sample mu & sigma for PPC
+
     done_genes   = set() if args.no_resume else _load_done_genes(meta_path)
     zscores_dict = {}
     if not args.no_resume and zscores_path.exists():
@@ -311,6 +317,14 @@ def main():
         except (EOFError, pickle.UnpicklingError):
             print(f"[Warning] {zscores_path} is corrupted (truncated write). Starting fresh.")
             zscores_path.unlink()
+
+    ppc_dict = {}
+    if not args.no_resume and ppc_path.exists():
+        try:
+            with open(ppc_path, "rb") as f:
+                ppc_dict = pickle.load(f)
+        except (EOFError, pickle.UnpicklingError):
+            ppc_path.unlink()
 
     write_header = args.no_resume or not meta_path.exists()
     meta_file    = open(meta_path, "w" if args.no_resume else "a", newline="")
@@ -362,6 +376,13 @@ def main():
         zscores_dict[g_name] = z_all
         with open(zscores_path, "wb") as f:
             pickle.dump(zscores_dict, f)
+
+        ppc_dict[g_name] = {
+            'mu':    mu_all.astype(np.float32),
+            'sigma': sigma_all.astype(np.float32),
+        }
+        with open(ppc_path, "wb") as f:
+            pickle.dump(ppc_dict, f)
 
         n_done += 1
         sub_status = "ok" if ad_sub_pass else "FAIL"

@@ -207,7 +207,7 @@ class NormativeModelEngine:
         lr_C:                 float = LR_C,
         nbi_outlier_z:        float = 5.0,
         nbi_max_iter:         int   = 2,
-        nbi_max_remove_frac:  float = 0.05,
+        nbi_max_remove_frac:  float = 0.10,
     ):
         if count_model not in ("nbi", "zinbi"):
             raise ValueError("count_model must be 'nbi' or 'zinbi'")
@@ -243,6 +243,7 @@ class NormativeModelEngine:
         adata = adata[adata.obs["QC_Passed"] == True]
         adata = adata[adata.obs["Phenotype_Processed"].notna()]
         adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
+        adata = adata[adata.obs["broad_protocol_category"] != "Exome-based (EB)"]  # WTS only
         self.is_hc = (adata.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
 
         X_raw = adata.obs[BIAS_COLUMNS].values.astype(np.float64)
@@ -445,6 +446,122 @@ class NormativeModelEngine:
         gene_names = result[col_key]
         sample_ids = sample_ids or [f"s{i}" for i in range(Z.shape[0])]
         return pd.DataFrame(Z, index=sample_ids, columns=gene_names)
+
+    # ---- Warm-start refit ---------------------------------------------
+
+    def _compute_warm_start(self, rec: GeneRecord, X_scaled: np.ndarray):
+        """Return (mu_start, sigma_start) as fitted-value vectors for X_scaled."""
+        n  = len(X_scaled)
+        Xa = np.column_stack([np.ones(n), X_scaled])
+        mu_s    = np.exp(Xa @ rec.mu_coef).clip(1e-4, 1e6)
+        sigma_s = np.exp(Xa @ rec.sigma_coef).clip(1e-8, 1e3)
+        return mu_s, sigma_s
+
+    def refit(
+        self,
+        X_new_raw:  np.ndarray,
+        Y_new:      np.ndarray,
+        gene_names: Optional[List[str]] = None,
+        strategy:   str  = "new_only",
+        X_old_raw:  Optional[np.ndarray] = None,
+        Y_old:      Optional[np.ndarray] = None,
+        verbose:    bool = True,
+        limit:      Optional[int] = None,
+    ):
+        """Warm-start refit: use existing coefficient vectors as starting values.
+
+        Parameters
+        ----------
+        X_new_raw : (n_new, n_cov)  raw (unscaled) covariate matrix, new data
+        Y_new     : (n_new, n_genes) raw count matrix, new data
+        gene_names: column order in Y_new (defaults to all NBI fitted genes)
+        strategy  :
+          "new_only"  – refit on new data alone, warm-started from old coefficients.
+                        Fastest; useful when new data is large enough to stand alone.
+          "combined"  – concatenate old + new data before refitting.
+                        Requires X_old_raw/Y_old OR self.X_hc_scaled/self.Y_hc
+                        to still be in memory (call load_hc_data() first).
+        X_old_raw, Y_old : explicitly supply old data for "combined" strategy.
+        """
+        import time
+        assert self.genes, "Load engine first (engine.load())."
+        assert self.scaler is not None, "Scaler missing — load engine first."
+
+        gene_names = gene_names or [g for g in self.genes
+                                    if self.genes[g].fit_ok
+                                    and self.genes[g].branch != "logistic"]
+        if limit is not None:
+            gene_names = gene_names[:limit]
+
+        X_new = self.scaler.transform(X_new_raw.astype(np.float64))
+
+        # ── Resolve training data ────────────────────────────────────
+        if strategy == "combined":
+            X_old = (self.scaler.transform(X_old_raw.astype(np.float64))
+                     if X_old_raw is not None else self.X_hc_scaled)
+            y_old_mat = Y_old if Y_old is not None else self.Y_hc
+            if X_old is None or y_old_mat is None:
+                raise ValueError(
+                    "'combined' strategy requires old data. "
+                    "Pass X_old_raw/Y_old or call load_hc_data() first."
+                )
+            X_train     = np.vstack([X_old, X_new])
+            Y_train_mat = np.vstack([y_old_mat, Y_new])
+        else:
+            X_train     = X_new
+            Y_train_mat = Y_new
+
+        g2col = {g: j for j, g in enumerate(gene_names)}
+
+        self._init_r()
+        r_warm_fn = ro.globalenv["train_nbi_coeffs_warm"]
+
+        n_refitted = n_skipped = n_failed = 0
+        t_start = time.perf_counter()
+
+        for g in gene_names:
+            rec = self.genes.get(g)
+            if rec is None or not rec.fit_ok or rec.branch == "logistic":
+                n_skipped += 1
+                continue
+            col  = g2col[g]
+            y_tr = Y_train_mat[:, col].astype(np.float64)
+
+            # Warm starting values on the (combined) training set
+            mu_s, sigma_s = self._compute_warm_start(rec, X_train)
+
+            try:
+                res = r_warm_fn(
+                    _to_r_vec(y_tr),
+                    _to_r_matrix(X_train, BIAS_COLUMNS),
+                    _to_r_vec(mu_s),
+                    _to_r_vec(sigma_s),
+                    ro.IntVector([50]),
+                    ro.FloatVector([self.nbi_outlier_z]),
+                    ro.IntVector([self.nbi_max_iter]),
+                    ro.FloatVector([self.nbi_max_remove_frac]),
+                )
+                if res.rx2("success")[0]:
+                    rec.mu_coef    = np.array(res.rx2("mu_coef"))
+                    rec.sigma_coef = np.array(res.rx2("sigma_coef"))
+                    rec.n_removed  = int(res.rx2("n_removed")[0])
+                    n_refitted += 1
+                else:
+                    rec.fail_reason = str(res.rx2("msg")[0])
+                    n_failed += 1
+            except Exception as exc:
+                rec.fail_reason = str(exc)
+                n_failed += 1
+                if verbose:
+                    print(f"  [ERR] {g}: {exc}")
+
+            if verbose and (n_refitted + n_failed) % 500 == 0:
+                print(f"  [{n_refitted+n_failed:5d}/{len(gene_names)}] "
+                      f"ok={n_refitted} fail={n_failed}")
+
+        print(f"Refit ({strategy}): {n_refitted} ok, "
+              f"{n_failed} failed, {n_skipped} skipped — "
+              f"{time.perf_counter()-t_start:.1f}s")
 
     # ---- Diagnostics & persistence ------------------------------------
 

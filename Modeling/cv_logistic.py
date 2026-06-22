@@ -99,6 +99,7 @@ def load_hc_data():
     adata = adata[adata.obs["QC_Passed"] == True]
     adata = adata[adata.obs["Phenotype_Processed"].notna()]
     adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
+    adata = adata[adata.obs["broad_protocol_category"] != "Exome-based (EB)"]  # WTS only
     is_hc = (adata.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
 
     batch_raw  = adata.obs[STRATIFY_COL].astype(object)
