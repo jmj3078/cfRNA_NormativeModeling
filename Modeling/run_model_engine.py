@@ -19,6 +19,7 @@ engine = NormativeModelEngine(
     nbi_outlier_z       = 5.0,
     nbi_max_iter        = 2,
     nbi_max_remove_frac = 0.05,
+    lambda_sigma        = 0.1,
 )
 
 t0 = time.perf_counter()

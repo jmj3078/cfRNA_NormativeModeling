@@ -143,7 +143,7 @@ def ad_test_normal(z_arr):
     return stat, crit5, bool(stat <= crit5)
 
 
-def ad_test_subsampled(z_arr, n_sub: int = 200, n_boot: int = 100, seed: int = 42):
+def ad_test_subsampled(z_arr, n_sub: int = 100, n_boot: int = 100, seed: int = 42):
     """Subsampled Anderson-Darling test to mitigate excessive power at large n.
 
     With n=996 the standard AD test rejects N(0,1) for any tiny real-world
@@ -153,7 +153,7 @@ def ad_test_subsampled(z_arr, n_sub: int = 200, n_boot: int = 100, seed: int = 4
     genes with different detection rates.
 
     Returns (median_stat, crit_5pct, passed) using n_sub-calibrated critical
-    values (scipy's asymptotic values, which are conservative for n_sub=200).
+    values (scipy's asymptotic values, which are conservative for n_sub=100).
     """
     z_valid = z_arr[np.isfinite(z_arr)]
     n = len(z_valid)
@@ -222,13 +222,14 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
         outlier_z       = ro.FloatVector([args.outlier_z])
         max_iter        = ro.IntVector([args.max_iter])
         max_remove_frac = ro.FloatVector([args.max_remove_frac])
+        lambda_sigma    = ro.FloatVector([args.lambda_sigma])
 
         res = r_fit_fn(
             _np_to_r_vec(y_hc[tr_idx]),
             _np_to_r_vec(y_hc[te_idx]),
             _np_to_r_matrix(X_hc_scaled[tr_idx], col_names),
             _np_to_r_matrix(X_hc_scaled[te_idx], col_names),
-            seed_r, n_cyc_r, outlier_z, max_iter, max_remove_frac,
+            seed_r, n_cyc_r, outlier_z, max_iter, max_remove_frac, lambda_sigma,
         )
 
         if res.rx2("success")[0]:
@@ -265,7 +266,9 @@ def main():
                         help="max outlier-removal iterations per fold (default 2)")
     parser.add_argument("--max-remove-frac",   type=float, default=0.10,
                         help="max fraction of training samples removable per iteration (default 0.10)")
-    parser.add_argument("--ad-n-sub",      type=int,   default=200,
+    parser.add_argument("--lambda-sigma",   type=float, default=0.05,
+                        help="L2 ridge penalty on sigma submodel coefficients (default 0.05; 0=disabled)")
+    parser.add_argument("--ad-n-sub",      type=int,   default=100,
                         help="subsample size for power-controlled AD test (default 200)")
     parser.add_argument("--ad-n-boot",     type=int,   default=100,
                         help="number of bootstrap draws for subsampled AD (default 100)")

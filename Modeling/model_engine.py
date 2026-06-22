@@ -208,6 +208,7 @@ class NormativeModelEngine:
         nbi_outlier_z:        float = 5.0,
         nbi_max_iter:         int   = 2,
         nbi_max_remove_frac:  float = 0.10,
+        lambda_sigma:         float = 0.1,
     ):
         if count_model not in ("nbi", "zinbi"):
             raise ValueError("count_model must be 'nbi' or 'zinbi'")
@@ -220,6 +221,7 @@ class NormativeModelEngine:
         self.nbi_outlier_z       = nbi_outlier_z
         self.nbi_max_iter        = nbi_max_iter
         self.nbi_max_remove_frac = nbi_max_remove_frac
+        self.lambda_sigma        = lambda_sigma
 
         self.X_hc_scaled:   Optional[np.ndarray]  = None
         self.Y_hc:          Optional[np.ndarray]  = None
@@ -318,6 +320,7 @@ class NormativeModelEngine:
             ro.FloatVector([self.nbi_outlier_z]),
             ro.IntVector([self.nbi_max_iter]),
             ro.FloatVector([self.nbi_max_remove_frac]),
+            ro.FloatVector([self.lambda_sigma]),
         )
         if res.rx2("success")[0]:
             rec.mu_coef    = np.array(res.rx2("mu_coef"))
@@ -337,6 +340,7 @@ class NormativeModelEngine:
             ro.IntVector([self.nbi_max_iter]),
             ro.FloatVector([self.nbi_max_remove_frac]),
             ro.StrVector([self.zinbi_nu_formula]),
+            ro.FloatVector([self.lambda_sigma]),
         )
         if res.rx2("success")[0]:
             rec.mu_coef    = np.array(res.rx2("mu_coef"))

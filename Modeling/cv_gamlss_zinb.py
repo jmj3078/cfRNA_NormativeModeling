@@ -240,10 +240,7 @@ def ad_test_normal(z_arr):
     return stat, crit5, bool(stat <= crit5)
 
 
-def ad_test_subsampled(z_arr, n_sub: int = 200, n_boot: int = 100, seed: int = 42):
-    """Median AD statistic over n_boot subsamples of size n_sub.
-    Mitigates the excessive power of AD at n=996 — see cv_gamlss.py for rationale.
-    """
+def ad_test_subsampled(z_arr, n_sub: int = 100, n_boot: int = 100, seed: int = 42):
     z_valid = z_arr[np.isfinite(z_arr)]
     n = len(z_valid)
     if n < 8:
@@ -333,13 +330,14 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
         max_iter        = ro.IntVector([args.max_iter])
         max_remove_frac = ro.FloatVector([args.max_remove_frac])
         nu_type_r       = ro.StrVector([args.nu_formula])
+        lambda_sigma    = ro.FloatVector([args.lambda_sigma])
 
         res = r_fit_fn(
             _to_r_vec(y_hc[tr_idx]),
             _to_r_vec(y_hc[te_idx]),
             _to_r_matrix(X_hc_scaled[tr_idx], col_names),
             _to_r_matrix(X_hc_scaled[te_idx], col_names),
-            seed_r, n_cyc_r, outlier_z, max_iter, max_remove_frac, nu_type_r,
+            seed_r, n_cyc_r, outlier_z, max_iter, max_remove_frac, nu_type_r, lambda_sigma,
         )
 
         if res.rx2("success")[0]:
@@ -391,12 +389,14 @@ def main():
                         help="remove training samples with |z_train| > this (default 5.0)")
     parser.add_argument("--max-iter",         type=int,   default=2,
                         help="max outlier-removal iterations per fold (default 2)")
-    parser.add_argument("--max-remove-frac",  type=float, default=0.05,
-                        help="max fraction of training samples removable per iteration (default 0.05)")
-    parser.add_argument("--ad-n-sub",   type=int,   default=200,
+    parser.add_argument("--max-remove-frac",   type=float, default=0.10,
+                        help="max fraction of training samples removable per iteration (default 0.10)")
+    parser.add_argument("--lambda-sigma",   type=float, default=0.05,
+                        help="L2 ridge penalty on sigma submodel coefficients (default 0.05; 0=disabled)")
+    parser.add_argument("--ad-n-sub",      type=int,   default=100,
                         help="subsample size for power-controlled AD test (default 200)")
-    parser.add_argument("--ad-n-boot",  type=int,   default=100,
-                        help="bootstrap draws for subsampled AD (default 100)")
+    parser.add_argument("--ad-n-boot",     type=int,   default=100,
+                        help="number of bootstrap draws for subsampled AD (default 100)")
     parser.add_argument("--no-resume",  action="store_true")
     parser.add_argument("--limit",      type=int,   default=None,
                         help="process only first N genes (for testing)")
@@ -537,7 +537,6 @@ def main():
         with open(zscores_path, "wb") as f:
             pickle.dump(zscores_dict, f)
 
-        # PPC용 파라미터 저장 (mu, sigma, nu per sample)
         ppc_dict[g_name] = {
             'mu':    mu_all.astype(np.float32),
             'sigma': sigma_all.astype(np.float32),
@@ -559,7 +558,6 @@ def main():
 
     meta_file.close()
 
-    # ── Post-run: extract failure cases ───────────────────────────
     failures_path = SAVE_DIR / "cv_zinb_failures.csv"
     try:
         import pandas as pd

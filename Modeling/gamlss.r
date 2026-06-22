@@ -13,6 +13,30 @@ sanitize_names <- function(names) {
   safe
 }
 
+# ── Formula builders ─────────────────────────────────────────────
+# mu: standard linear (unpenalized)
+.mu_fml <- function(safe_names) {
+  as.formula(paste("y__ ~", paste(safe_names, collapse = " + ")))
+}
+
+# sigma: unpenalized formula (same structure as mu).
+# Ridge penalty is applied via ridgeVec in gamlss.control (see .ridge_vec()).
+.sigma_fml <- function(safe_names) {
+  as.formula(paste("~", paste(safe_names, collapse = " + ")))
+}
+
+# Build ridgeVec for gamlss.control:
+#   mu  coefficients (p total)   : no penalty
+#   sigma intercept (1)          : no penalty   <- intentional: don't shrink baseline
+#   sigma slope coefficients (p-1): lambda_sigma
+# Total length = p + p = 2p, matching NBI coefficient layout.
+.ridge_vec <- function(p, lambda_sigma) {
+  if (lambda_sigma > 0)
+    c(rep(0, p + 1L), rep(lambda_sigma, p - 1L))
+  else
+    NULL
+}
+
 # ── NBI RQR on new data ───────────────────────────────────────────
 # gamlss::qresid() only works on fitted objects (training data).
 # For test-set RQR we compute manually via pNBI CDF.
@@ -31,30 +55,19 @@ rqr_nbi <- function(y, mu, sigma, seed = NULL) {
   qnorm(u)
 }
 
-# ── Main fitting function ─────────────────────────────────────────
-#
-# Args
-#   y_train, y_test : numeric vectors of raw counts
-#   X_train, X_test : numeric matrices (n x p), same column order
-#   seed            : integer for RQR reproducibility
-#   n_cyc           : max gamlss backfitting cycles
-#
-# Returns a named list:
-#   z       : RQR z-scores on test set (numeric vector, may contain NA)
-#   mu_test : predicted mu on test set
-#   sigma_test : predicted sigma (1/theta) on test set
-#   success : logical
-#   msg     : error message if success == FALSE
-
 # ── Internal: fit NBI on a data frame and return the gamlss object ──
-.fit_nbi <- function(df_tr, mu_fml, sigma_fml, n_cyc) {
+.fit_nbi <- function(df_tr, mu_fml, sigma_fml, n_cyc, ridge_vec = NULL) {
+  ctrl <- if (is.null(ridge_vec))
+    gamlss.control(n.cyc = n_cyc, trace = FALSE)
+  else
+    gamlss.control(n.cyc = n_cyc, trace = FALSE, ridgeVec = ridge_vec)
   tryCatch(
     gamlss(
       formula       = mu_fml,
       sigma.formula = sigma_fml,
       family        = NBI(),
       data          = df_tr,
-      control       = gamlss.control(n.cyc = n_cyc, trace = FALSE)
+      control       = ctrl
     ),
     error = function(e) e
   )
@@ -63,8 +76,11 @@ rqr_nbi <- function(y, mu, sigma, seed = NULL) {
 # ── NBI main fitting function (with iterative outlier removal) ─────
 #
 # Additional args vs. original:
-#   outlier_z : |z_train| threshold to flag and remove outliers (default 5)
-#   max_iter  : maximum refinement iterations (default 3)
+#   outlier_z     : |z_train| threshold to flag and remove outliers (default 5)
+#   max_iter      : maximum refinement iterations (default 2)
+#   lambda_sigma  : L2 ridge penalty on sigma submodel via ri() (default 0.1)
+#                   Applied jointly to all covariates as a single design matrix.
+#                   Set to 0 to disable.
 #
 # Returns a named list:
 #   z, mu_test, sigma_test, success, msg
@@ -73,20 +89,20 @@ rqr_nbi <- function(y, mu, sigma, seed = NULL) {
 fit_gamlss_gene <- function(y_train, y_test, X_train, X_test,
                              seed = NULL, n_cyc = 50,
                              outlier_z = 5.0, max_iter = 2L,
-                             max_remove_frac = 0.05) {
+                             max_remove_frac = 0.05,
+                             lambda_sigma = 0.1) {
   n_te       <- length(y_test)
   n_tr_orig  <- length(y_train)
   safe_names <- sanitize_names(colnames(X_train))
-  mu_rhs     <- paste(safe_names, collapse = " + ")
-  mu_fml     <- as.formula(paste("y__ ~", mu_rhs))
-  sigma_fml  <- as.formula(paste("~",     mu_rhs))
 
-  df_tr <- as.data.frame(X_train)
-  colnames(df_tr) <- safe_names
+  p         <- ncol(X_train) + 1L
+  mu_fml    <- .mu_fml(safe_names)
+  sigma_fml <- .sigma_fml(safe_names)
+  ridge_vec <- .ridge_vec(p, lambda_sigma)
+
+  df_tr <- as.data.frame(X_train); colnames(df_tr) <- safe_names
   df_tr$y__ <- as.integer(round(y_train))
-
-  df_te <- as.data.frame(X_test)
-  colnames(df_te) <- safe_names
+  df_te <- as.data.frame(X_test);  colnames(df_te) <- safe_names
 
   na_result <- list(z = rep(NA_real_, n_te), mu_test = rep(NA_real_, n_te),
                     sigma_test = rep(NA_real_, n_te),
@@ -96,13 +112,12 @@ fit_gamlss_gene <- function(y_train, y_test, X_train, X_test,
   n_removed <- 0L
 
   for (iter in seq_len(max_iter)) {
-    fit <- .fit_nbi(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, n_cyc)
+    fit <- .fit_nbi(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, n_cyc, ridge_vec)
     if (inherits(fit, "error")) {
       na_result$msg <- conditionMessage(fit)
       return(na_result)
     }
 
-    # Training z-scores to identify outliers
     pred_tr <- tryCatch(
       predictAll(fit, newdata = df_tr[keep, , drop = FALSE],
                  type = "response", data = df_tr[keep, , drop = FALSE]),
@@ -115,9 +130,7 @@ fit_gamlss_gene <- function(y_train, y_test, X_train, X_test,
                         sigma = as.numeric(pred_tr$sigma))
     outlier <- is.finite(z_tr) & (abs(z_tr) > outlier_z)
 
-    if (!any(outlier)) break  # converged — no more outliers
-
-    # Safety cap: if a single iteration would remove too many samples, stop
+    if (!any(outlier)) break
     if (sum(outlier) / n_tr_orig > max_remove_frac) break
 
     idx_keep  <- which(keep)
@@ -125,7 +138,6 @@ fit_gamlss_gene <- function(y_train, y_test, X_train, X_test,
     n_removed <- n_removed + sum(outlier)
   }
 
-  # Final prediction on test set
   pred_te <- tryCatch(
     predictAll(fit, newdata = df_te, type = "response",
                data = df_tr[keep, , drop = FALSE]),
@@ -212,7 +224,11 @@ rqr_count_cond <- function(y, mu, sigma, seed = NULL) {
 }
 
 # ── Internal: fit ZINB ────────────────────────────────────────────
-.fit_zinb <- function(df_tr, mu_fml, sigma_fml, nu_fml, n_cyc) {
+.fit_zinb <- function(df_tr, mu_fml, sigma_fml, nu_fml, n_cyc, ridge_vec = NULL) {
+  ctrl <- if (is.null(ridge_vec))
+    gamlss.control(n.cyc = n_cyc, trace = FALSE)
+  else
+    gamlss.control(n.cyc = n_cyc, trace = FALSE, ridgeVec = ridge_vec)
   tryCatch(
     gamlss(
       formula       = mu_fml,
@@ -220,7 +236,7 @@ rqr_count_cond <- function(y, mu, sigma, seed = NULL) {
       nu.formula    = nu_fml,
       family        = ZINBI(),
       data          = df_tr,
-      control       = gamlss.control(n.cyc = n_cyc, trace = FALSE)
+      control       = ctrl
     ),
     error = function(e) e
   )
@@ -234,24 +250,30 @@ fit_zinb_gene <- function(y_train, y_test, X_train, X_test,
                             seed = NULL, n_cyc = 50,
                             outlier_z = 5.0, max_iter = 2L,
                             max_remove_frac = 0.05,
-                            nu_type = "intercept") {
+                            nu_type = "intercept",
+                            lambda_sigma = 0.1) {
   # nu_type = "intercept" : nu ~ 1  (global constant; prevents overfitting)
   # nu_type = "full"      : nu ~ all covariates (same as mu/sigma)
   n_te      <- length(y_test)
   n_tr_orig <- length(y_train)
   safe_names <- sanitize_names(colnames(X_train))
-  mu_rhs     <- paste(safe_names, collapse = " + ")
 
-  df_tr <- as.data.frame(X_train)
-  colnames(df_tr) <- safe_names
+  p         <- ncol(X_train) + 1L
+  mu_fml    <- .mu_fml(safe_names)
+  sigma_fml <- .sigma_fml(safe_names)
+  nu_fml    <- if (nu_type == "full")
+    as.formula(paste("~", paste(safe_names, collapse = " + ")))
+  else
+    as.formula("~ 1")
+  # ridgeVec for ZINBI: mu(p) + sigma(p) + nu(p_nu)
+  p_nu      <- if (nu_type == "full") p else 1L
+  ridge_vec <- if (lambda_sigma > 0)
+    c(rep(0, p + 1L), rep(lambda_sigma, p - 1L), rep(0, p_nu))
+  else NULL
+
+  df_tr <- as.data.frame(X_train); colnames(df_tr) <- safe_names
   df_tr$y__ <- as.integer(round(y_train))
-
-  df_te <- as.data.frame(X_test)
-  colnames(df_te) <- safe_names
-
-  mu_fml    <- as.formula(paste("y__ ~",  mu_rhs))
-  sigma_fml <- as.formula(paste("~",      mu_rhs))
-  nu_fml    <- if (nu_type == "full") as.formula(paste("~", mu_rhs)) else as.formula("~ 1")
+  df_te <- as.data.frame(X_test);  colnames(df_te) <- safe_names
 
   na_result <- list(
     z_binary     = rep(NA_real_, n_te),
@@ -266,7 +288,7 @@ fit_zinb_gene <- function(y_train, y_test, X_train, X_test,
   n_removed <- 0L
 
   for (iter in seq_len(max_iter)) {
-    fit <- .fit_zinb(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, nu_fml, n_cyc)
+    fit <- .fit_zinb(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, nu_fml, n_cyc, ridge_vec)
     if (inherits(fit, "error")) {
       na_result$msg <- conditionMessage(fit)
       return(na_result)
@@ -332,25 +354,26 @@ fit_zinb_gene <- function(y_train, y_test, X_train, X_test,
 train_nbi_coeffs <- function(y_train, X_train,
                               n_cyc = 50,
                               outlier_z = 5.0, max_iter = 2L,
-                              max_remove_frac = 0.05) {
+                              max_remove_frac = 0.05,
+                              lambda_sigma = 0.1) {
   n_tr_orig  <- length(y_train)
   safe_names <- sanitize_names(colnames(X_train))
-  mu_rhs     <- paste(safe_names, collapse = " + ")
-  mu_fml     <- as.formula(paste("y__ ~", mu_rhs))
-  sigma_fml  <- as.formula(paste("~",     mu_rhs))
 
-  df_tr <- as.data.frame(X_train)
-  colnames(df_tr) <- safe_names
+  p         <- ncol(X_train) + 1L
+  mu_fml    <- .mu_fml(safe_names)
+  sigma_fml <- .sigma_fml(safe_names)
+  ridge_vec <- .ridge_vec(p, lambda_sigma)
+
+  df_tr <- as.data.frame(X_train); colnames(df_tr) <- safe_names
   df_tr$y__ <- as.integer(round(y_train))
 
-  p          <- ncol(X_train) + 1L
-  na_result  <- list(mu_coef = rep(NA_real_, p), sigma_coef = rep(NA_real_, p),
-                     success = FALSE, msg = "", n_removed = 0L)
+  na_result <- list(mu_coef = rep(NA_real_, p), sigma_coef = rep(NA_real_, p),
+                    success = FALSE, msg = "", n_removed = 0L)
 
   keep <- rep(TRUE, n_tr_orig); n_removed <- 0L; fit <- NULL
 
   for (iter in seq_len(max_iter)) {
-    fit <- .fit_nbi(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, n_cyc)
+    fit <- .fit_nbi(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, n_cyc, ridge_vec)
     if (inherits(fit, "error")) { na_result$msg <- conditionMessage(fit); return(na_result) }
     pred_tr <- tryCatch(
       predictAll(fit, newdata = df_tr[keep, , drop = FALSE],
@@ -367,9 +390,9 @@ train_nbi_coeffs <- function(y_train, X_train,
   }
 
   if (is.null(fit) || inherits(fit, "error")) return(na_result)
-  list(mu_coef = as.numeric(fit$mu.coefficients),
+  list(mu_coef    = as.numeric(fit$mu.coefficients),
        sigma_coef = as.numeric(fit$sigma.coefficients),
-       success = TRUE, msg = "", n_removed = n_removed)
+       success    = TRUE, msg = "", n_removed = n_removed)
 }
 
 # Train ZINBI on full HC data and return coefficient vectors.
@@ -378,28 +401,34 @@ train_zinbi_coeffs <- function(y_train, X_train,
                                 n_cyc = 50,
                                 outlier_z = 5.0, max_iter = 2L,
                                 max_remove_frac = 0.05,
-                                nu_type = "intercept") {
+                                nu_type = "intercept",
+                                lambda_sigma = 0.1) {
   n_tr_orig  <- length(y_train)
   safe_names <- sanitize_names(colnames(X_train))
-  mu_rhs     <- paste(safe_names, collapse = " + ")
-
-  df_tr <- as.data.frame(X_train)
-  colnames(df_tr) <- safe_names
-  df_tr$y__ <- as.integer(round(y_train))
 
   p         <- ncol(X_train) + 1L
+  p_nu      <- if (nu_type == "full") p else 1L
+  mu_fml    <- .mu_fml(safe_names)
+  sigma_fml <- .sigma_fml(safe_names)
+  nu_fml    <- if (nu_type == "full")
+    as.formula(paste("~", paste(safe_names, collapse = " + ")))
+  else
+    as.formula("~ 1")
+  ridge_vec <- if (lambda_sigma > 0)
+    c(rep(0, p + 1L), rep(lambda_sigma, p - 1L), rep(0, p_nu))
+  else NULL
+
+  df_tr <- as.data.frame(X_train); colnames(df_tr) <- safe_names
+  df_tr$y__ <- as.integer(round(y_train))
+
   na_result <- list(mu_coef = rep(NA_real_, p), sigma_coef = rep(NA_real_, p),
                     nu_coef = NA_real_,
                     success = FALSE, msg = "", n_removed = 0L)
 
-  mu_fml    <- as.formula(paste("y__ ~",  mu_rhs))
-  sigma_fml <- as.formula(paste("~",      mu_rhs))
-  nu_fml    <- if (nu_type == "full") as.formula(paste("~", mu_rhs)) else as.formula("~ 1")
-
   keep <- rep(TRUE, n_tr_orig); n_removed <- 0L; fit <- NULL
 
   for (iter in seq_len(max_iter)) {
-    fit <- .fit_zinb(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, nu_fml, n_cyc)
+    fit <- .fit_zinb(df_tr[keep, , drop = FALSE], mu_fml, sigma_fml, nu_fml, n_cyc, ridge_vec)
     if (inherits(fit, "error")) { na_result$msg <- conditionMessage(fit); return(na_result) }
     pred_tr <- tryCatch(
       predictAll(fit, newdata = df_tr[keep, , drop = FALSE],
@@ -443,18 +472,19 @@ train_nbi_coeffs_warm <- function(y_train, X_train,
                                    mu_start, sigma_start,
                                    n_cyc = 50,
                                    outlier_z = 5.0, max_iter = 2L,
-                                   max_remove_frac = 0.10) {
+                                   max_remove_frac = 0.10,
+                                   lambda_sigma = 0.1) {
   n_tr_orig  <- length(y_train)
   safe_names <- sanitize_names(colnames(X_train))
-  mu_rhs     <- paste(safe_names, collapse = " + ")
-  mu_fml     <- as.formula(paste("y__ ~", mu_rhs))
-  sigma_fml  <- as.formula(paste("~",     mu_rhs))
-
-  df_tr <- as.data.frame(X_train)
-  colnames(df_tr) <- safe_names
-  df_tr$y__ <- as.integer(round(y_train))
 
   p         <- ncol(X_train) + 1L
+  mu_fml    <- .mu_fml(safe_names)
+  sigma_fml <- .sigma_fml(safe_names)
+  ridge_vec <- .ridge_vec(p, lambda_sigma)
+
+  df_tr <- as.data.frame(X_train); colnames(df_tr) <- safe_names
+  df_tr$y__ <- as.integer(round(y_train))
+
   na_result <- list(mu_coef = rep(NA_real_, p), sigma_coef = rep(NA_real_, p),
                     success = FALSE, msg = "", n_removed = 0L)
 
@@ -469,6 +499,10 @@ train_nbi_coeffs_warm <- function(y_train, X_train,
     mu_sub    <- mu_s[keep]
     sigma_sub <- sigma_s[keep]
 
+    ctrl <- if (is.null(ridge_vec))
+      gamlss.control(n.cyc = n_cyc, trace = FALSE)
+    else
+      gamlss.control(n.cyc = n_cyc, trace = FALSE, ridgeVec = ridge_vec)
     fit <- tryCatch(
       gamlss(
         formula       = mu_fml,
@@ -477,7 +511,7 @@ train_nbi_coeffs_warm <- function(y_train, X_train,
         data          = df_sub,
         mu.start      = mu_sub,
         sigma.start   = sigma_sub,
-        control       = gamlss.control(n.cyc = n_cyc, trace = FALSE)
+        control       = ctrl
       ),
       error = function(e) e
     )
