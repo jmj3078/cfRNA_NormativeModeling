@@ -608,13 +608,16 @@ class NormativeModelEngine:
             for branch, cnt in df_fail.groupby("branch").size().items():
                 print(f"    {branch}: {cnt}")
 
-    def load(self, directory: str | Path):
+    @classmethod
+    def load(cls, directory: str | Path) -> "NormativeModelEngine":
         directory = Path(directory)
-        with open(directory / "genes.pkl",  "rb") as f: self.genes  = pickle.load(f)
-        with open(directory / "scaler.pkl", "rb") as f: self.scaler = pickle.load(f)
         with open(directory / "config.pkl", "rb") as f: cfg = pickle.load(f)
-        for k, v in cfg.items(): setattr(self, k, v)
-        self.logistic_genes = [g for g, r in self.genes.items() if r.branch == "logistic"]
-        self.count_genes    = [g for g, r in self.genes.items() if r.branch != "logistic"]
-        n_ok = sum(1 for r in self.genes.values() if r.fit_ok)
+        engine = cls(**{k: v for k, v in cfg.items()
+                        if k in cls.__init__.__code__.co_varnames})
+        with open(directory / "genes.pkl",  "rb") as f: engine.genes  = pickle.load(f)
+        with open(directory / "scaler.pkl", "rb") as f: engine.scaler = pickle.load(f)
+        engine.logistic_genes = [g for g, r in engine.genes.items() if r.branch == "logistic"]
+        engine.count_genes    = [g for g, r in engine.genes.items() if r.branch != "logistic"]
+        n_ok = sum(1 for r in engine.genes.values() if r.fit_ok)
         print(f"Engine loaded from {directory}/  ({n_ok} fitted genes)")
+        return engine

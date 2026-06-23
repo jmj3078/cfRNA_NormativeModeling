@@ -8,3 +8,4 @@
 *.npy
 *.csv
 *.log
+*.parquet
