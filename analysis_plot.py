@@ -528,6 +528,169 @@ def plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict, save_p
 # Gene-wise Bias RDA Visualization
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Discrete Covariate Batch-Effect Assessment
+# ---------------------------------------------------------------------------
+
+def check_discrete_covariate_batch_effects(
+    adata,
+    bias_list,
+    covariates,
+    hc_label="Healthy Control",
+    phenotype_col="Phenotype_Processed",
+    min_class_samples=10,
+    n_repeats=20,
+):
+    """
+    HC 샘플에서 bias_list를 feature로 사용해 각 discrete covariate를 분류.
+    Returns (df_auc, df_meta).
+      df_auc : Covariate / Model / AUC / Iteration
+      df_meta: covariate / n_classes / n_samples / classes
+    """
+    obs_hc     = adata.obs[adata.obs[phenotype_col] == hc_label].copy()
+    avail_bias = [b for b in bias_list if b in obs_hc.columns]
+    all_records, meta_records = [], []
+    models = _build_classifiers()
+
+    for covar in covariates:
+        if covar not in obs_hc.columns:
+            print(f"[Skip] {covar}: column not found")
+            continue
+        df_sub = obs_hc.dropna(subset=avail_bias + [covar]).copy()
+        df_sub[covar] = df_sub[covar].astype(str)
+        counts = df_sub[covar].value_counts()
+        keep   = counts[counts >= min_class_samples].index.tolist()
+        if len(keep) < 2:
+            print(f"[Skip] {covar}: < 2 classes with ≥{min_class_samples} samples "
+                  f"({dict(counts.head(5))})")
+            continue
+        df_sub = df_sub[df_sub[covar].isin(keep)]
+        X  = df_sub[avail_bias].values
+        le = LabelEncoder()
+        y  = le.fit_transform(df_sub[covar])
+        n_cls = len(le.classes_)
+        meta_records.append({
+            "covariate": covar, "n_classes": n_cls,
+            "n_samples": len(df_sub),
+            "classes": ", ".join(str(c) for c in le.classes_),
+        })
+        sss = StratifiedShuffleSplit(n_splits=n_repeats, test_size=0.3, random_state=42)
+        for name, model in models.items():
+            for i, (tr, te) in enumerate(sss.split(X, y)):
+                if len(np.unique(y[te])) < 2:
+                    continue
+                try:
+                    model.fit(X[tr], y[tr])
+                    probs = model.predict_proba(X[te])
+                    score = (
+                        roc_auc_score(y[te], probs[:, 1]) if n_cls == 2
+                        else roc_auc_score(y[te], probs, multi_class="ovr", average="macro")
+                    )
+                    all_records.append({"Covariate": covar, "Model": name,
+                                        "AUC": score, "Iteration": i})
+                except Exception:
+                    pass
+        mean_auc = np.mean([r["AUC"] for r in all_records if r["Covariate"] == covar])
+        print(f"  {covar:45s}: n_classes={n_cls:2d}  n={len(df_sub):4d}  mean_AUC={mean_auc:.3f}")
+
+    return pd.DataFrame(all_records), pd.DataFrame(meta_records)
+
+
+def plot_covariate_auc_heatmap(df_auc, df_meta=None, save_path=None):
+    """Mean AUC heatmap (discrete covariates × classifiers)."""
+    label_map = {
+        "instrument": "Sequencer Model",
+        "rna_extraction_kit_short_name": "RNA Extraction Kit",
+        "plasma_tubes_short_name": "Plasma Tube Type",
+        "library_prep_kit_short_name": "Library Prep Kit",
+        "Centrifuge_Protocol": "Centrifuge Protocol",
+        "broad_protocol_category": "Broad Protocol Category",
+        "cdna_library_type": "cDNA Library Type",
+        "dnase": "DNase Treatment",
+        "UMI": "UMI",
+        "librarylayout": "Library Layout",
+        "library_selection": "Library Selection",
+    }
+    pivot = (df_auc.groupby(["Covariate", "Model"])["AUC"]
+             .mean().unstack().fillna(np.nan))
+    pivot.index = [label_map.get(c, c) for c in pivot.index]
+    pivot["_best"] = pivot.max(axis=1)
+    pivot = pivot.sort_values("_best", ascending=False).drop(columns="_best")
+
+    fig, ax = plt.subplots(figsize=(8, max(4, len(pivot) * 0.55 + 2)))
+    sns.heatmap(
+        pivot, annot=True, fmt=".3f",
+        cmap="RdYlGn", vmin=0.5, vmax=1.0, center=0.75,
+        linewidths=0.5, ax=ax,
+        cbar_kws={"label": "Mean AUC (macro-OVR)"},
+    )
+    ax.set_title(
+        "Discrete Covariate Separability via Bias Metrics  (HC only)\n"
+        "AUC > 0.7 indicates meaningful batch signal",
+        fontweight="bold", pad=14,
+    )
+    ax.set_xlabel("Classifier")
+    ax.set_ylabel("")
+    plt.xticks(rotation=0)
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    _save(fig, save_path)
+    plt.show()
+    return pivot
+
+
+def plot_covariate_auc_violins(df_auc, n_cols=4, save_path=None):
+    """Box+strip grid: one subplot per discrete covariate, models on x-axis."""
+    label_map = {
+        "instrument": "Sequencer Model",
+        "rna_extraction_kit_short_name": "RNA Extraction Kit",
+        "plasma_tubes_short_name": "Plasma Tube Type",
+        "library_prep_kit_short_name": "Library Prep Kit",
+        "Centrifuge_Protocol": "Centrifuge Protocol",
+        "broad_protocol_category": "Broad Protocol Category",
+        "cdna_library_type": "cDNA Library Type",
+        "dnase": "DNase Treatment",
+        "UMI": "UMI",
+        "librarylayout": "Library Layout",
+        "library_selection": "Library Selection",
+    }
+    covariates = df_auc["Covariate"].unique()
+    n_rows = math.ceil(len(covariates) / n_cols)
+    my_pal = {"LogReg": "#A8D8EA", "SVM": "#AA96DA", "RF": "#FCBAD3", "GBM": "#FFFFD2"}
+
+    fig, axes = plt.subplots(n_rows, n_cols,
+                             figsize=(4 * n_cols, 4 * n_rows), sharey=True)
+    axes_flat = axes.flatten() if n_rows * n_cols > 1 else [axes]
+
+    for i, covar in enumerate(covariates):
+        ax   = axes_flat[i]
+        sub  = df_auc[df_auc["Covariate"] == covar]
+        sns.boxplot(data=sub, x="Model", y="AUC", hue="Model",
+                    palette=my_pal, ax=ax, showfliers=False, width=0.6, legend=False)
+        sns.stripplot(data=sub, x="Model", y="AUC",
+                      color="black", alpha=0.3, jitter=True, size=3, ax=ax)
+        ax.axhline(0.5, color="gray", linestyle="--", alpha=0.6, linewidth=1)
+        ax.axhline(0.7, color="red",  linestyle=":", linewidth=1.5)
+        ax.set_title(label_map.get(covar, covar), fontweight="bold", fontsize=10)
+        ax.set_ylim(0, 1.1)
+        ax.set_xlabel("")
+        ax.grid(alpha=0.2)
+        if i % n_cols != 0:
+            ax.set_ylabel("")
+
+    for j in range(len(covariates), len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    plt.suptitle(
+        "Discrete Covariates ~ Bias Metrics AUC  (HC only, 20-repeat shuffle CV)\n"
+        "Red dotted line = AUC 0.7 concern threshold",
+        fontsize=13, fontweight="bold",
+    )
+    plt.tight_layout()
+    _save(fig, save_path)
+    plt.show()
+
+
 def plot_gene_wise_bias_summary(df_detail, group_name, save_path=None):
     """Joint R² histogram + contamination severity bar chart for one group."""
     joint_r2 = df_detail["Joint_R2_All_Biases"]
