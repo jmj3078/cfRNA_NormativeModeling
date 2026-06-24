@@ -24,13 +24,6 @@ from scipy.linalg import svd
 
 class GeneSelector:
     def __init__(self, Z_dis: np.ndarray, dis_pheno: np.ndarray, gene_names: list):
-        """
-        Parameters
-        ----------
-        Z_dis       : (n_samples, n_genes) z-score matrix
-        dis_pheno   : (n_samples,) phenotype label array
-        gene_names  : list of gene ID strings (ENSG... or symbol)
-        """
         self.Z_dis   = Z_dis
         self.pheno   = np.array(dis_pheno)
         self.gn      = np.array(gene_names)
@@ -38,13 +31,6 @@ class GeneSelector:
         self._id2sym = None   # ENSG → symbol 매핑 (set_id2sym으로 주입)
 
     def set_id2sym(self, mapping) -> "GeneSelector":
-        """ENSG ID → gene symbol 매핑 등록.
-
-        Parameters
-        ----------
-        mapping : pd.Series (index=ENSG ID, values=symbol)
-                  또는 dict {ensg_id: symbol}
-        """
         if hasattr(mapping, 'to_dict'):
             self._id2sym = mapping.to_dict()
         else:
@@ -52,7 +38,6 @@ class GeneSelector:
         return self
 
     def _to_sym(self, ids: np.ndarray) -> np.ndarray:
-        """ENSG ID 배열 → symbol 배열 (매핑 없으면 원본 반환)."""
         if self._id2sym is None:
             return ids
         return np.array([self._id2sym.get(g, g) for g in ids])
