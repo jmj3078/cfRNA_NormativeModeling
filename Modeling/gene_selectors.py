@@ -154,9 +154,17 @@ class GeneSelector:
 
     # ── ranking (GSEA prerank용) ───────────────────────────────────
 
-    def mean_z_ranking(self, phenotype: str) -> dict:
-        """Returns {symbol: mean_z} for a given phenotype — GSEA prerank input."""
+    def mean_z_ranking(self, phenotype: str, jitter: float = 1e-7,
+                       seed: int = 42) -> dict:
+        """Returns {symbol: mean_z} for a given phenotype — GSEA prerank input.
+
+        jitter: tiny Gaussian noise added to break ties (0.0-filled NaN genes).
+                Default 1e-7 << typical Z-score differences (>0.01).
+        """
         m      = self.pheno == phenotype
         mean_z = self.Z_dis[m].mean(axis=0)
+        if jitter > 0:
+            rng    = np.random.default_rng(seed)
+            mean_z = mean_z + rng.normal(0, jitter, len(mean_z))
         syms   = self._to_sym(self.gn).tolist()
         return dict(zip(syms, mean_z.tolist()))
