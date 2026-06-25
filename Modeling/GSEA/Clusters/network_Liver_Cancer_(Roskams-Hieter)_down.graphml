@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">Protein Insertion Into ER Membrane (GO:0045048)</data>
+      <data key="v_NES">-2.33203372170979</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Oxidative phosphorylation</data>
+      <data key="v_NES">-2.26062733962352</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Quinone Biosynthetic Process (GO:1901663)</data>
+      <data key="v_NES">-2.23593468799938</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">Mitochondrial Electron Transport, Cytochrome C To Oxygen (GO:0006123)</data>
+      <data key="v_NES">-2.22735890032167</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Lysosomal Lumen Acidification (GO:0007042)</data>
+      <data key="v_NES">-2.18138381553963</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">Mitochondrial Respiratory Chain Complex Assembly (GO:0033108)</data>
+      <data key="v_NES">-2.10840147847912</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <edge source="n1" target="n3">
+      <data key="e_weight">0.517045454545455</data>
+    </edge>
+  </graph>
+</graphml>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">Lysosome</data>
+      <data key="v_NES">-2.3681412911043</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Antigen Processing And Presentation Of Exogenous Peptide Antigen (GO:0002478)</data>
+      <data key="v_NES">-2.34916134858139</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Antigen Processing And Presentation Of Peptide Antigen Via MHC Class I (GO:0002474)</data>
+      <data key="v_NES">-2.28769674423132</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">Retrograde Protein Transport, ER To Cytosol (GO:0030970)</data>
+      <data key="v_NES">-2.24022324968651</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Antigen Processing And Presentation Of Endogenous Peptide Antigen (GO:0002483)</data>
+      <data key="v_NES">-2.23910392901659</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">Endoplasmic Reticulum To Cytosol Transport (GO:1903513)</data>
+      <data key="v_NES">-2.21436802884291</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">Negative Regulation Of Natural Killer Cell Mediated Cytotoxicity (GO:0045953)</data>
+      <data key="v_NES">-2.19239119600417</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">Peptide Antigen Assembly With MHC Protein Complex (GO:0002501)</data>
+      <data key="v_NES">-2.18620103873284</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">Negative Regulation Of Natural Killer Cell Mediated Immunity (GO:0002716)</data>
+      <data key="v_NES">-2.12977925560415</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">Regulation Of Lymphocyte Activation (GO:0051249)</data>
+      <data key="v_NES">-2.11071626834986</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">Other glycan degradation</data>
+      <data key="v_NES">-2.09768038589417</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n11">
+      <data key="v_name">Allograft rejection</data>
+      <data key="v_NES">-2.07604699243476</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n12">
+      <data key="v_name">Negative Regulation Of Leukocyte Mediated Cytotoxicity (GO:0001911)</data>
+      <data key="v_NES">-2.07212315119532</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n13">
+      <data key="v_name">Monosaccharide Transmembrane Transport (GO:0015749)</data>
+      <data key="v_NES">-2.05078963066833</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n14">
+      <data key="v_name">Ubiquitin-Dependent ERAD Pathway (GO:0030433)</data>
+      <data key="v_NES">-2.00518821746353</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <edge source="n1" target="n7">
+      <data key="e_weight">0.544444444444444</data>
+    </edge>
+    <edge source="n1" target="n11">
+      <data key="e_weight">0.546428571428571</data>
+    </edge>
+    <edge source="n3" target="n5">
+      <data key="e_weight">0.954545454545455</data>
+    </edge>
+    <edge source="n3" target="n14">
+      <data key="e_weight">0.6158357771261</data>
+    </edge>
+    <edge source="n4" target="n6">
+      <data key="e_weight">0.56547619047619</data>
+    </edge>
+    <edge source="n4" target="n11">
+      <data key="e_weight">0.555882352941176</data>
+    </edge>
+    <edge source="n5" target="n14">
+      <data key="e_weight">0.666666666666667</data>
+    </edge>
+    <edge source="n6" target="n8">
+      <data key="e_weight">0.857142857142857</data>
+    </edge>
+    <edge source="n6" target="n11">
+      <data key="e_weight">0.513392857142857</data>
+    </edge>
+    <edge source="n6" target="n12">
+      <data key="e_weight">0.729166666666667</data>
+    </edge>
+    <edge source="n8" target="n12">
+      <data key="e_weight">0.916666666666667</data>
+    </edge>
+  </graph>
+</graphml>

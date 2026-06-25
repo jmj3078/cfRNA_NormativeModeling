@@ -103,16 +103,3 @@ disease_scoring.ipynb              # GAMLSS 엔진으로 disease/HC scoring
 - **핵심 원칙**: cfRNA=abundance(≠mutation) → KRAS/TP53/APC 같은 변이 driver 부재는 정상. RTK/분비단백 driver는 포착됨.
 
 ---
-
-## 표현형 교정 이력 (CDCS → CAD_HF+ / CAD_HF−)
-
-- **문제**: `Phenotype_Processed='CDCS'`는 질병명이 아니라 **코호트명**(Coronary Disease Cohort Study)이었음
-- **출처**: Ward et al., *Cells* 2022 (DOI 10.3390/cells11203191) — 안정형 CAD 환자를 **3년 내 HF 발병 여부**로 분리한 코호트
-- **조치**: h5ad의 `Stage/Condition`(HF+/HF-)을 판별자로 `CAD_HF+`(116) / `CAD_HF-`(108) 재라벨, 원본 h5ad 덮어쓰기 (백업: `..._CDCS_backup.h5ad`)
-  - ⚠ AnnData categorical dtype: `.astype(str)` 변환 후 `.loc` 할당해야 silent fail 방지
-- **재실행**: disease_scoring 무관(Z는 동일), gene_enrichment GSEA loop 재실행 → `gsea_result_CAD_HF+.csv` / `CAD_HF-.csv` 생성
-- **생물학적 결과**:
-  - CAD_HF+: **FGF/FGFR1 축 6회 반복(+2.82, FGF23·Klotho)** + 심장 섬유화(콜라겐) + 이온채널 리모델링 + 전응고(F2R·THBS1) = HF 진행 서명 (검증 마커, cfRNA 신규)
-  - CAD_HF−: 상향 11개로 빈약 = HF 진행 서명의 자연적 음성 대조군
-  - ⚠ **critical-thinking**: 원본 논문은 plasma RNA-Seq에서 HF+/HF− 차이를 검출 못함(null). 정규화 모델의 차이는 (i)민감도 이득 또는 (ii)배치/조성 인공산물 → **가설 생성적**, 직교 검증 필요
-- 두 보고서 + gene_enrichment THEMES('CAD_HF+'/'CAD_HF-') 모두 이 분리 반영 완료

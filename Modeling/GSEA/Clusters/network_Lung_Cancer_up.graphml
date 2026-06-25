@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">Positive Regulation Of Integrin-Mediated Signaling Pathway (GO:2001046)</data>
+      <data key="v_NES">2.7263787522711</data>
+      <data key="v_cluster">9</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Apoptotic Cleavage Of Cell Adhesion Proteins R-HSA-351906</data>
+      <data key="v_NES">2.70098588278522</data>
+      <data key="v_cluster">10</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Blood Vessel Endothelial Cell Migration (GO:0043534)</data>
+      <data key="v_NES">2.45737805090021</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">Interleukin-7 Signaling R-HSA-1266695</data>
+      <data key="v_NES">2.40642490734863</data>
+      <data key="v_cluster">11</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Positive Regulation Of Cellular Response To Insulin Stimulus (GO:1900078)</data>
+      <data key="v_NES">2.3849292669948</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">GAB1 Signalosome R-HSA-180292</data>
+      <data key="v_NES">2.37564807644946</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">Signaling By Hippo R-HSA-2028269</data>
+      <data key="v_NES">2.37214832778417</data>
+      <data key="v_cluster">12</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">SMAD Protein Signal Transduction (GO:0060395)</data>
+      <data key="v_NES">2.36563125273913</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">Cell Migration Involved In Sprouting Angiogenesis (GO:0002042)</data>
+      <data key="v_NES">2.35354228206104</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">SHC1 Events In ERBB2 Signaling R-HSA-1250196</data>
+      <data key="v_NES">2.31564084528543</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">Molecules Associated With Elastic Fibres R-HSA-2129379</data>
+      <data key="v_NES">2.31324041522927</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n11">
+      <data key="v_name">Positive Regulation Of Glycogen Biosynthetic Process (GO:0045725)</data>
+      <data key="v_NES">2.29008804071376</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n12">
+      <data key="v_name">Insulin Receptor Signaling Pathway (GO:0008286)</data>
+      <data key="v_NES">2.27623966405521</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n13">
+      <data key="v_name">YAP1- And WWTR1 (TAZ)-stimulated Gene Expression R-HSA-2032785</data>
+      <data key="v_NES">2.21501108066804</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n14">
+      <data key="v_name">Positive Regulation Of Vascular Permeability (GO:0043117)</data>
+      <data key="v_NES">2.2130850995338</data>
+      <data key="v_cluster">13</data>
+    </node>
+    <node id="n15">
+      <data key="v_name">3&apos;-UTR-mediated mRNA Stabilization (GO:0070935)</data>
+      <data key="v_NES">2.21216942751214</data>
+      <data key="v_cluster">14</data>
+    </node>
+    <node id="n16">
+      <data key="v_name">RET Signaling R-HSA-8853659</data>
+      <data key="v_NES">2.18878173218634</data>
+      <data key="v_cluster">15</data>
+    </node>
+    <node id="n17">
+      <data key="v_name">Positive Regulation Of Cell-Substrate Junction Organization (GO:0150117)</data>
+      <data key="v_NES">2.18126464134728</data>
+      <data key="v_cluster">8</data>
+    </node>
+    <node id="n18">
+      <data key="v_name">Cellular Response To Glucocorticoid Stimulus (GO:0071385)</data>
+      <data key="v_NES">2.17427838665894</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n19">
+      <data key="v_name">Regulation Of Cellular Ketone Metabolic Process (GO:0010565)</data>
+      <data key="v_NES">2.17407298871962</data>
+      <data key="v_cluster">16</data>
+    </node>
+    <node id="n20">
+      <data key="v_name">Signal Attenuation R-HSA-74749</data>
+      <data key="v_NES">2.16478576253143</data>
+      <data key="v_cluster">17</data>
+    </node>
+    <node id="n21">
+      <data key="v_name">Elastic Fibre Formation R-HSA-1566948</data>
+      <data key="v_NES">2.15405126721359</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n22">
+      <data key="v_name">Epoxygenase P450 Pathway (GO:0019373)</data>
+      <data key="v_NES">2.1480242189112</data>
+      <data key="v_cluster">18</data>
+    </node>
+    <node id="n23">
+      <data key="v_name">Regulation Of Epithelial Cell Differentiation (GO:0030856)</data>
+      <data key="v_NES">2.1456560626248</data>
+      <data key="v_cluster">19</data>
+    </node>
+    <node id="n24">
+      <data key="v_name">Regulation Of Glycogen Biosynthetic Process (GO:0005979)</data>
+      <data key="v_NES">2.13655270105626</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n25">
+      <data key="v_name">Renal cell carcinoma</data>
+      <data key="v_NES">2.12437181918729</data>
+      <data key="v_cluster">20</data>
+    </node>
+    <node id="n26">
+      <data key="v_name">Branching Morphogenesis Of An Epithelial Tube (GO:0048754)</data>
+      <data key="v_NES">2.1209756742611</data>
+      <data key="v_cluster">21</data>
+    </node>
+    <node id="n27">
+      <data key="v_name">Positive Regulation Of Glucose Import (GO:0046326)</data>
+      <data key="v_NES">2.11224572586909</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n28">
+      <data key="v_name">Positive Regulation Of Glycogen Metabolic Process (GO:0070875)</data>
+      <data key="v_NES">2.10547495330267</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n29">
+      <data key="v_name">Epidermal Growth Factor Receptor Signaling Pathway (GO:0007173)</data>
+      <data key="v_NES">2.09028360158969</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n30">
+      <data key="v_name">Positive Regulation Of miRNA Transcription (GO:1902895)</data>
+      <data key="v_NES">2.0814538962121</data>
+      <data key="v_cluster">22</data>
+    </node>
+    <node id="n31">
+      <data key="v_name">Positive Regulation Of Insulin Receptor Signaling Pathway (GO:0046628)</data>
+      <data key="v_NES">2.07951639648386</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n32">
+      <data key="v_name">Positive Regulation Of Morphogenesis Of An Epithelium (GO:1905332)</data>
+      <data key="v_NES">2.07892007211691</data>
+      <data key="v_cluster">23</data>
+    </node>
+    <node id="n33">
+      <data key="v_name">Na+/Cl- Dependent Neurotransmitter Transporters R-HSA-442660</data>
+      <data key="v_NES">2.07772050442647</data>
+      <data key="v_cluster">24</data>
+    </node>
+    <node id="n34">
+      <data key="v_name">Nephrin Family Interactions R-HSA-373753</data>
+      <data key="v_NES">2.06237257082143</data>
+      <data key="v_cluster">25</data>
+    </node>
+    <node id="n35">
+      <data key="v_name">Cardiac Epithelial To Mesenchymal Transition (GO:0060317)</data>
+      <data key="v_NES">2.05426361656763</data>
+      <data key="v_cluster">26</data>
+    </node>
+    <node id="n36">
+      <data key="v_name">Positive Regulation Of Glucose Transmembrane Transport (GO:0010828)</data>
+      <data key="v_NES">2.05135072329016</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n37">
+      <data key="v_name">Transforming Growth Factor Beta Receptor Signaling Pathway (GO:0007179)</data>
+      <data key="v_NES">2.05035379916407</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n38">
+      <data key="v_name">ERBB2 Regulates Cell Motility R-HSA-6785631</data>
+      <data key="v_NES">2.04995624469458</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n39">
+      <data key="v_name">Regulation Of Vasculogenesis (GO:2001212)</data>
+      <data key="v_NES">2.04796947550986</data>
+      <data key="v_cluster">27</data>
+    </node>
+    <node id="n40">
+      <data key="v_name">Hippo Signaling (GO:0035329)</data>
+      <data key="v_NES">2.03730399730586</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n41">
+      <data key="v_name">Signaling By ERBB2 In Cancer R-HSA-1227990</data>
+      <data key="v_NES">2.02934242830511</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n42">
+      <data key="v_name">Aldosterone-regulated sodium reabsorption</data>
+      <data key="v_NES">2.02831874033567</data>
+      <data key="v_cluster">28</data>
+    </node>
+    <node id="n43">
+      <data key="v_name">Signaling By ERBB2 R-HSA-1227986</data>
+      <data key="v_NES">2.02686196621234</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n44">
+      <data key="v_name">Cellular Response To Corticosteroid Stimulus (GO:0071384)</data>
+      <data key="v_NES">2.01025967781658</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n45">
+      <data key="v_name">Regulation Of Focal Adhesion Assembly (GO:0051893)</data>
+      <data key="v_NES">2.00831751240944</data>
+      <data key="v_cluster">8</data>
+    </node>
+    <node id="n46">
+      <data key="v_name">Signaling By EGFR R-HSA-177929</data>
+      <data key="v_NES">1.99721744229135</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n47">
+      <data key="v_name">Disorders Of Developmental Biology R-HSA-9675151</data>
+      <data key="v_NES">1.99496943869074</data>
+      <data key="v_cluster">29</data>
+    </node>
+    <node id="n48">
+      <data key="v_name">GRB2 Events In ERBB2 Signaling R-HSA-1963640</data>
+      <data key="v_NES">1.98468114014614</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n49">
+      <data key="v_name">Pulmonary Valve Morphogenesis (GO:0003184)</data>
+      <data key="v_NES">1.9771076967339</data>
+      <data key="v_cluster">30</data>
+    </node>
+    <node id="n50">
+      <data key="v_name">Membrane Depolarization During Action Potential (GO:0086010)</data>
+      <data key="v_NES">1.97484919543869</data>
+      <data key="v_cluster">31</data>
+    </node>
+    <node id="n51">
+      <data key="v_name">Negative Regulation Of Vascular Permeability (GO:0043116)</data>
+      <data key="v_NES">1.97389216726535</data>
+      <data key="v_cluster">32</data>
+    </node>
+    <node id="n52">
+      <data key="v_name">GnRH secretion</data>
+      <data key="v_NES">1.9692635671407</data>
+      <data key="v_cluster">33</data>
+    </node>
+    <node id="n53">
+      <data key="v_name">Protein Localization To Cell Junction (GO:1902414)</data>
+      <data key="v_NES">1.94770233529127</data>
+      <data key="v_cluster">34</data>
+    </node>
+    <edge source="n2" target="n8">
+      <data key="e_weight">0.823529411764706</data>
+    </edge>
+    <edge source="n4" target="n31">
+      <data key="e_weight">0.916666666666667</data>
+    </edge>
+    <edge source="n5" target="n29">
+      <data key="e_weight">0.563725490196078</data>
+    </edge>
+    <edge source="n5" target="n46">
+      <data key="e_weight">0.676470588235294</data>
+    </edge>
+    <edge source="n7" target="n37">
+      <data key="e_weight">0.573099415204678</data>
+    </edge>
+    <edge source="n9" target="n41">
+      <data key="e_weight">0.625</data>
+    </edge>
+    <edge source="n9" target="n43">
+      <data key="e_weight">0.544444444444444</data>
+    </edge>
+    <edge source="n9" target="n48">
+      <data key="e_weight">0.755681818181818</data>
+    </edge>
+    <edge source="n10" target="n21">
+      <data key="e_weight">0.9375</data>
+    </edge>
+    <edge source="n11" target="n12">
+      <data key="e_weight">0.666666666666667</data>
+    </edge>
+    <edge source="n11" target="n24">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n11" target="n27">
+      <data key="e_weight">0.622222222222222</data>
+    </edge>
+    <edge source="n11" target="n28">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n11" target="n31">
+      <data key="e_weight">0.514285714285714</data>
+    </edge>
+    <edge source="n11" target="n36">
+      <data key="e_weight">0.542857142857143</data>
+    </edge>
+    <edge source="n12" target="n24">
+      <data key="e_weight">0.666666666666667</data>
+    </edge>
+    <edge source="n12" target="n28">
+      <data key="e_weight">0.666666666666667</data>
+    </edge>
+    <edge source="n13" target="n40">
+      <data key="e_weight">0.520833333333333</data>
+    </edge>
+    <edge source="n17" target="n45">
+      <data key="e_weight">0.604166666666667</data>
+    </edge>
+    <edge source="n18" target="n44">
+      <data key="e_weight">0.761904761904762</data>
+    </edge>
+    <edge source="n24" target="n27">
+      <data key="e_weight">0.622222222222222</data>
+    </edge>
+    <edge source="n24" target="n28">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n24" target="n31">
+      <data key="e_weight">0.514285714285714</data>
+    </edge>
+    <edge source="n24" target="n36">
+      <data key="e_weight">0.542857142857143</data>
+    </edge>
+    <edge source="n27" target="n28">
+      <data key="e_weight">0.622222222222222</data>
+    </edge>
+    <edge source="n27" target="n36">
+      <data key="e_weight">0.807692307692308</data>
+    </edge>
+    <edge source="n28" target="n31">
+      <data key="e_weight">0.514285714285714</data>
+    </edge>
+    <edge source="n28" target="n36">
+      <data key="e_weight">0.542857142857143</data>
+    </edge>
+    <edge source="n38" target="n48">
+      <data key="e_weight">0.607142857142857</data>
+    </edge>
+    <edge source="n41" target="n43">
+      <data key="e_weight">0.65625</data>
+    </edge>
+    <edge source="n41" target="n46">
+      <data key="e_weight">0.631944444444444</data>
+    </edge>
+    <edge source="n41" target="n48">
+      <data key="e_weight">0.539772727272727</data>
+    </edge>
+  </graph>
+</graphml>

@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">FGFR1 Ligand Binding And Activation R-HSA-190242</data>
+      <data key="v_NES">2.81737716904174</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Semaphorin-Plexin Signaling Pathway Involved In Neuron Projection Guidance (GO:1902285)</data>
+      <data key="v_NES">2.59836690505326</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Calcium Ion Import Across Plasma Membrane (GO:0098703)</data>
+      <data key="v_NES">2.57433272156854</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">G Protein-Coupled Receptor Signaling Pathway, Coupled To Cyclic Nucleotide Second Messenger (GO:0007187)</data>
+      <data key="v_NES">2.49715655991645</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Collagen Chain Trimerization R-HSA-8948216</data>
+      <data key="v_NES">2.45012704639018</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">Calcium-Dependent Cell-Cell Adhesion Via Plasma Membrane Cell Adhesion Molecules (GO:0016339)</data>
+      <data key="v_NES">2.42136107944935</data>
+      <data key="v_cluster">8</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">Receptor-type Tyrosine-Protein Phosphatases R-HSA-388844</data>
+      <data key="v_NES">2.40587743452336</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">Phospholipase C-mediated Cascade: FGFR1 R-HSA-5654219</data>
+      <data key="v_NES">2.39820145513003</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">Positive Regulation Of Potassium Ion Transmembrane Transporter Activity (GO:1901018)</data>
+      <data key="v_NES">2.34536240540404</data>
+      <data key="v_cluster">9</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">Nicotine addiction</data>
+      <data key="v_NES">2.32410792442029</data>
+      <data key="v_cluster">10</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">Sodium Ion Transmembrane Transport (GO:0035725)</data>
+      <data key="v_NES">2.29689948365464</data>
+      <data key="v_cluster">11</data>
+    </node>
+    <node id="n11">
+      <data key="v_name">Interaction Between L1 And Ankyrins R-HSA-445095</data>
+      <data key="v_NES">2.27243872964144</data>
+      <data key="v_cluster">12</data>
+    </node>
+    <node id="n12">
+      <data key="v_name">Positive Regulation Of Blood Coagulation (GO:0030194)</data>
+      <data key="v_NES">2.26402149012852</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n13">
+      <data key="v_name">FGFRL1 Modulation Of FGFR1 Signaling R-HSA-5658623</data>
+      <data key="v_NES">2.2635040939731</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n14">
+      <data key="v_name">Phospholipase C-activating G Protein-Coupled Receptor Signaling Pathway (GO:0007200)</data>
+      <data key="v_NES">2.24307154474599</data>
+      <data key="v_cluster">13</data>
+    </node>
+    <node id="n15">
+      <data key="v_name">Neuron Cell-Cell Adhesion (GO:0007158)</data>
+      <data key="v_NES">2.20710232666489</data>
+      <data key="v_cluster">14</data>
+    </node>
+    <node id="n16">
+      <data key="v_name">Regulation Of Coagulation (GO:0050818)</data>
+      <data key="v_NES">2.14908651232491</data>
+      <data key="v_cluster">15</data>
+    </node>
+    <node id="n17">
+      <data key="v_name">Regulation Of Fibrinolysis (GO:0051917)</data>
+      <data key="v_NES">2.14392104416002</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n18">
+      <data key="v_name">Import Into Cell (GO:0098657)</data>
+      <data key="v_NES">2.14284721740162</data>
+      <data key="v_cluster">16</data>
+    </node>
+    <node id="n19">
+      <data key="v_name">Sphingoid Metabolic Process (GO:0046519)</data>
+      <data key="v_NES">2.14085750195862</data>
+      <data key="v_cluster">17</data>
+    </node>
+    <node id="n20">
+      <data key="v_name">Quaternary Ammonium Group Transport (GO:0015697)</data>
+      <data key="v_NES">2.13856929057664</data>
+      <data key="v_cluster">18</data>
+    </node>
+    <node id="n21">
+      <data key="v_name">FGFR1c Ligand Binding And Activation R-HSA-190373</data>
+      <data key="v_NES">2.11235359701368</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n22">
+      <data key="v_name">Glycosaminoglycan Metabolic Process (GO:0030203)</data>
+      <data key="v_NES">2.09887111247868</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n23">
+      <data key="v_name">Activated Point Mutants Of FGFR2 R-HSA-2033519</data>
+      <data key="v_NES">2.08566539807413</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n24">
+      <data key="v_name">Positive Regulation Of Axonogenesis (GO:0050772)</data>
+      <data key="v_NES">2.0744675957956</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n25">
+      <data key="v_name">LGI-ADAM Interactions R-HSA-5682910</data>
+      <data key="v_NES">2.05810332249312</data>
+      <data key="v_cluster">19</data>
+    </node>
+    <node id="n26">
+      <data key="v_name">Aminoglycan Biosynthetic Process (GO:0006023)</data>
+      <data key="v_NES">2.03352824146879</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n27">
+      <data key="v_name">Signaling By Activated Point Mutants Of FGFR1 R-HSA-1839122</data>
+      <data key="v_NES">2.0201732541266</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n28">
+      <data key="v_name">Positive Regulation Of Hemostasis (GO:1900048)</data>
+      <data key="v_NES">1.98578186692473</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n29">
+      <data key="v_name">Positive Regulation Of Coagulation (GO:0050820)</data>
+      <data key="v_NES">1.98578186692473</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n30">
+      <data key="v_name">Non-integrin membrane-ECM Interactions R-HSA-3000171</data>
+      <data key="v_NES">1.98308345699246</data>
+      <data key="v_cluster">20</data>
+    </node>
+    <node id="n31">
+      <data key="v_name">Synaptic Membrane Adhesion (GO:0099560)</data>
+      <data key="v_NES">1.98289958565343</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n32">
+      <data key="v_name">Regulation Of Dopamine Secretion (GO:0014059)</data>
+      <data key="v_NES">1.9704272830848</data>
+      <data key="v_cluster">21</data>
+    </node>
+    <node id="n33">
+      <data key="v_name">Detection Of Visible Light (GO:0009584)</data>
+      <data key="v_NES">1.96449432311647</data>
+      <data key="v_cluster">22</data>
+    </node>
+    <node id="n34">
+      <data key="v_name">Acetylcholine Binding And Downstream Events R-HSA-181431</data>
+      <data key="v_NES">1.95714767845178</data>
+      <data key="v_cluster">23</data>
+    </node>
+    <node id="n35">
+      <data key="v_name">Sarcoplasmic Reticulum Calcium Ion Transport (GO:0070296)</data>
+      <data key="v_NES">1.95067433829289</data>
+      <data key="v_cluster">24</data>
+    </node>
+    <edge source="n0" target="n7">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n0" target="n13">
+      <data key="e_weight">0.607142857142857</data>
+    </edge>
+    <edge source="n0" target="n21">
+      <data key="e_weight">0.75</data>
+    </edge>
+    <edge source="n0" target="n23">
+      <data key="e_weight">0.761904761904762</data>
+    </edge>
+    <edge source="n0" target="n27">
+      <data key="e_weight">0.75</data>
+    </edge>
+    <edge source="n1" target="n24">
+      <data key="e_weight">0.6875</data>
+    </edge>
+    <edge source="n6" target="n31">
+      <data key="e_weight">0.730769230769231</data>
+    </edge>
+    <edge source="n7" target="n13">
+      <data key="e_weight">0.607142857142857</data>
+    </edge>
+    <edge source="n7" target="n21">
+      <data key="e_weight">0.75</data>
+    </edge>
+    <edge source="n7" target="n23">
+      <data key="e_weight">0.761904761904762</data>
+    </edge>
+    <edge source="n7" target="n27">
+      <data key="e_weight">0.75</data>
+    </edge>
+    <edge source="n12" target="n17">
+      <data key="e_weight">0.833333333333333</data>
+    </edge>
+    <edge source="n12" target="n28">
+      <data key="e_weight">0.75</data>
+    </edge>
+    <edge source="n12" target="n29">
+      <data key="e_weight">0.75</data>
+    </edge>
+    <edge source="n13" target="n23">
+      <data key="e_weight">0.803571428571429</data>
+    </edge>
+    <edge source="n21" target="n23">
+      <data key="e_weight">0.5625</data>
+    </edge>
+    <edge source="n21" target="n27">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n22" target="n26">
+      <data key="e_weight">0.7875</data>
+    </edge>
+    <edge source="n23" target="n27">
+      <data key="e_weight">0.5625</data>
+    </edge>
+    <edge source="n28" target="n29">
+      <data key="e_weight">1</data>
+    </edge>
+  </graph>
+</graphml>

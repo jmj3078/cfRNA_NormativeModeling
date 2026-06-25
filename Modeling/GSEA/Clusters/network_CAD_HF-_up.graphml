@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">Regulation Of Sensory Perception (GO:0051931)</data>
+      <data key="v_NES">2.52067014375018</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Regulation Of Sensory Perception Of Pain (GO:0051930)</data>
+      <data key="v_NES">2.50514500103828</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Beta Defensins R-HSA-1461957</data>
+      <data key="v_NES">2.50460518683079</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">Defective GALNT12 Causes CRCS1 R-HSA-5083636</data>
+      <data key="v_NES">2.48547654013427</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Defective GALNT3 Causes HFTC R-HSA-5083625</data>
+      <data key="v_NES">2.42531510931853</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">Nucleotide-like (Purinergic) Receptors R-HSA-418038</data>
+      <data key="v_NES">2.30338807523575</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">GAG Synthesis Requires Tetrasaccharide Linker Sequence R-HSA-1971475</data>
+      <data key="v_NES">2.21757361024313</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">Defective C1GALT1C1 Causes TNPS R-HSA-5083632</data>
+      <data key="v_NES">2.19731576855747</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">Negative Regulation Of Fibrinolysis (GO:0051918)</data>
+      <data key="v_NES">2.16234226713957</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">Glycosaminoglycan Metabolic Process (GO:0030203)</data>
+      <data key="v_NES">2.11820098352182</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">Regulation Of Coagulation (GO:0050818)</data>
+      <data key="v_NES">2.0551030441401</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <edge source="n0" target="n1">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n3" target="n4">
+      <data key="e_weight">0.928571428571429</data>
+    </edge>
+    <edge source="n3" target="n7">
+      <data key="e_weight">1</data>
+    </edge>
+    <edge source="n4" target="n7">
+      <data key="e_weight">0.928571428571429</data>
+    </edge>
+  </graph>
+</graphml>

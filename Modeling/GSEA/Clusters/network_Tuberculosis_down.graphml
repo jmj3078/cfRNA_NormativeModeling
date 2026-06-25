@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">RNA Splicing, Via Transesterification Reactions With Bulged Adenosine As Nucleophile (GO:0000377)</data>
+      <data key="v_NES">-2.33337280424629</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">mRNA Processing (GO:0006397)</data>
+      <data key="v_NES">-2.28940298676448</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">mRNA Splicing, Via Spliceosome (GO:0000398)</data>
+      <data key="v_NES">-2.28813787958538</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">Spliceosome</data>
+      <data key="v_NES">-2.16213246614291</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">RNA Splicing (GO:0008380)</data>
+      <data key="v_NES">-2.12516835685925</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">Maturation Of SSU-rRNA (GO:0030490)</data>
+      <data key="v_NES">-2.10673562110078</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">B Cell Proliferation (GO:0042100)</data>
+      <data key="v_NES">-2.08936654771738</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <edge source="n0" target="n1">
+      <data key="e_weight">0.951219512195122</data>
+    </edge>
+    <edge source="n0" target="n2">
+      <data key="e_weight">0.951219512195122</data>
+    </edge>
+    <edge source="n0" target="n3">
+      <data key="e_weight">0.537955283086909</data>
+    </edge>
+    <edge source="n1" target="n2">
+      <data key="e_weight">0.878665387777473</data>
+    </edge>
+    <edge source="n1" target="n3">
+      <data key="e_weight">0.552457627118644</data>
+    </edge>
+    <edge source="n2" target="n3">
+      <data key="e_weight">0.521684945164506</data>
+    </edge>
+  </graph>
+</graphml>

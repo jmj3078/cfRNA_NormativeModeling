@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">RHOB GTPase Cycle R-HSA-9013026</data>
+      <data key="v_NES">2.40673454365208</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Regulation Of Cell-Substrate Junction Assembly (GO:0090109)</data>
+      <data key="v_NES">2.27280557497251</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Regulation Of Focal Adhesion Assembly (GO:0051893)</data>
+      <data key="v_NES">2.24480156864368</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">RHOC GTPase Cycle R-HSA-9013106</data>
+      <data key="v_NES">2.17882603445475</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Regulation Of Cell-Matrix Adhesion (GO:0001952)</data>
+      <data key="v_NES">2.14691082094786</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">p130Cas Linkage To MAPK Signaling For Integrins R-HSA-372708</data>
+      <data key="v_NES">2.13594202895593</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">RHOQ GTPase Cycle R-HSA-9013406</data>
+      <data key="v_NES">2.10414534137213</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">RHOA GTPase Cycle R-HSA-8980692</data>
+      <data key="v_NES">2.09645730429485</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">CDC42 GTPase Cycle R-HSA-9013148</data>
+      <data key="v_NES">2.08869020411098</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">Actin Filament-Based Transport (GO:0099515)</data>
+      <data key="v_NES">2.06723158322341</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">Regulation Of Vascular Endothelial Growth Factor Signaling Pathway (GO:1900746)</data>
+      <data key="v_NES">2.0652688903679</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n11">
+      <data key="v_name">Protein Localization To Cell Junction (GO:1902414)</data>
+      <data key="v_NES">2.04739662105634</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n12">
+      <data key="v_name">Regulation Of RUNX1 Expression And Activity R-HSA-8934593</data>
+      <data key="v_NES">2.03431606035791</data>
+      <data key="v_cluster">8</data>
+    </node>
+    <node id="n13">
+      <data key="v_name">RAC1 GTPase Cycle R-HSA-9013149</data>
+      <data key="v_NES">2.02256931191227</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n14">
+      <data key="v_name">Regulation Of Small GTPase Mediated Signal Transduction (GO:0051056)</data>
+      <data key="v_NES">2.01789479090991</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n15">
+      <data key="v_name">Negative Regulation Of Blood Coagulation (GO:0030195)</data>
+      <data key="v_NES">2.00356139016451</data>
+      <data key="v_cluster">9</data>
+    </node>
+    <node id="n16">
+      <data key="v_name">Substrate Adhesion-Dependent Cell Spreading (GO:0034446)</data>
+      <data key="v_NES">1.99114177737317</data>
+      <data key="v_cluster">10</data>
+    </node>
+    <edge source="n0" target="n3">
+      <data key="e_weight">0.842215256008359</data>
+    </edge>
+    <edge source="n0" target="n7">
+      <data key="e_weight">0.806122448979592</data>
+    </edge>
+    <edge source="n1" target="n2">
+      <data key="e_weight">0.703125</data>
+    </edge>
+    <edge source="n1" target="n4">
+      <data key="e_weight">0.668435013262599</data>
+    </edge>
+    <edge source="n3" target="n7">
+      <data key="e_weight">0.762758620689655</data>
+    </edge>
+    <edge source="n7" target="n13">
+      <data key="e_weight">0.522993197278912</data>
+    </edge>
+    <edge source="n7" target="n14">
+      <data key="e_weight">0.555241935483871</data>
+    </edge>
+    <edge source="n8" target="n13">
+      <data key="e_weight">0.657475490196078</data>
+    </edge>
+  </graph>
+</graphml>

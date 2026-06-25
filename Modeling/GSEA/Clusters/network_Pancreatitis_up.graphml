@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">Hippo Signaling (GO:0035329)</data>
+      <data key="v_NES">2.42283557118799</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Positive Regulation Of Transcription By RNA Polymerase III (GO:0045945)</data>
+      <data key="v_NES">2.24864202019305</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Positive Regulation Of Peptidyl-Lysine Acetylation (GO:2000758)</data>
+      <data key="v_NES">2.24221144955075</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">RHOC GTPase Cycle R-HSA-9013106</data>
+      <data key="v_NES">2.19782168864187</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Camera-Type Eye Development (GO:0043010)</data>
+      <data key="v_NES">2.1969788701887</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">Positive Regulation Of Focal Adhesion Assembly (GO:0051894)</data>
+      <data key="v_NES">2.19553878711078</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">Positive Regulation Of Cell-Substrate Junction Organization (GO:0150117)</data>
+      <data key="v_NES">2.19459113240846</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">RHOB GTPase Cycle R-HSA-9013026</data>
+      <data key="v_NES">2.15382751433929</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">Signaling By Hippo R-HSA-2028269</data>
+      <data key="v_NES">2.14445852516027</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">EGR2 And SOX10-mediated Initiation Of Schwann Cell Myelination R-HSA-9619665</data>
+      <data key="v_NES">2.12546108821498</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">RUNX3 Regulates NOTCH Signaling R-HSA-8941856</data>
+      <data key="v_NES">2.11649760525835</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n11">
+      <data key="v_name">Positive Regulation Of Histone Acetylation (GO:0035066)</data>
+      <data key="v_NES">2.09689401537681</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n12">
+      <data key="v_name">ECM-receptor interaction</data>
+      <data key="v_NES">2.08233290461783</data>
+      <data key="v_cluster">8</data>
+    </node>
+    <node id="n13">
+      <data key="v_name">Blood Vessel Endothelial Cell Migration (GO:0043534)</data>
+      <data key="v_NES">2.06403765748264</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n14">
+      <data key="v_name">NOTCH4 Intracellular Domain Regulates Transcription R-HSA-9013695</data>
+      <data key="v_NES">2.02419386642363</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n15">
+      <data key="v_name">Positive Regulation Of Cell-Matrix Adhesion (GO:0001954)</data>
+      <data key="v_NES">2.01444804192592</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n16">
+      <data key="v_name">Embryonic Axis Specification (GO:0000578)</data>
+      <data key="v_NES">1.98246326677577</data>
+      <data key="v_cluster">9</data>
+    </node>
+    <node id="n17">
+      <data key="v_name">Cellular Response To Glucocorticoid Stimulus (GO:0071385)</data>
+      <data key="v_NES">1.98141296479867</data>
+      <data key="v_cluster">10</data>
+    </node>
+    <node id="n18">
+      <data key="v_name">Negative Regulation Of Protein Depolymerization (GO:1901880)</data>
+      <data key="v_NES">1.98125922836841</data>
+      <data key="v_cluster">11</data>
+    </node>
+    <node id="n19">
+      <data key="v_name">Positive Regulation Of Glucose Transmembrane Transport (GO:0010828)</data>
+      <data key="v_NES">1.98048290307733</data>
+      <data key="v_cluster">12</data>
+    </node>
+    <node id="n20">
+      <data key="v_name">Heme Signaling R-HSA-9707616</data>
+      <data key="v_NES">1.97555952796229</data>
+      <data key="v_cluster">13</data>
+    </node>
+    <node id="n21">
+      <data key="v_name">Hematopoietic Stem Cell Proliferation (GO:0071425)</data>
+      <data key="v_NES">1.97448857406382</data>
+      <data key="v_cluster">14</data>
+    </node>
+    <node id="n22">
+      <data key="v_name">Bone Morphogenesis (GO:0060349)</data>
+      <data key="v_NES">1.96625510838846</data>
+      <data key="v_cluster">15</data>
+    </node>
+    <node id="n23">
+      <data key="v_name">VEGFR2 Mediated Vascular Permeability R-HSA-5218920</data>
+      <data key="v_NES">1.96522498104616</data>
+      <data key="v_cluster">16</data>
+    </node>
+    <node id="n24">
+      <data key="v_name">Pre-NOTCH Transcription And Translation R-HSA-1912408</data>
+      <data key="v_NES">1.96348147068938</data>
+      <data key="v_cluster">17</data>
+    </node>
+    <node id="n25">
+      <data key="v_name">Chondrocyte Differentiation (GO:0002062)</data>
+      <data key="v_NES">1.96234255675376</data>
+      <data key="v_cluster">18</data>
+    </node>
+    <node id="n26">
+      <data key="v_name">Cell Migration Involved In Sprouting Angiogenesis (GO:0002042)</data>
+      <data key="v_NES">1.95774989783109</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <edge source="n0" target="n8">
+      <data key="e_weight">0.625</data>
+    </edge>
+    <edge source="n1" target="n2">
+      <data key="e_weight">0.539772727272727</data>
+    </edge>
+    <edge source="n1" target="n11">
+      <data key="e_weight">0.694444444444444</data>
+    </edge>
+    <edge source="n2" target="n11">
+      <data key="e_weight">0.875</data>
+    </edge>
+    <edge source="n3" target="n7">
+      <data key="e_weight">0.752895752895753</data>
+    </edge>
+    <edge source="n5" target="n6">
+      <data key="e_weight">0.833333333333333</data>
+    </edge>
+    <edge source="n5" target="n15">
+      <data key="e_weight">0.833333333333333</data>
+    </edge>
+    <edge source="n6" target="n15">
+      <data key="e_weight">0.583333333333333</data>
+    </edge>
+    <edge source="n10" target="n14">
+      <data key="e_weight">0.622222222222222</data>
+    </edge>
+    <edge source="n13" target="n26">
+      <data key="e_weight">0.866666666666667</data>
+    </edge>
+  </graph>
+</graphml>

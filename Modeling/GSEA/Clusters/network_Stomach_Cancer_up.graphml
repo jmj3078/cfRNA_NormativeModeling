@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<!-- Created by igraph -->
+  <key id="v_name" for="node" attr.name="name" attr.type="string"/>
+  <key id="v_NES" for="node" attr.name="NES" attr.type="double"/>
+  <key id="v_cluster" for="node" attr.name="cluster" attr.type="double"/>
+  <key id="e_weight" for="edge" attr.name="weight" attr.type="double"/>
+  <graph id="G" edgedefault="undirected">
+    <node id="n0">
+      <data key="v_name">Cell-Cell Junction Organization (GO:0045216)</data>
+      <data key="v_NES">2.64294118382447</data>
+      <data key="v_cluster">2</data>
+    </node>
+    <node id="n1">
+      <data key="v_name">Positive Regulation Of Integrin-Mediated Signaling Pathway (GO:2001046)</data>
+      <data key="v_NES">2.47657798700922</data>
+      <data key="v_cluster">3</data>
+    </node>
+    <node id="n2">
+      <data key="v_name">Extracellular Matrix Assembly (GO:0085029)</data>
+      <data key="v_NES">2.32751899536371</data>
+      <data key="v_cluster">4</data>
+    </node>
+    <node id="n3">
+      <data key="v_name">Regulation Of Branching Involved In Ureteric Bud Morphogenesis (GO:0090189)</data>
+      <data key="v_NES">2.31734251057361</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n4">
+      <data key="v_name">Aortic Valve Morphogenesis (GO:0003180)</data>
+      <data key="v_NES">2.31245168328202</data>
+      <data key="v_cluster">5</data>
+    </node>
+    <node id="n5">
+      <data key="v_name">RET Signaling R-HSA-8853659</data>
+      <data key="v_NES">2.29785088155866</data>
+      <data key="v_cluster">6</data>
+    </node>
+    <node id="n6">
+      <data key="v_name">Regulation Of Monoatomic Ion Transport (GO:0043269)</data>
+      <data key="v_NES">2.28087721963436</data>
+      <data key="v_cluster">7</data>
+    </node>
+    <node id="n7">
+      <data key="v_name">Mammary Gland Development (GO:0030879)</data>
+      <data key="v_NES">2.19978761625449</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n8">
+      <data key="v_name">Positive Regulation Of Morphogenesis Of An Epithelium (GO:1905332)</data>
+      <data key="v_NES">2.1986221170826</data>
+      <data key="v_cluster">0</data>
+    </node>
+    <node id="n9">
+      <data key="v_name">Body Fluid Secretion (GO:0007589)</data>
+      <data key="v_NES">2.16660335038066</data>
+      <data key="v_cluster">1</data>
+    </node>
+    <node id="n10">
+      <data key="v_name">Cell-extracellular Matrix Interactions R-HSA-446353</data>
+      <data key="v_NES">2.16178623722289</data>
+      <data key="v_cluster">8</data>
+    </node>
+    <node id="n11">
+      <data key="v_name">Positive Regulation Of Vascular Permeability (GO:0043117)</data>
+      <data key="v_NES">2.1202498028807</data>
+      <data key="v_cluster">9</data>
+    </node>
+    <node id="n12">
+      <data key="v_name">Positive Regulation Of Cellular Response To Insulin Stimulus (GO:1900078)</data>
+      <data key="v_NES">2.11617432426776</data>
+      <data key="v_cluster">10</data>
+    </node>
+    <edge source="n3" target="n8">
+      <data key="e_weight">0.6</data>
+    </edge>
+    <edge source="n7" target="n9">
+      <data key="e_weight">0.5625</data>
+    </edge>
+  </graph>
+</graphml>
