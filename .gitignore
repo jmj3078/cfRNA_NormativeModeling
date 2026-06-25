@@ -9,5 +9,5 @@
 *.csv
 *.log
 *.parquet
-CLAUDE.md
+/CLAUDE.md
 .claude
