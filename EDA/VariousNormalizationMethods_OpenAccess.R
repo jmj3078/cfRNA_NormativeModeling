@@ -1,4 +1,3 @@
-# 1. 라이브러리 로드
 library(RUVSeq)
 library(EDASeq)
 library(edgeR)
@@ -8,12 +7,14 @@ library(limma)
 library(readxl)
 library(tibble)
 # -----------------------------------------------------------------------------
-# STEP 1: 데이터 로딩 및 병합
+# STEP 1: Data Loading / Integration
 # -----------------------------------------------------------------------------
-meta     <- read_excel("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Meta/Meta_Processed.xlsx") %>% column_to_rownames(var = colnames(.)[1])
-annot    <- read.table("/project/cfRNA_Disentaglement/Data/GECODEv49_Annot.tsv", header=TRUE, row.names=1, sep='\t')
-palangodb <- read.table("/project/cfRNA_Disentaglement/Data/PalangoDB_CellTypeMarkers.tsv", header=TRUE, sep='\t')
-counts <- read.table("/project/cfRNA_Disentaglement/OpenAccess_nfcore/Merged_filtered_salmon_quant_gene.tsv", header=TRUE, row.names=1, sep='\t')
+PROJECT_ROOT <- "/project/cfRNA_NormativeModeling"
+
+meta     <- read_excel(file.path(PROJECT_ROOT, "OpenAccess_nfcore/Meta/Meta_Processed.xlsx")) %>% column_to_rownames(var = colnames(.)[1])
+annot    <- read.table(file.path(PROJECT_ROOT, "Data/GECODEv49_Annot.tsv"), header=TRUE, row.names=1, sep='\t')
+palangodb <- read.table(file.path(PROJECT_ROOT, "Data/PalangoDB_CellTypeMarkers.tsv"), header=TRUE, sep='\t')
+counts <- read.table(file.path(PROJECT_ROOT, "OpenAccess_nfcore/Merged_filtered_salmon_quant_gene.tsv"), header=TRUE, row.names=1, sep='\t')
 counts[is.na(counts)] <- 0
 lib_sizes <- colSums(counts)
 zero_samples <- names(lib_sizes[lib_sizes == 0])
@@ -23,17 +24,16 @@ if (length(zero_samples) > 0) {
   print(zero_samples)
   counts <- counts[, lib_sizes > 0]
   meta <- meta[colnames(counts), ]
-  cat("제거 완료. 남은 샘플 수:", ncol(counts), "\n")
+  cat("Removed, Remained samples:", ncol(counts), "\n")
 } else {
-  cat("모든 샘플의 Library Size가 정상(>0)입니다.\n")
+  cat("All sample's Library Size is bigger than zero. \n")
 }
 
 print(dim(counts))
 print(dim(meta))
 # -----------------------------------------------------------------------------
-# STEP 2: 전처리 (Metadata & Gene Filtering)
+# STEP 2: Metadata & Gene Filtering
 # -----------------------------------------------------------------------------
-# 2.2 샘플 동기화
 common_samples <- intersect(colnames(counts), rownames(meta))
 counts_common <- counts[, common_samples]
 meta_common   <- meta[common_samples, ]
@@ -41,27 +41,27 @@ dim(counts_common)
 dim(meta_common)
 stopifnot(all(colnames(counts_common) == rownames(meta_common)))
 
-# 2.3 Protein Coding 유전자 필터링
+# 2.3 Protein Coding 
 pc_genes  <- rownames(annot)[annot$GeneType == "protein_coding"]
 counts_pc <- counts_common[rownames(counts_common) %in% pc_genes, ]
-annot_pc  <- annot[rownames(counts_pc), ] # 순서 동기화
+annot_pc  <- annot[rownames(counts_pc), ] 
 valid_len_gc <- !is.na(annot_pc$Length) & annot_pc$Length > 0 & !is.na(annot_pc$GC_Percent)
 counts_pc    <- counts_pc[valid_len_gc, ]
 annot_pc     <- annot_pc[valid_len_gc, ]
 dim(counts_pc)
 
-# 2.4 Platelet Control Genes 추출
+# 2.4 Platelet Control Genes 
 platelet_syms <- palangodb[palangodb$cell.type == "Platelets", "official.gene.symbol"]
 platelet_ids  <- rownames(annot_pc)[annot_pc$GeneName %in% platelet_syms]
 # -----------------------------------------------------------------------------
-# STEP 3: 정규화 수행
+# STEP 3: Normalization 
 # -----------------------------------------------------------------------------
-out_base_dir <- "/project/cfRNA_Disentaglement/OpenAccess_nfcore/Processed/"
+out_base_dir <- file.path(PROJECT_ROOT, "OpenAccess_nfcore/Processed/")
 if(!dir.exists(out_base_dir)) dir.create(out_base_dir, recursive = TRUE)
 meta$Group <- paste(meta$Author, meta$tissue, sep = "_")
 group_list <- unique(meta$Group)
 print(group_list)
-# Group을 기준으로 루프 실행
+
 clean_matrix <- function(mat) {
     mat[is.na(mat)] <- 0
     mat[is.infinite(mat)] <- 0
@@ -74,7 +74,6 @@ message(paste("Start processing for", length(group_list), "groups:", paste(group
 for (group in group_list) {
     message(paste0("\n>>> Processing Group: ", group, " <<<"))
     
-    # 수정 1: meta_common -> meta 통일
     target_samples <- rownames(meta)[meta$Group == group]
     group_samples <- intersect(target_samples, colnames(counts_pc))
     if (length(group_samples) == 0) {
@@ -83,7 +82,6 @@ for (group in group_list) {
     }
     
     sub_counts <- counts_pc[, group_samples, drop=FALSE]
-    # 0 라이브러리 샘플 필터링
     valid_samples <- colSums(sub_counts) > 0
     if (!all(valid_samples)) {
         sub_counts <- sub_counts[, valid_samples, drop=FALSE]
@@ -169,19 +167,21 @@ for (group in group_list) {
 }
 
 # -----------------------------------------------------------------------------
-# STEP 4: Summary 병합 및 Metadata 업데이트
+# STEP 4: Summary 
 # -----------------------------------------------------------------------------
-# summary_files <- list.files(path = base_path, 
-#                             pattern = "_featureCounts_summary.tsv$", 
-#                             recursive = TRUE, 
+# [DISABLED] featureCounts summary 병합: 입력(*_featureCounts_summary.tsv)이 현재 프로젝트에
+# 없고 base_path가 미정의. 입력 파일 및 base_path 확보 후 주석 해제할 것.
+# summary_files <- list.files(path = base_path,
+#                             pattern = "_featureCounts_summary.tsv$",
+#                             recursive = TRUE,
 #                             full.names = TRUE)
-
+#
 # print(paste("Found summary files:", length(summary_files)))
 # summary_combined <- NULL
-
-# for (i in 1:length(summary_files)) {
+#
+# for (i in seq_along(summary_files)) {
 #     file_path <- summary_files[i]
-#     current_sum <- read.delim(file_path, header=TRUE, sep="\t", 
+#     current_sum <- read.delim(file_path, header=TRUE, sep="\t",
 #                               check.names=FALSE, stringsAsFactors=FALSE)
 #     if (is.null(summary_combined)) {
 #         summary_combined <- current_sum
@@ -189,19 +189,16 @@ for (group in group_list) {
 #         summary_combined <- merge(summary_combined, current_sum, by = 1, all = TRUE)
 #     }
 # }
-
+#
 # summary_combined[is.na(summary_combined)] <- 0
 # rownames(summary_combined) <- summary_combined[, 1]
 # summary_combined <- summary_combined[, -1]
 # summary_t <- as.data.frame(t(summary_combined))
-
+#
 # # 수정 4: row.names 소실 방지 파이프라인 적용
-# library(tibble)
 # meta <- merge(meta, summary_t, by = "row.names", all.x = TRUE) %>%
 #     column_to_rownames("Row.names")
 
-head(meta)
-dim(meta)
 write.csv(meta, paste0(out_base_dir, "Meta_Processed.csv"))
 write.csv(annot_pc, paste0(out_base_dir, "Annot_PC.csv")) # 저장 객체를 전체 annot에서 실제로 사용된 annot_pc로 변경 권장
 

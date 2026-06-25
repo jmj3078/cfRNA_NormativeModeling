@@ -11,6 +11,13 @@ from scipy.stats import median_abs_deviation
 from scipy.stats import rankdata, t as t_dist, ks_2samp
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 from config import PARAMS
 from analysis_plot import (
     plot_pca_scree_and_bias,
