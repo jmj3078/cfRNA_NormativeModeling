@@ -6,16 +6,19 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import config
 from model_engine import NormativeModelEngine
 
-SAVE_DIR = Path(__file__).parent / "engine_state"
+SAVE_DIR = config.ENGINE_DIR
+_MP = config.MODELING_PARAMS
 
 engine = NormativeModelEngine(
     count_model         = "nbi",
-    low_det_thr         = 0.10,
-    det_rate_min        = 0.01,
-    mean_count_min      = 2.0,
-    lr_C                = 1.0,
+    low_det_thr         = _MP["low_det_thr"],
+    det_rate_min        = _MP["det_rate_min"],
+    mean_count_min      = _MP["mean_count_min"],
+    lr_C                = _MP["lr_c"],
     nbi_outlier_z       = 5.0,
     nbi_max_iter        = 2,
     nbi_max_remove_frac = 0.05,

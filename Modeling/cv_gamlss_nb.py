@@ -39,29 +39,23 @@ import rpy2.robjects.numpy2ri as rpyn
 
 warnings.filterwarnings("ignore", category=UserWarning, module="rpy2")
 
-# ── Paths ──────────────────────────────────────────────────────────
-BASE_DIR  = Path(__file__).resolve().parent
-DATA_DIR  = BASE_DIR.parent / "OpenAccess_nfcore"
-H5AD_PATH = DATA_DIR / "Merged_Processed_AnnData_with_Batch_Biases_QC_Status.h5ad"
-SAVE_DIR  = BASE_DIR / "CV_Results"
-R_HELPER  = BASE_DIR / "gamlss.r"
+# ── Paths / Constants (root config.py 단일 소스) ───────────────────
+import sys
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+import config
 
-# ── Constants ──────────────────────────────────────────────────────
-BIAS_COLUMNS = [
-    "log(Total Reads)",
-    "Spliced Reads (%)",
-    "gDNA Contamination (Intron/Exon)",
-    "rRNA Fraction",
-    "RNA Degradation (3' Bias)",
-    "Platelet Score",
-    "GC Bias",
-    "Gene Length Bias",
-    "NG80",
-    "(NP80/NG80)",
-]
-STRATIFY_COL   = "Batch_ID"
-DET_RATE_MIN   = 0.1    # NBI: det_rate >= 10% (mean_count 조건 제거)
-N_SPLITS       = 5
+BASE_DIR  = config.MODELING_DIR
+DATA_DIR  = config.DATA_DIR
+H5AD_PATH = config.H5AD_PATH
+SAVE_DIR  = config.CV_RESULTS_DIR
+R_HELPER  = config.R_HELPER
+
+BIAS_COLUMNS   = config.BIAS_COLUMNS
+STRATIFY_COL   = config.MODELING_PARAMS["stratify_col"]
+DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]   # 0.01로 통일
+N_SPLITS       = config.MODELING_PARAMS["n_splits"]
 
 META_FIELDS = [
     "gene", "n_hc", "det_rate_hc", "mean_count_hc",

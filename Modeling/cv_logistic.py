@@ -47,30 +47,25 @@ from scipy.sparse import issparse
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
-# ── Paths ──────────────────────────────────────────────────────────
-BASE_DIR  = Path(__file__).resolve().parent
-DATA_DIR  = BASE_DIR.parent / "OpenAccess_nfcore"
-H5AD_PATH = DATA_DIR / "Merged_Processed_AnnData_with_Batch_Biases_QC_Status.h5ad"
-SAVE_DIR  = BASE_DIR / "CV_Results"
+# ── Paths / Constants (root config.py 단일 소스) ───────────────────
+import sys
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+import config
 
-BIAS_COLUMNS = [
-    "log(Total Reads)",
-    "Spliced Reads (%)",
-    "gDNA Contamination (Intron/Exon)",
-    "rRNA Fraction",
-    "RNA Degradation (3' Bias)",
-    "Platelet Score",
-    "GC Bias",
-    "Gene Length Bias",
-    "NG80",
-    "(NP80/NG80)",
-]
-STRATIFY_COL   = "Batch_ID"
-DET_RATE_MAX   = 0.10   # Logistic: 1% ≤ det_rate < 10%
-DET_RATE_MIN   = 0.01   # genes with <1% detection excluded entirely
-N_SPLITS       = 5
-LR_C           = 1.0    # inverse regularization strength (L2)
-LR_MAX_ITER    = 1000
+BASE_DIR  = config.MODELING_DIR
+DATA_DIR  = config.DATA_DIR
+H5AD_PATH = config.H5AD_PATH
+SAVE_DIR  = config.CV_RESULTS_DIR
+
+BIAS_COLUMNS   = config.BIAS_COLUMNS
+STRATIFY_COL   = config.MODELING_PARAMS["stratify_col"]
+DET_RATE_MAX   = config.MODELING_PARAMS["low_det_thr"]    # Logistic: 1% ≤ det_rate < 10%
+DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]   # <1% 제외
+N_SPLITS       = config.MODELING_PARAMS["n_splits"]
+LR_C           = config.MODELING_PARAMS["lr_c"]
+LR_MAX_ITER    = config.MODELING_PARAMS["lr_max_iter"]
 
 META_FIELDS = [
     "gene", "n_hc", "det_rate_hc", "mean_count_hc", "n_detected",

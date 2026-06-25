@@ -62,31 +62,26 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="rpy2")
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
-# ---- Constants -----------------------------------------------------------
+# ---- Constants (root config.py 단일 소스) --------------------------------
 
-BASE_DIR  = Path(__file__).resolve().parent
-DATA_DIR  = BASE_DIR.parent / "OpenAccess_nfcore"
-H5AD_PATH = DATA_DIR / "Merged_Processed_AnnData_with_Batch_Biases_QC_Status.h5ad"
-R_HELPER  = BASE_DIR / "gamlss.r"
+import sys
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+import config
 
-BIAS_COLUMNS: List[str] = [
-    "log(Total Reads)",
-    "Spliced Reads (%)",
-    "gDNA Contamination (Intron/Exon)",
-    "rRNA Fraction",
-    "RNA Degradation (3' Bias)",
-    "Platelet Score",
-    "GC Bias",
-    "Gene Length Bias",
-    "NG80",
-    "(NP80/NG80)",
-]
+BASE_DIR  = config.MODELING_DIR
+DATA_DIR  = config.DATA_DIR
+H5AD_PATH = config.H5AD_PATH
+R_HELPER  = config.R_HELPER
 
-LOW_DET_THR    = 0.10
-DET_RATE_MIN   = 0.01
-MEAN_COUNT_MIN = 2.0
-LR_C           = 1.0
-LR_MAX_ITER    = 1000
+BIAS_COLUMNS: List[str] = config.BIAS_COLUMNS
+
+LOW_DET_THR    = config.MODELING_PARAMS["low_det_thr"]
+DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]
+MEAN_COUNT_MIN = config.MODELING_PARAMS["mean_count_min"]
+LR_C           = config.MODELING_PARAMS["lr_c"]
+LR_MAX_ITER    = config.MODELING_PARAMS["lr_max_iter"]
 
 
 # ---- Pure-Python scoring helpers ----------------------------------------
