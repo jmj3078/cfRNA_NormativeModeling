@@ -98,7 +98,7 @@ def plot_gsea_dotplots(gsea_results, fdr_thr=None, top_n=None, fig_dir=None, sam
             ax.grid(alpha=0.3, axis='y')
             cax = fig.add_axes([0.83, 0.55, 0.02, 0.25])
             cb = fig.colorbar(scat, cax=cax, orientation='vertical')
-            cb.ax.set_title('-log10\n(FDR)', pad=10, fontsize=10, loc='left')
+            cb.ax.set_title('-log10\n(FDR)', pad=10, loc='left')
             tag_min, tag_max = int(sub['tag_n'].min()), int(sub['tag_n'].max())
             if tag_min == tag_max:
                 size_vals = [tag_min]
@@ -335,7 +335,7 @@ def plot_sample(df, sample_id, phenotype='', top_n=20, z_flag=None):
 
     ax = axes[0]
     for branch, sub in df_sorted.groupby('branch'):
-        ax.scatter(sub.index, sub['score'], s=1, alpha=0.8,
+        ax.scatter(sub.index, sub['score'], s=0.2, alpha=0.25,
                    color=_SCORE_BRANCH_COLOR.get(branch, 'grey'), label=branch, rasterized=True)
     flag_sub = df_sorted[df_sorted['abs_score'] >= z_flag]
     ax.scatter(flag_sub.index, flag_sub['score'], s=5, color='black', zorder=5, alpha=0.8)
@@ -345,8 +345,8 @@ def plot_sample(df, sample_id, phenotype='', top_n=20, z_flag=None):
     ax.axhline(z_flag, color='red', lw=1, ls='--', alpha=0.6, label=f'|z|={z_flag}')
     ax.axhline(-z_flag, color='red', lw=1, ls='--', alpha=0.6)
     ax.axhline(0, color='grey', lw=0.8, ls='-', alpha=0.4)
-    ax.set_xlabel('Genes (sorted by score)', fontsize=10)
-    ax.set_ylabel('Anomaly Score (z / rare_score)', fontsize=10)
+    ax.set_xlabel('Genes (sorted by score)')
+    ax.set_ylabel('Anomaly Score (z / rare_score)')
     ax.set_title(f'{sample_id}\n{phenotype}', fontweight='bold')
     ax.legend(fontsize=8, loc='upper right')
 
