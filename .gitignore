@@ -1,6 +1,8 @@
 /Data/*
 /OpenAccess_nfcore/*
 /_legacy/*
+CLAUDE.md
+.claude
 *.json
 *.h5ad
 *.pkl
@@ -9,5 +11,3 @@
 *.csv
 *.log
 *.parquet
-/CLAUDE.md
-.claude
