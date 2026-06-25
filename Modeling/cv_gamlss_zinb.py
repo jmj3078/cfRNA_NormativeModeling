@@ -60,7 +60,7 @@ R_HELPER  = config.R_HELPER
 
 BIAS_COLUMNS   = config.BIAS_COLUMNS
 STRATIFY_COL   = config.MODELING_PARAMS["stratify_col"]
-DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]   # 0.01로 통일
+DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]   
 MEAN_COUNT_MIN = config.MODELING_PARAMS["mean_count_min"]
 N_SPLITS       = config.MODELING_PARAMS["n_splits"]
 
