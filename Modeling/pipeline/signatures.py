@@ -163,11 +163,12 @@ def label_cluster(terms, k=3):
 
 
 def cluster_summary(ph, direction='up', sim_thr=None, resolution=None,
-                    save=True, save_network=True, cluster_dir=None):
+                    save=True, save_network=True, gsea_dir=None, cluster_dir=None):
     """Compute Leiden cluster summary; optionally save CSV and GraphML network."""
-    cluster_dir = cluster_dir or (config.GSEA_DIR / 'Clusters')
+    gsea_dir = gsea_dir or config.GSEA_DIR
+    cluster_dir = cluster_dir or (gsea_dir / 'Clusters')
     cluster_dir.mkdir(parents=True, exist_ok=True)
-    df = get_sig(ph, direction)
+    df = get_sig(ph, direction, gsea_dir=gsea_dir)
     if len(df) == 0:
         return df, pd.DataFrame()
     labels, edges, w = cluster_pathways(df, sim_thr, resolution)
