@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 import config
 from pipeline import signatures as sig
@@ -12,7 +12,6 @@ apply_style()
 
 MP = config.MODELING_PARAMS
 
-# 공용 시각화 상수
 UP, DN = '#d62728', '#1f77b4'
 PALETTE = {'NBI': '#E41A1C', 'ZINBI': '#377EB8', 'Logistic': '#4DAF4A'}
 BRANCH_COLOR = PALETTE
@@ -33,7 +32,7 @@ def _prep_plot_df(df_subset):
 
 
 def plot_gsea_dotplots(gsea_results, fdr_thr=None, top_n=None, fig_dir=None, sample_sizes=None):
-    """phenotype별 bar/up/dn dotplot 저장 (gsea_bar/up/dn_{ph}.png)."""
+    """Save per-phenotype bar/up/dn dotplots (gsea_bar/up/dn_{ph}.png)."""
     fdr_thr = MP['gsea_fdr_thr'] if fdr_thr is None else fdr_thr
     top_n = MP['gsea_top_n'] if top_n is None else top_n
     fig_dir = fig_dir or (config.GSEA_DIR / 'Figures' / 'gsea_dotplot')
@@ -116,7 +115,7 @@ def plot_gsea_dotplots(gsea_results, fdr_thr=None, top_n=None, fig_dir=None, sam
 
 # ── Heuristic signature figure (gsea_heuristic_signatures) ──────────────────
 def plot_signature(ph, ctx, gsea_dir=None, fig_dir=None, themes=None, save=True):
-    """좌: theme 음영 lollipop / 우: lead-gene 특이성 strip."""
+    """Plot theme-shaded lollipop (left) and lead-gene specificity strip (right)."""
     fig_dir = fig_dir or (config.GSEA_DIR / 'Figures' / 'Heuristic_Signatures')
     fig_dir.mkdir(parents=True, exist_ok=True)
     rows, bands, lead_pool, yc = sig.theme_rows(ph, ctx, themes=themes, gsea_dir=gsea_dir)
@@ -231,7 +230,6 @@ def plot_roc_curves(method_name, all_results, dis_pheno, cv=None, fig_dir=None, 
     phenos = sorted(np.unique(dis_pheno))
     ncols = 5; nrows = (len(phenos) + ncols - 1) // ncols
 
-    # (1) Binary
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3.5, nrows * 3.5))
     axf = axes.flatten()
     for ax, ph in zip(axf, phenos):
@@ -256,7 +254,6 @@ def plot_roc_curves(method_name, all_results, dis_pheno, cv=None, fig_dir=None, 
         plt.savefig(fig_dir / f'roc_binary_{method_name}.png', bbox_inches='tight', dpi=150)
     plt.show()
 
-    # (2) Multiclass OVR
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3.5, nrows * 3.5))
     axf = axes.flatten()
     for ax, ph in zip(axf, phenos):
@@ -278,7 +275,7 @@ def plot_roc_curves(method_name, all_results, dis_pheno, cv=None, fig_dir=None, 
 
 def plot_selection_overview(method_name, all_results, Z_dis, dis_pheno, dis_names,
                             gene_names, fig_dir=None, save=True):
-    """선택 gene set의 clustermap + UMAP (heatmap_{m}.png, umap_{m}.png)."""
+    """Save clustermap and UMAP for the selected gene set (heatmap_{m}.png, umap_{m}.png)."""
     import seaborn as sns
     from umap import UMAP
     fig_dir = fig_dir or config.CV_FIG_DIR

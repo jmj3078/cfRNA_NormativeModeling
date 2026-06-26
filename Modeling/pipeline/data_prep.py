@@ -69,10 +69,9 @@ def load_z_disease():
 
 
 def load_z_hc():
-    """HC Z-score 캐시 로드 (disease_scoring/scoring.score_hc 산출)."""
     if not config.Z_HC.exists():
         raise FileNotFoundError(
-            f'{config.Z_HC} 없음. disease_scoring 노트북 또는 scoring.score_hc() 먼저 실행.')
+            f'{config.Z_HC} not found. Run disease_scoring notebook or scoring.score_hc() first.')
     Z = np.load(config.Z_HC)
     names = np.load(config.Z_HC_NAMES, allow_pickle=True).tolist()
     Z, _ = clean_z(Z)
@@ -81,7 +80,7 @@ def load_z_hc():
 
 def ood_min_samples_filter(Z_dis, dis_pheno, dis_names, X_hc, X_dis,
                            percentile=None, min_samples=None, ood=None):
-    """OOD(Mahalanobis, HC-fit) + MIN_SAMPLES 제외. (filtered Z, pheno, names, ood, keep, excluded) 반환."""
+    """Apply OOD + min-samples filters; return (Z, pheno, names, ood, keep, excluded)."""
     percentile = MP['ood_percentile'] if percentile is None else percentile
     min_samples = MP['min_samples'] if min_samples is None else min_samples
     if ood is None:
@@ -114,7 +113,7 @@ class DiseaseData:
 
 
 def load_disease_filtered(with_symbols=True, adata=None):
-    """selection/enrichment/signatures 공용: Z 로드 + OOD/MIN_SAMPLES 필터까지."""
+    """Load filtered disease Z-scores and metadata into a DiseaseData dataclass."""
     if adata is None:
         adata = load_adata()
     is_hc, phenos, _ = make_phenotypes(adata)

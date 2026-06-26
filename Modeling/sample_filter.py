@@ -11,36 +11,36 @@ Usage
     filt = MahalanobisFilter(percentile=95)
     filt.fit(X_hc)
 
-    keep         = filt.mask(X_dis)          # boolean (n_dis,)
-    summary_df   = filt.summary(X_dis, dis_pheno)
-    figs         = filt.plot(X_dis, dis_pheno, keep, FIG_DIR)
+    keep       = filt.mask(X_dis)
+    summary_df = filt.summary(X_dis, dis_pheno)
+    figs       = filt.plot(X_dis, dis_pheno, FIG_DIR)
 """
+
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import mahalanobis
 from numpy.linalg import inv
+from scipy.spatial.distance import mahalanobis
+
+parent_dir = str(Path(__file__).resolve().parent.parent)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+from viz_style import apply_style
 
 
 class MahalanobisFilter:
-    def __init__(self, percentile: float = 95, reg: float = 1e-8):
-        """
-        Parameters
-        ----------
-        percentile : HC 분포에서 threshold로 사용할 백분위수 (default 95)
-        reg        : 공분산 행렬 정규화 항
-        """
+    def __init__(self, percentile=95, reg=1e-8):
         self.percentile = percentile
-        self.reg        = reg
-        self._fitted    = False
+        self.reg = reg
+        self._fitted = False
 
-    # ── Fit ───────────────────────────────────────────────────────
-
-    def fit(self, X_hc: np.ndarray) -> "MahalanobisFilter":
-        """HC 샘플로 Mahalanobis 파라미터 추정."""
+    def fit(self, X_hc):
         X_hc = np.asarray(X_hc, dtype=float)
-        p    = X_hc.shape[1]
-        self.mu_      = X_hc.mean(axis=0)
+        self._X_hc_ref = X_hc.copy()
+        p = X_hc.shape[1]
+        self.mu_ = X_hc.mean(axis=0)
         self.cov_inv_ = inv(np.cov(X_hc.T) + np.eye(p) * self.reg)
         self.hc_dist_ = self._distances(X_hc)
         self.thr_p50_ = float(np.percentile(self.hc_dist_, 50))
@@ -50,47 +50,43 @@ class MahalanobisFilter:
         self._fitted = True
         return self
 
-    # ── Core ──────────────────────────────────────────────────────
-
-    def _distances(self, X: np.ndarray) -> np.ndarray:
+    def _distances(self, X):
         return np.array([mahalanobis(x, self.mu_, self.cov_inv_) for x in X])
 
-    def distances(self, X: np.ndarray) -> np.ndarray:
+    def distances(self, X):
         """Mahalanobis distance of each sample from HC distribution."""
         self._check_fit()
         return self._distances(np.asarray(X, dtype=float))
 
-    def mask(self, X: np.ndarray) -> np.ndarray:
+    def mask(self, X):
         """Boolean keep-mask: True = within threshold (inlier)."""
         return self.distances(X) <= self.threshold_
 
-    # ── Summary ───────────────────────────────────────────────────
-
-    def summary(self, X_dis: np.ndarray, dis_pheno: np.ndarray) -> pd.DataFrame:
+    def summary(self, X_dis, dis_pheno):
         """Per-phenotype filtering summary DataFrame."""
         self._check_fit()
-        d    = self.distances(X_dis)
+        d = self.distances(X_dis)
         keep = d <= self.threshold_
         rows = []
         for ph in np.unique(dis_pheno):
             m = dis_pheno == ph
             rows.append({
-                'phenotype':    ph,
-                'n_before':     int(m.sum()),
-                'n_after':      int((m & keep).sum()),
-                'n_removed':    int((m & ~keep).sum()),
-                'pct_removed':  round((m & ~keep).sum() / m.sum() * 100, 1),
-                'mahal_mean':   round(d[m].mean(), 2),
-                'mahal_max':    round(d[m].max(),  2),
-                'pct_>p95_HC':  round((d[m] > self.thr_p95_).mean() * 100, 1),
-                'pct_>p99_HC':  round((d[m] > self.thr_p99_).mean() * 100, 1),
+                'phenotype': ph,
+                'n_before': int(m.sum()),
+                'n_after': int((m & keep).sum()),
+                'n_removed': int((m & ~keep).sum()),
+                'pct_removed': round((m & ~keep).sum() / m.sum() * 100, 1),
+                'mahal_mean': round(d[m].mean(), 2),
+                'mahal_max': round(d[m].max(), 2),
+                'pct_>p95_HC': round((d[m] > self.thr_p95_).mean() * 100, 1),
+                'pct_>p99_HC': round((d[m] > self.thr_p99_).mean() * 100, 1),
             })
         return (pd.DataFrame(rows)
                 .set_index('phenotype')
                 .sort_values('mahal_mean', ascending=False))
 
-    def print_summary(self, X_dis: np.ndarray, dis_pheno: np.ndarray) -> None:
-        d    = self.distances(X_dis)
+    def print_summary(self, X_dis, dis_pheno):
+        d = self.distances(X_dis)
         keep = d <= self.threshold_
         print(f"Mahalanobis filter  P50={self.thr_p50_:.2f}  "
               f"P95={self.thr_p95_:.2f}  P99={self.thr_p99_:.2f}")
@@ -98,10 +94,7 @@ class MahalanobisFilter:
               f"retained {keep.sum()} / {len(keep)}  "
               f"removed {(~keep).sum()} ({(~keep).mean()*100:.1f}%)")
 
-    # ── Visualization ─────────────────────────────────────────────
-
-    def plot(self, X_dis: np.ndarray, dis_pheno: np.ndarray,
-             save_dir=None, method_label: str = '') -> dict:
+    def plot(self, X_dis, dis_pheno, save_dir=None, method_label=''):
         """
         Figure 1: Violin + OOR heatmap
         Figure 2: UMAP (standardized) with outlier highlights
@@ -113,19 +106,19 @@ class MahalanobisFilter:
         from matplotlib.lines import Line2D
         from sklearn.preprocessing import StandardScaler
 
+        apply_style()
         self._check_fit()
-        d    = self.distances(X_dis)
+        d = self.distances(X_dis)
         keep = d <= self.threshold_
         dis_pheno = np.asarray(dis_pheno)
         unique_ph = np.unique(dis_pheno)
-        p2c       = dict(zip(sorted(unique_ph),
-                             sns.color_palette('tab20', len(unique_ph))))
+        p2c = dict(zip(sorted(unique_ph),
+                       sns.color_palette('tab20', len(unique_ph))))
         figs = {}
 
-        # ── Figure 1: Violin + OOR heatmap ────────────────────────
-        hc_q01  = np.percentile(self._X_hc_ref, 1,  axis=0)
-        hc_q99  = np.percentile(self._X_hc_ref, 99, axis=0)
-        oor_hc  = (self._X_hc_ref < hc_q01) | (self._X_hc_ref > hc_q99)
+        hc_q01 = np.percentile(self._X_hc_ref, 1, axis=0)
+        hc_q99 = np.percentile(self._X_hc_ref, 99, axis=0)
+        oor_hc = (self._X_hc_ref < hc_q01) | (self._X_hc_ref > hc_q99)
         oor_dis = (X_dis < hc_q01) | (X_dis > hc_q99)
 
         ph_order = (pd.DataFrame({'ph': dis_pheno, 'd': d})
@@ -151,8 +144,8 @@ class MahalanobisFilter:
                       color='#2a6099', orient='h', size=2.5, alpha=0.5,
                       jitter=True, ax=ax_l)
         for thr, col, lbl in [(self.thr_p50_, 'steelblue', f'HC P50 ({self.thr_p50_:.1f})'),
-                               (self.thr_p95_, 'orange',    f'HC P95 ({self.thr_p95_:.1f})'),
-                               (self.thr_p99_, 'red',       f'HC P99 ({self.thr_p99_:.1f})')]:
+                               (self.thr_p95_, 'orange', f'HC P95 ({self.thr_p95_:.1f})'),
+                               (self.thr_p99_, 'red', f'HC P99 ({self.thr_p99_:.1f})')]:
             ax_l.axvline(thr, color=col, lw=1.2, ls='--', alpha=0.85, label=lbl)
         ax_l.legend(frameon=False, fontsize=8, loc='lower right')
         ax_l.set_xlabel('Mahalanobis Distance from HC')
@@ -174,47 +167,47 @@ class MahalanobisFilter:
             fig1.savefig(save_dir / 'covariate_overlap.png', bbox_inches='tight')
         figs['overlap'] = fig1
 
-        # ── Figure 2: UMAP (standardized) ─────────────────────────
         try:
             from umap import UMAP
         except ImportError:
             print("umap-learn not installed — skipping UMAP figure")
             return figs
 
-        scaler   = StandardScaler().fit(self._X_hc_ref)
-        X_hc_sc  = scaler.transform(self._X_hc_ref)
+        scaler = StandardScaler().fit(self._X_hc_ref)
+        X_hc_sc = scaler.transform(self._X_hc_ref)
         X_dis_sc = scaler.transform(X_dis)
         print('Computing UMAP on standardized bias covariates ...')
-        emb     = UMAP(n_components=2, n_neighbors=30, min_dist=0.3,
-                       metric='euclidean', random_state=42).fit_transform(
-                           np.vstack([X_hc_sc, X_dis_sc]))
+        emb = UMAP(n_components=2, n_neighbors=30, min_dist=0.3,
+                   metric='euclidean', random_state=42).fit_transform(
+                       np.vstack([X_hc_sc, X_dis_sc]))
         emb_hc, emb_dis = emb[:len(X_hc_sc)], emb[len(X_hc_sc):]
         is_out = ~keep
 
         fig2, ax = plt.subplots(figsize=(10, 7))
-        ax.scatter(emb_hc[:,0], emb_hc[:,1], c='lightgrey', s=8,
+        ax.scatter(emb_hc[:, 0], emb_hc[:, 1], c='lightgrey', s=8,
                    alpha=0.35, label='HC', zorder=1, edgecolors='none')
         for ph in sorted(unique_ph):
-            m   = dis_pheno == ph
+            m = dis_pheno == ph
             sel = m & keep
             if sel.any():
-                ax.scatter(emb_dis[sel,0], emb_dis[sel,1], c=[p2c[ph]], s=15,
+                ax.scatter(emb_dis[sel, 0], emb_dis[sel, 1], c=[p2c[ph]], s=15,
                            alpha=0.75, label=ph, edgecolors='none', zorder=2)
         for ph in sorted(unique_ph):
-            m   = dis_pheno == ph
+            m = dis_pheno == ph
             sel = m & is_out
             if sel.any():
-                ax.scatter(emb_dis[sel,0], emb_dis[sel,1], c=[p2c[ph]], s=70,
+                ax.scatter(emb_dis[sel, 0], emb_dis[sel, 1], c=[p2c[ph]], s=70,
                            alpha=0.95, marker='X', edgecolors='black',
                            linewidths=0.8, zorder=4)
         leg_h, leg_l = ax.get_legend_handles_labels()
-        leg_h.append(Line2D([0],[0], marker='X', color='w',
+        leg_h.append(Line2D([0], [0], marker='X', color='w',
                             markerfacecolor='grey', markeredgecolor='black',
                             markersize=9))
         leg_l.append(f'Outlier (Mahal > HC P{self.percentile})')
         ax.legend(handles=leg_h, labels=leg_l, fontsize=7, frameon=False,
                   bbox_to_anchor=(1.01, 1), loc='upper left', title='Phenotype')
-        ax.set_xlabel('UMAP 1'); ax.set_ylabel('UMAP 2')
+        ax.set_xlabel('UMAP 1')
+        ax.set_ylabel('UMAP 2')
         ax.set_title(f'UMAP of Bias Covariates (standardized)\n'
                      f'HC (grey) · Disease · Outlier X (>HC P{self.percentile})')
         plt.tight_layout()
@@ -224,7 +217,7 @@ class MahalanobisFilter:
         print(f'Outliers shown: {is_out.sum()} samples')
         return figs
 
-    def set_col_labels(self, labels: list) -> "MahalanobisFilter":
+    def set_col_labels(self, labels):
         """Optional: set short column labels for OOR heatmap."""
         self._col_labels = labels
         return self
@@ -232,17 +225,3 @@ class MahalanobisFilter:
     def _check_fit(self):
         if not self._fitted:
             raise RuntimeError("Call fit(X_hc) first.")
-
-    def fit(self, X_hc: np.ndarray) -> "MahalanobisFilter":
-        X_hc = np.asarray(X_hc, dtype=float)
-        self._X_hc_ref = X_hc.copy()
-        p    = X_hc.shape[1]
-        self.mu_       = X_hc.mean(axis=0)
-        self.cov_inv_  = inv(np.cov(X_hc.T) + np.eye(p) * self.reg)
-        self.hc_dist_  = self._distances(X_hc)
-        self.thr_p50_  = float(np.percentile(self.hc_dist_, 50))
-        self.thr_p95_  = float(np.percentile(self.hc_dist_, 95))
-        self.thr_p99_  = float(np.percentile(self.hc_dist_, 99))
-        self.threshold_= float(np.percentile(self.hc_dist_, self.percentile))
-        self._fitted   = True
-        return self

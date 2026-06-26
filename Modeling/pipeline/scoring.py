@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import pandas as pd
-from scipy.stats import poisson as _poisson, norm as _norm
+from scipy.stats import norm as _norm, poisson as _poisson
 
 import config
 from model_engine import NormativeModelEngine
@@ -12,7 +12,7 @@ MP = config.MODELING_PARAMS
 
 
 def load_engine(h5ad_path=None, engine_dir=None, rare_ref=None):
-    """저장된 engine/rare_scorer 로드, 없으면 학습/구축."""
+    """Load saved engine/rare_scorer, or train/build if absent."""
     h5ad_path = h5ad_path or config.H5AD_PATH
     engine_dir = engine_dir or config.ENGINE_DIR
     rare_ref = rare_ref or config.RARE_REF
@@ -34,7 +34,7 @@ def load_engine(h5ad_path=None, engine_dir=None, rare_ref=None):
 
 
 def _rare_scores(rare_scorer, gene_names, Y_dis):
-    """vectorized rare-event score 행렬 + 정렬된 (genes, category)."""
+    """Return vectorized rare-event score matrix and aligned (genes, category) arrays."""
     ref = rare_scorer.ref
     r_genes = ref['gene'].values
     r_mean = ref['mean_hc'].values.astype(float)
@@ -74,7 +74,7 @@ def _engine_long(engine, gene_names, Z, Y_dis, sa_arr, ph_arr, min_abs_score):
 
 def score_all(engine, rare_scorer, gene_names, X_dis, Y_dis, sample_names, pheno_names,
               min_abs_score=3.0):
-    """engine + rare-event 통합 long-format anomaly score."""
+    """Return integrated long-format anomaly scores from engine and rare-event scorer."""
     sa_arr, ph_arr = np.array(sample_names), np.array(pheno_names)
     result = engine.score(X_dis, Y_dis, gene_names=gene_names, seed=42)
     Z = result['combined']
@@ -93,7 +93,7 @@ def score_all(engine, rare_scorer, gene_names, X_dis, Y_dis, sample_names, pheno
 
 def score_full(engine, rare_scorer, gene_names, X_dis, Y_dis, dis_names, dis_pheno,
                thr=None, save=True):
-    """전체 disease Z matrix 저장(Z_disease/sample/gene .npy) + |z|>=thr long parquet."""
+    """Score all disease samples; save Z matrix and long-format parquet to Z_SCORES_DIR."""
     thr = MP['z_flag'] if thr is None else thr
     t0 = time.perf_counter()
     result_full = engine.score(X_dis, Y_dis, gene_names=gene_names, seed=42)
@@ -122,7 +122,7 @@ def score_full(engine, rare_scorer, gene_names, X_dis, Y_dis, dis_names, dis_phe
 
 
 def score_hc(engine, X_hc, Y_hc, gene_names, hc_names, save=True):
-    """HC Z matrix (Z_hc.npy) — gene_selection binary 평가용."""
+    """Score HC samples and optionally save Z_hc arrays to Z_SCORES_DIR."""
     res = engine.score(X_hc, Y_hc, gene_names=gene_names, seed=42)
     Z_hc = res['combined']
     if save:

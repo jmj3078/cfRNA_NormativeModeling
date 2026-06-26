@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
-from sklearn.metrics import silhouette_samples, roc_auc_score, roc_curve
-from sklearn.neighbors import NearestNeighbors
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score, roc_curve, silhouette_samples
 from sklearn.model_selection import StratifiedKFold
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import LabelEncoder
 
 import config
@@ -101,7 +101,7 @@ def eval_multiclass(idx, Z_dis, dis_pheno):
 
 
 def run_selection(Z_dis, Z_hc, dis_pheno, gene_names, n_per_pheno=30):
-    """SELECTORS별 unsup/binary/multiclass 평가 → all_results dict."""
+    """Return (all_results dict, selectors) with unsup/binary/multiclass eval per selector."""
     import time
     gs = GeneSelector(Z_dis, dis_pheno, gene_names)
     selectors = gs.get_selectors(n_per_pheno=n_per_pheno)

@@ -8,7 +8,7 @@ For each candidate protein-coding gene the script:
   3. Computes randomized quantile residual (RQR) z-scores on the held-out fold.
   4. Pools all 5 fold z-scores (length == N_hc) and evaluates normality via the
      Anderson-Darling test.
-     
+
 Resumable: genes already in cv_gamlss_stats.csv are skipped unless --no-resume.
 
 Usage:
@@ -18,68 +18,54 @@ Usage:
 
 import argparse
 import csv
-import os
 import pickle
+import sys
 import time
 import warnings
 from pathlib import Path
 
 import numpy as np
+import rpy2.robjects as ro
+import rpy2.robjects.numpy2ri as rpyn
 import scanpy as sc
+from rpy2.robjects import numpy2ri
+from rpy2.robjects.conversion import localconverter
 from scipy.sparse import issparse
-from scipy.stats import norm, skew, kurtosis
+from scipy.stats import kurtosis, norm, skew
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-# ── rpy2 setup ────────────────────────────────────────────────────
-import rpy2.robjects as ro
-from rpy2.robjects import numpy2ri
-from rpy2.robjects.conversion import localconverter
-import rpy2.robjects.numpy2ri as rpyn
-
 warnings.filterwarnings("ignore", category=UserWarning, module="rpy2")
 
-# ── Paths / Constants (root config.py 단일 소스) ───────────────────
-import sys
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 import config
 
-BASE_DIR  = config.MODELING_DIR
-DATA_DIR  = config.DATA_DIR
-H5AD_PATH = config.H5AD_PATH
-SAVE_DIR  = config.CV_RESULTS_DIR
-R_HELPER  = config.R_HELPER
-
-BIAS_COLUMNS   = config.BIAS_COLUMNS
-STRATIFY_COL   = config.MODELING_PARAMS["stratify_col"]
-DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]   
-N_SPLITS       = config.MODELING_PARAMS["n_splits"]
+BIAS_COLUMNS = config.BIAS_COLUMNS
+STRATIFY_COL = config.MODELING_PARAMS["stratify_col"]
+DET_RATE_MIN = config.MODELING_PARAMS["det_rate_min"]
+N_SPLITS = config.MODELING_PARAMS["n_splits"]
 
 META_FIELDS = [
     "gene", "n_hc", "det_rate_hc", "mean_count_hc",
     "w1",
     "mean_z", "std_z", "skew_z", "kurt_z", "n_valid",
     "mu_mean", "sigma_mean",
-    "n_removed",          # training samples removed by outlier refinement
+    "n_removed",
     "fold_success_rate",
     "time_s",
 ]
 
 
-# ── R environment initialisation ───────────────────────────────────
-
 def init_r():
     """Source gamlss.r once and return the R fit function."""
-    ro.r(f'source("{R_HELPER}")')
+    ro.r(f'source("{config.R_HELPER}")')
     return ro.globalenv["fit_gamlss_gene"]
 
 
-# ── Data loading ───────────────────────────────────────────────────
-
 def load_hc_data():
-    adata = sc.read_h5ad(H5AD_PATH)
+    adata = sc.read_h5ad(config.H5AD_PATH)
     adata = adata[adata.obs["QC_Passed"] == True]
     adata = adata[adata.obs["Phenotype_Processed"].notna()]
     adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
@@ -98,30 +84,25 @@ def load_hc_data():
 
     is_pc = (adata.var["GeneType"] == "protein_coding").values
     pc_gene_names = adata.var_names[is_pc].tolist()
-    pc_indices    = np.where(is_pc)[0]
+    pc_indices = np.where(is_pc)[0]
 
     strata_hc = strata_all[is_hc]
     return X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices
 
 
-def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices,
-                            det_rate_min):
-    Y_hc  = Y_raw[is_hc][:, pc_indices]
+def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices, det_rate_min):
+    Y_hc = Y_raw[is_hc][:, pc_indices]
     det_r = (Y_hc > 0).mean(axis=0)
-    cand  = det_r >= det_rate_min
+    cand = det_r >= det_rate_min
     return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand]
 
-
-# ── CV folds ───────────────────────────────────────────────────────
 
 def make_stratified_folds(strata, n_splits=N_SPLITS):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     return list(skf.split(np.zeros(len(strata)), strata))
 
 
-# ── Evaluation helpers ─────────────────────────────────────────────
-
-def wasserstein1_normal(z_arr: np.ndarray) -> float:
+def wasserstein1_normal(z_arr):
     """1st Wasserstein distance between empirical z distribution and N(0,1).
 
     W1 = mean(|z_(i:n) - Phi^{-1}((i-0.5)/n)|)
@@ -147,13 +128,10 @@ def zscore_stats(z_arr):
             float(skew(z_valid)), float(kurtosis(z_valid)), n)
 
 
-# ── Per-gene CV ────────────────────────────────────────────────────
-
-def _np_to_r_matrix(arr: np.ndarray, col_names: list):
+def _np_to_r_matrix(arr, col_names):
     """Convert a 2-D numpy array to an R matrix with dimnames."""
     with localconverter(ro.default_converter + rpyn.converter):
         r_mat = ro.conversion.py2rpy(np.ascontiguousarray(arr, dtype=np.float64))
-    # Attach column names so R can build the formula
     r_mat = ro.r["matrix"](
         r_mat,
         nrow=arr.shape[0], ncol=arr.shape[1],
@@ -162,7 +140,7 @@ def _np_to_r_matrix(arr: np.ndarray, col_names: list):
     return r_mat
 
 
-def _np_to_r_vec(arr: np.ndarray):
+def _np_to_r_vec(arr):
     with localconverter(ro.default_converter + rpyn.converter):
         return ro.conversion.py2rpy(np.ascontiguousarray(arr, dtype=np.float64))
 
@@ -173,19 +151,19 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
     Returns (z_all, mu_all, sigma_all, fold_success_rate, n_removed_total).
     """
     n = len(y_hc)
-    z_all     = np.full(n, np.nan)
-    mu_all    = np.full(n, np.nan)
+    z_all = np.full(n, np.nan)
+    mu_all = np.full(n, np.nan)
     sigma_all = np.full(n, np.nan)
-    n_success   = 0
-    n_removed   = 0
+    n_success = 0
+    n_removed = 0
 
     for fold_idx, (tr_idx, te_idx) in enumerate(folds):
-        seed_r          = ro.IntVector([42 + fold_idx])
-        n_cyc_r         = ro.IntVector([50])
-        outlier_z       = ro.FloatVector([args.outlier_z])
-        max_iter        = ro.IntVector([args.max_iter])
+        seed_r = ro.IntVector([42 + fold_idx])
+        n_cyc_r = ro.IntVector([50])
+        outlier_z = ro.FloatVector([args.outlier_z])
+        max_iter = ro.IntVector([args.max_iter])
         max_remove_frac = ro.FloatVector([args.max_remove_frac])
-        lambda_sigma    = ro.FloatVector([args.lambda_sigma])
+        lambda_sigma = ro.FloatVector([args.lambda_sigma])
 
         res = r_fit_fn(
             _np_to_r_vec(y_hc[tr_idx]),
@@ -196,16 +174,14 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
         )
 
         if res.rx2("success")[0]:
-            z_all[te_idx]     = np.array(res.rx2("z"))
-            mu_all[te_idx]    = np.array(res.rx2("mu_test"))
+            z_all[te_idx] = np.array(res.rx2("z"))
+            mu_all[te_idx] = np.array(res.rx2("mu_test"))
             sigma_all[te_idx] = np.array(res.rx2("sigma_test"))
-            n_removed        += int(res.rx2("n_removed")[0])
-            n_success        += 1
+            n_removed += int(res.rx2("n_removed")[0])
+            n_success += 1
 
     return z_all, mu_all, sigma_all, n_success / len(folds), n_removed
 
-
-# ── Resume helper ──────────────────────────────────────────────────
 
 def _load_done_genes(meta_path):
     done = set()
@@ -216,28 +192,26 @@ def _load_done_genes(meta_path):
     return done
 
 
-# ── Main ───────────────────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--det-rate-min",  type=float, default=DET_RATE_MIN)
-    parser.add_argument("--n-folds",       type=int,   default=N_SPLITS)
-    parser.add_argument("--outlier-z",     type=float, default=5.0,
+    parser.add_argument("--det-rate-min", type=float, default=DET_RATE_MIN)
+    parser.add_argument("--n-folds", type=int, default=N_SPLITS)
+    parser.add_argument("--outlier-z", type=float, default=5.0,
                         help="remove training samples with |z_train| > this value (default 5.0)")
-    parser.add_argument("--max-iter",          type=int,   default=2,
+    parser.add_argument("--max-iter", type=int, default=2,
                         help="max outlier-removal iterations per fold (default 2)")
-    parser.add_argument("--max-remove-frac",   type=float, default=0.10,
+    parser.add_argument("--max-remove-frac", type=float, default=0.10,
                         help="max fraction of training samples removable per iteration (default 0.10)")
-    parser.add_argument("--lambda-sigma",   type=float, default=0.05,
+    parser.add_argument("--lambda-sigma", type=float, default=0.05,
                         help="L2 ridge penalty on sigma submodel coefficients (default 0.05; 0=disabled)")
-    parser.add_argument("--no-resume",     action="store_true")
-    parser.add_argument("--limit",         type=int,   default=None,
+    parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument("--limit", type=int, default=None,
                         help="only process first N genes (for testing)")
     args = parser.parse_args()
 
-    SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    meta_path    = SAVE_DIR / "cv_gamlss_stats.csv"
-    zscores_path = SAVE_DIR / "cv_gamlss_zscores.pkl"
+    config.CV_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    meta_path = config.CV_RESULTS_DIR / "cv_gamlss_stats.csv"
+    zscores_path = config.CV_RESULTS_DIR / "cv_gamlss_zscores.pkl"
 
     print("Initialising R / gamlss...")
     r_fit_fn = init_r()
@@ -255,16 +229,16 @@ def main():
           f"  (det>={args.det_rate_min})")
 
     if args.limit is not None:
-        gene_names   = gene_names[:args.limit]
+        gene_names = gene_names[:args.limit]
         gene_indices = gene_indices[:args.limit]
         print(f"Limited to {len(gene_names)} gene(s) for testing")
 
-    folds    = make_stratified_folds(strata_hc, n_splits=args.n_folds)
-    col_names = BIAS_COLUMNS   # passed to R for column names
+    folds = make_stratified_folds(strata_hc, n_splits=args.n_folds)
+    col_names = BIAS_COLUMNS
 
-    ppc_path  = SAVE_DIR / "cv_gamlss_nb_ppc.pkl"   # per-sample mu & sigma for PPC
+    ppc_path = config.CV_RESULTS_DIR / "cv_gamlss_nb_ppc.pkl"
 
-    done_genes   = set() if args.no_resume else _load_done_genes(meta_path)
+    done_genes = set() if args.no_resume else _load_done_genes(meta_path)
     zscores_dict = {}
     if not args.no_resume and zscores_path.exists():
         try:
@@ -283,8 +257,8 @@ def main():
             ppc_path.unlink()
 
     write_header = args.no_resume or not meta_path.exists()
-    meta_file    = open(meta_path, "w" if args.no_resume else "a", newline="")
-    meta_writer  = csv.DictWriter(meta_file, fieldnames=META_FIELDS)
+    meta_file = open(meta_path, "w" if args.no_resume else "a", newline="")
+    meta_writer = csv.DictWriter(meta_file, fieldnames=META_FIELDS)
     if write_header:
         meta_writer.writeheader()
         meta_file.flush()
@@ -297,8 +271,8 @@ def main():
             n_skipped += 1
             continue
 
-        y_hc_gene  = Y_hc[:, g_idx]
-        det_rate   = float((y_hc_gene > 0).mean())
+        y_hc_gene = Y_hc[:, g_idx]
+        det_rate = float((y_hc_gene > 0).mean())
         mean_count = float(y_hc_gene.mean())
 
         t0 = time.perf_counter()
@@ -310,15 +284,15 @@ def main():
         w1 = wasserstein1_normal(z_all)
         m_z, s_z, sk_z, ku_z, nv = zscore_stats(z_all)
 
-        mu_mean    = float(np.nanmean(mu_all))
+        mu_mean = float(np.nanmean(mu_all))
         sigma_mean = float(np.nanmean(sigma_all))
 
         row = {
             "gene": g_name, "n_hc": int(is_hc.sum()),
             "det_rate_hc": det_rate, "mean_count_hc": mean_count,
             "w1": w1,
-            "mean_z":   m_z,  "std_z":    s_z,  "skew_z": sk_z, "kurt_z": ku_z, "n_valid": nv,
-            "mu_mean":  mu_mean, "sigma_mean": sigma_mean,
+            "mean_z": m_z, "std_z": s_z, "skew_z": sk_z, "kurt_z": ku_z, "n_valid": nv,
+            "mu_mean": mu_mean, "sigma_mean": sigma_mean,
             "n_removed": n_removed,
             "fold_success_rate": fold_ok,
             "time_s": elapsed,
@@ -331,7 +305,7 @@ def main():
             pickle.dump(zscores_dict, f)
 
         ppc_dict[g_name] = {
-            'mu':    mu_all.astype(np.float32),
+            'mu': mu_all.astype(np.float32),
             'sigma': sigma_all.astype(np.float32),
         }
         with open(ppc_path, "wb") as f:

@@ -11,12 +11,12 @@ MODEL_ORDER = ['NBI', 'ZINBI', 'Logistic']
 ETP_THR = 1.96
 W1_EXPECTED = 0.048
 METRIC_DEFS = [
-    ('w1',     'W1 ↓',           (0.0,  0.40),  W1_EXPECTED),
-    ('etp',    'ETP ↓ (→0.05)', (0.0,  0.20),  0.05),
-    ('skew_z', 'Skewness → 0',  (-2.0, 2.0),   0.0),
-    ('kurt_z', 'Kurtosis → 0',  (-1.0, 6.0),   0.0),
-    ('mean_z', 'Z-mean → 0',    (-0.4, 0.4),   0.0),
-    ('std_z',  'Z-std → 1',     (0.6,  1.4),   1.0),
+    ('w1', 'W1 ↓', (0.0, 0.40), W1_EXPECTED),
+    ('etp', 'ETP ↓ (→0.05)', (0.0, 0.20), 0.05),
+    ('skew_z', 'Skewness → 0', (-2.0, 2.0), 0.0),
+    ('kurt_z', 'Kurtosis → 0', (-1.0, 6.0), 0.0),
+    ('mean_z', 'Z-mean → 0', (-0.4, 0.4), 0.0),
+    ('std_z', 'Z-std → 1', (0.6, 1.4), 1.0),
 ]
 
 
@@ -32,7 +32,7 @@ def load_pkl(path):
 
 
 def load_cv_outputs(cv_dir=None):
-    """cv_*.py 산출 (stats csv + zscores pkl) 로드 → (nb, zinb, logr, nb_z, zinb_z, logr_z)."""
+    """Load cv_*.py outputs (stats csv + zscores pkl); return (nb, zinb, logr, nb_z, zinb_z, logr_z)."""
     cv_dir = cv_dir or config.CV_RESULTS_DIR
     nb = load_csv(cv_dir / 'cv_gamlss_stats.csv')
     zinb = load_csv(cv_dir / 'cv_zinb_stats.csv')
@@ -98,14 +98,14 @@ def build_all_df(nb, zinb, logr, nb_z, zinb_z, logr_z):
     frames = []
     if nb is not None:
         frames.append(extract_metrics(nb, 'NBI', 'mean_z', 'std_z', 'skew_z', 'kurt_z',
-                                       'fold_success_rate', nb_z, 'full', w1_col='w1'))
+                                      'fold_success_rate', nb_z, 'full', w1_col='w1'))
     if zinb is not None:
         frames.append(extract_metrics(zinb, 'ZINBI', 'mean_full_z', 'std_full_z', 'skew_full_z',
-                                       'kurt_full_z', 'fold_success_rate', zinb_z, 'full',
-                                       w1_col='w1_full', flag_col='any_flag'))
+                                      'kurt_full_z', 'fold_success_rate', zinb_z, 'full',
+                                      w1_col='w1_full', flag_col='any_flag'))
     if logr is not None:
         frames.append(extract_metrics(logr, 'Logistic', 'mean_z', 'std_z', 'skew_z', 'kurt_z',
-                                       'fold_success_rate', logr_z, 'full', flag_col='any_flag'))
+                                      'fold_success_rate', logr_z, 'full', flag_col='any_flag'))
     all_df = pd.concat(frames, ignore_index=True)
     models_present = [m for m in MODEL_ORDER if m in all_df['model'].unique()]
     return all_df, models_present
@@ -128,6 +128,6 @@ def sim_zinbi(mu, sigma, nu, seed=42):
 
 
 SIM_FN = {
-    'NBI':   lambda params, seed: sim_nbi(params['mu'], params['sigma'], seed),
+    'NBI': lambda params, seed: sim_nbi(params['mu'], params['sigma'], seed),
     'ZINBI': lambda params, seed: sim_zinbi(params['mu'], params['sigma'], params['nu'], seed),
 }

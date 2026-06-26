@@ -10,7 +10,7 @@ MP = config.MODELING_PARAMS
 
 def run_gsea_prerank(Z_dis, dis_pheno, gene_syms, outdir=None,
                      min_size=10, max_size=500, save=True):
-    """phenotype별 mean-Z ranking으로 GSEA prerank → gsea_result_{ph}.csv. {ph: df} 반환."""
+    """Run per-phenotype mean-Z GSEA prerank; return {ph: df} and save gsea_result_{ph}.csv."""
     outdir = outdir or config.GSEA_DIR
     outdir.mkdir(parents=True, exist_ok=True)
     gs = GeneSelector(Z_dis, dis_pheno, gene_syms)

@@ -1,18 +1,16 @@
 import gc
 import os
 import re
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import scipy.sparse as sp
 import scanpy as sc
-
+import scipy.sparse as sp
 from scipy.stats import median_abs_deviation
 from scipy.stats import rankdata, t as t_dist, ks_2samp
 from statsmodels.nonparametric.smoothers_lowess import lowess
-
-import sys
-from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
@@ -425,12 +423,12 @@ class DataAnalysisPipeline:
 
         if pheno_in_vars and conf_vars:
             r2_pheno_only, _ = mr2(Y_sub, enc(obs_sub, [phenotype_var], categorical_vars)[0])
-            r2_conf_only,  _ = mr2(Y_sub, enc(obs_sub, conf_vars,        categorical_vars)[0])
+            r2_conf_only, _ = mr2(Y_sub, enc(obs_sub, conf_vars, categorical_vars)[0])
             partition = {
                 "pheno_unique": max(0.0, r2_all - r2_conf_only),
-                "conf_unique":  max(0.0, r2_all - r2_pheno_only),
-                "shared":       max(0.0, r2_pheno_only + r2_conf_only - r2_all),
-                "unexplained":  max(0.0, 1.0 - r2_all),
+                "conf_unique": max(0.0, r2_all - r2_pheno_only),
+                "shared": max(0.0, r2_pheno_only + r2_conf_only - r2_all),
+                "unexplained": max(0.0, 1.0 - r2_all),
             }
         elif pheno_in_vars:
             r2_pheno_only, _ = mr2(Y_sub, enc(obs_sub, [phenotype_var], categorical_vars)[0])
@@ -652,7 +650,7 @@ class DataAnalysisPipeline:
             del adata_study
             gc.collect()
 
-        df_unique_all = (pd.DataFrame(unique_rows).pivot_table(index=["Layer", "Study"], columns="Variable",values="UniqueR2", aggfunc="first"))
+        df_unique_all = (pd.DataFrame(unique_rows).pivot_table(index=["Layer", "Study"], columns="Variable", values="UniqueR2", aggfunc="first"))
         df_partition_all = pd.DataFrame(partition_rows).set_index(["Layer", "Study"])
         df_r2_all = pd.DataFrame(r2_rows).set_index(["Layer", "Study"])
 
@@ -679,13 +677,13 @@ class DataAnalysisPipeline:
         df_r2_all.rename(index=layer_mapping, level="Layer", inplace=True)
 
         logical_order = [
-            "Raw", "TPM", "log2(TPM)", "log1p(CPM)", "log2(FPKM)", 
-            "log2(TMM)", "Salmon(Length Scaled)", "Salmon(Scaled)", 
-            "EDAseq (GC + Length)", 
+            "Raw", "TPM", "log2(TPM)", "log1p(CPM)", "log2(FPKM)",
+            "log2(TMM)", "Salmon(Length Scaled)", "Salmon(Scaled)",
+            "EDAseq (GC + Length)",
             "RUVg Platelet (k=1)", "RUVg Platelet (k=2)", "RUVg Platelet (k=3)",
             "EDAseq + RUVg (k=1)", "EDAseq + RUVg (k=2)", "EDAseq + RUVg (k=3)"
         ]
-        
+
         existing_layers = [l for l in logical_order if l in df_partition_all.index.get_level_values("Layer")]
         df_unique_all = df_unique_all.reindex(existing_layers, level="Layer")
         df_partition_all = df_partition_all.reindex(existing_layers, level="Layer")
@@ -706,7 +704,7 @@ class DataAnalysisPipeline:
         print("\n--- [Analysis] HC Cohort Partial RDA ---")
         adata_hc = self.adata[self.adata.obs[phenotype_col] == hc_label].copy()
         target_vars = [v for v in vars if v in adata_hc.obs.columns and v != phenotype_col]
-        
+
         if adata_hc.n_obs < len(target_vars) + 2:
             print(f"   [Error] Too few HC samples ({adata_hc.n_obs}).")
             return None
@@ -739,14 +737,14 @@ class DataAnalysisPipeline:
             if var not in col_groups:
                 unique_dict[var] = np.nan
                 continue
-                
+
             remaining = [v for v in target_vars if v != var and v in col_groups]
             if remaining:
                 X_minus_v, _ = enc(obs_sub, remaining, categorical_vars)
                 r2_minus_v, _ = adj_r2(Y_sub, X_minus_v)
             else:
                 r2_minus_v = 0.0
-                
+
             unique_dict[var] = max(0.0, r2_all - r2_minus_v)
         sr_unique = pd.Series(unique_dict).sort_values(ascending=True).dropna()
         plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict, save_path=save_path)
@@ -764,7 +762,7 @@ def compute_gene_wise_bias_rda(
     min_expressed_frac=0.1,
 ):
     print(f"\n--- [{group_name}] Vectorized Gene-wise Partial RDA ---")
-    
+
     if target_labels is None:
         sample_mask = np.ones(adata.n_obs, dtype=bool)
     elif isinstance(target_labels, str):
@@ -831,7 +829,7 @@ def compute_gene_wise_bias_rda(
             r2_minus = _vectorized_adj_r2(X_minus)
         else:
             r2_minus = np.zeros(n_genes)
-            
+
         unique_r2 = np.clip(r2_all - r2_minus, 0.0, 1.0)
         gene_records[f"Unique_{bias}"] = unique_r2
         sum_unique += unique_r2
@@ -841,8 +839,8 @@ def compute_gene_wise_bias_rda(
 
     df_detail = pd.DataFrame(gene_records)
     summary_data = []
-    
-    n_joint_contaminated = np.sum(r2_all > 0.10) 
+
+    n_joint_contaminated = np.sum(r2_all > 0.10)
     summary_data.append({
         "Variance_Component": "ALL_BIASES_COMBINED (Joint R²)",
         "Max_R2": round(np.max(r2_all), 4),
@@ -850,12 +848,12 @@ def compute_gene_wise_bias_rda(
         "Genes_Highly_Biased": int(n_joint_contaminated),
         "Threshold": "> 10%"
     })
-    
+
     for bias in obs_cols:
         unique_col = f"Unique_{bias}"
         vals = df_detail[unique_col].values
-        n_contaminated = np.sum(vals > 0.05) 
-        
+        n_contaminated = np.sum(vals > 0.05)
+
         summary_data.append({
             "Variance_Component": f"Unique: {bias}",
             "Max_R2": round(np.max(vals), 4),
@@ -865,7 +863,7 @@ def compute_gene_wise_bias_rda(
         })
 
     df_summary = pd.DataFrame(summary_data)
-    
+
     print("=" * 75)
     print(" [Summary] Gene-level Contamination by Confounders")
     print("=" * 75)

@@ -25,44 +25,36 @@ Usage:
 import argparse
 import csv
 import pickle
+import sys
 import time
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import scanpy as sc
-from scipy.sparse import issparse
-from scipy.stats import norm, skew, kurtosis
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
-
 import rpy2.robjects as ro
+import rpy2.robjects.numpy2ri as rpyn
+import scanpy as sc
 from rpy2.robjects import numpy2ri
 from rpy2.robjects.conversion import localconverter
-import rpy2.robjects.numpy2ri as rpyn
+from scipy.sparse import issparse
+from scipy.stats import kurtosis, norm, skew
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore", category=UserWarning, module="rpy2")
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
-# ── Paths / Constants (root config.py 단일 소스) ───────────────────
-import sys
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 import config
 
-BASE_DIR  = config.MODELING_DIR
-DATA_DIR  = config.DATA_DIR
-H5AD_PATH = config.H5AD_PATH
-SAVE_DIR  = config.CV_RESULTS_DIR
-R_HELPER  = config.R_HELPER
-
-BIAS_COLUMNS   = config.BIAS_COLUMNS
-STRATIFY_COL   = config.MODELING_PARAMS["stratify_col"]
-DET_RATE_MIN   = config.MODELING_PARAMS["det_rate_min"]   
+BIAS_COLUMNS = config.BIAS_COLUMNS
+STRATIFY_COL = config.MODELING_PARAMS["stratify_col"]
+DET_RATE_MIN = config.MODELING_PARAMS["det_rate_min"]
 MEAN_COUNT_MIN = config.MODELING_PARAMS["mean_count_min"]
-N_SPLITS       = config.MODELING_PARAMS["n_splits"]
+N_SPLITS = config.MODELING_PARAMS["n_splits"]
 
 META_FIELDS = [
     "gene", "n_hc", "det_rate_hc", "mean_count_hc",
@@ -84,37 +76,35 @@ META_FIELDS = [
     "primary_z_type",
     "fold_success_rate",
     "time_s",
-    # ── Failure / anomaly flags ──────────────────────────────────
-    "flag_fit_failure",     # fold_success_rate < 1.0
-    "flag_nu_explosion",    # nu_mean > 0.95 or nu_mean < 0.01
-    "flag_sigma_explosion", # sigma_mean > 50
-    "flag_mu_explosion",    # mu_mean > 1e5 or mu_mean < 1e-3
-    "flag_z_bias",          # |mean_z| > 0.3 on binary or full z-score
-    "flag_z_unstable",      # std_full_z > 1.5 or std_full_z < 0.5
-    "flag_high_removal",    # n_removed > 5% of total training data
-    "flag_nonnormal",       # w1_full > 0.25
-    "any_flag",             # OR of all above flags
+    # Failure / anomaly flags
+    "flag_fit_failure",
+    "flag_nu_explosion",
+    "flag_sigma_explosion",
+    "flag_mu_explosion",
+    "flag_z_bias",
+    "flag_z_unstable",
+    "flag_high_removal",
+    "flag_nonnormal",
+    "any_flag",
 ]
 
 # Failure thresholds (all adjustable via CLI where noted)
 _THR = dict(
-    fold_success_rate = 1.0,   # < this → fit_failure
-    nu_hi             = 0.95,  # nu_mean > this → nu_explosion
-    nu_lo             = 0.01,  # nu_mean < this → nu_explosion
-    sigma_hi          = 50.0,  # sigma_mean > this → sigma_explosion
-    mu_hi             = 1e5,   # mu_mean > this → mu_explosion
-    mu_lo             = 1e-3,  # mu_mean < this → mu_explosion
-    z_bias            = 0.3,   # |mean_z| > this → z_bias
-    std_hi            = 1.5,   # std_z > this → z_unstable
-    std_lo            = 0.5,   # std_z < this → z_unstable
-    removal_frac      = 0.05,  # n_removed/(n_hc*0.8) > this → high_removal
-    w1                = 0.25,  # w1_full > this → nonnormal
+    fold_success_rate=1.0,
+    nu_hi=0.95,
+    nu_lo=0.01,
+    sigma_hi=50.0,
+    mu_hi=1e5,
+    mu_lo=1e-3,
+    z_bias=0.3,
+    std_hi=1.5,
+    std_lo=0.5,
+    removal_frac=0.05,
+    w1=0.25,
 )
 
 
-# ── Failure detection ─────────────────────────────────────────────
-
-def detect_flags(row: dict, n_hc: int, n_folds: int) -> dict:
+def detect_flags(row, n_hc, n_folds):
     """Compute anomaly flags for one gene's result row.
 
     Returns a dict of {flag_name: int (0/1)} plus "any_flag".
@@ -122,9 +112,9 @@ def detect_flags(row: dict, n_hc: int, n_folds: int) -> dict:
     T = _THR
     flags = {}
 
-    flags["flag_fit_failure"]     = int(row["fold_success_rate"] < T["fold_success_rate"])
+    flags["flag_fit_failure"] = int(row["fold_success_rate"] < T["fold_success_rate"])
     nu = row["nu_mean"]
-    flags["flag_nu_explosion"]    = int(
+    flags["flag_nu_explosion"] = int(
         (np.isfinite(nu) and (nu > T["nu_hi"] or nu < T["nu_lo"]))
         or not np.isfinite(nu)
     )
@@ -134,15 +124,15 @@ def detect_flags(row: dict, n_hc: int, n_folds: int) -> dict:
         or not np.isfinite(sigma)
     )
     mu = row["mu_mean"]
-    flags["flag_mu_explosion"]    = int(
+    flags["flag_mu_explosion"] = int(
         (np.isfinite(mu) and (mu > T["mu_hi"] or mu < T["mu_lo"]))
         or not np.isfinite(mu)
     )
 
-    mean_bin  = row["mean_binary_z"]
+    mean_bin = row["mean_binary_z"]
     mean_full = row["mean_full_z"]
     flags["flag_z_bias"] = int(
-        (np.isfinite(mean_bin)  and abs(mean_bin)  > T["z_bias"])
+        (np.isfinite(mean_bin) and abs(mean_bin) > T["z_bias"])
         or (np.isfinite(mean_full) and abs(mean_full) > T["z_bias"])
     )
 
@@ -152,7 +142,6 @@ def detect_flags(row: dict, n_hc: int, n_folds: int) -> dict:
         or not np.isfinite(std_full)
     )
 
-    # Expected training samples per fold ≈ n_hc * (1 - 1/n_folds)
     n_tr_expected = n_hc * (1 - 1 / n_folds)
     flags["flag_high_removal"] = int(
         row["n_removed"] > n_tr_expected * T["removal_frac"]
@@ -168,24 +157,20 @@ def detect_flags(row: dict, n_hc: int, n_folds: int) -> dict:
     return flags
 
 
-# ── R initialisation ───────────────────────────────────────────────
-
 def init_r():
-    ro.r(f'source("{R_HELPER}")')
+    ro.r(f'source("{config.R_HELPER}")')
     return ro.globalenv["fit_zinb_gene"]
 
 
-# ── Data loading ───────────────────────────────────────────────────
-
 def load_hc_data():
-    adata = sc.read_h5ad(H5AD_PATH)
+    adata = sc.read_h5ad(config.H5AD_PATH)
     adata = adata[adata.obs["QC_Passed"] == True]
     adata = adata[adata.obs["Phenotype_Processed"].notna()]
     adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
     adata = adata[adata.obs["broad_protocol_category"] != "Exome-based (EB)"]  # WTS only
     is_hc = (adata.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
 
-    batch_raw  = adata.obs[STRATIFY_COL].astype(object)
+    batch_raw = adata.obs[STRATIFY_COL].astype(object)
     strata_all = batch_raw.fillna("Unknown").astype(str).values
 
     X_raw = adata.obs[BIAS_COLUMNS].values.astype(np.float64)
@@ -195,32 +180,27 @@ def load_hc_data():
     Y_raw = adata.X.toarray() if issparse(adata.X) else np.asarray(adata.X)
     Y_raw = np.round(Y_raw).astype(np.float64)
 
-    is_pc         = (adata.var["GeneType"] == "protein_coding").values
+    is_pc = (adata.var["GeneType"] == "protein_coding").values
     pc_gene_names = adata.var_names[is_pc].tolist()
-    pc_indices    = np.where(is_pc)[0]
+    pc_indices = np.where(is_pc)[0]
 
     strata_hc = strata_all[is_hc]
     return X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices
 
 
-def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices,
-                            det_rate_min):
-    Y_hc  = Y_raw[is_hc][:, pc_indices]
+def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices, det_rate_min):
+    Y_hc = Y_raw[is_hc][:, pc_indices]
     det_r = (Y_hc > 0).mean(axis=0)
-    cand  = det_r >= det_rate_min
+    cand = det_r >= det_rate_min
     return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand]
 
-
-# ── CV folds ───────────────────────────────────────────────────────
 
 def make_stratified_folds(strata, n_splits=N_SPLITS):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     return list(skf.split(np.zeros(len(strata)), strata))
 
 
-# ── Evaluation helpers ─────────────────────────────────────────────
-
-def wasserstein1_normal(z_arr: np.ndarray) -> float:
+def wasserstein1_normal(z_arr):
     """1st Wasserstein distance between empirical z distribution and N(0,1).
     N-robust: converges without inflating with n. Threshold: > 0.25 = poor calibration.
     """
@@ -241,9 +221,7 @@ def zscore_stats(z_arr):
             float(skew(z_valid)), float(kurtosis(z_valid)), n)
 
 
-# ── rpy2 data conversion helpers ───────────────────────────────────
-
-def _to_r_matrix(arr: np.ndarray, col_names: list):
+def _to_r_matrix(arr, col_names):
     with localconverter(ro.default_converter + rpyn.converter):
         r_mat = ro.conversion.py2rpy(np.ascontiguousarray(arr, dtype=np.float64))
     return ro.r["matrix"](
@@ -253,12 +231,10 @@ def _to_r_matrix(arr: np.ndarray, col_names: list):
     )
 
 
-def _to_r_vec(arr: np.ndarray):
+def _to_r_vec(arr):
     with localconverter(ro.default_converter + rpyn.converter):
         return ro.conversion.py2rpy(np.ascontiguousarray(arr, dtype=np.float64))
 
-
-# ── Primary z-score decision ───────────────────────────────────────
 
 def _build_primary_lookup(nbi_stats_path):
     """Returns dict {gene: "binary"} for genes that should use Binary_Z
@@ -284,27 +260,25 @@ def decide_primary(det_rate, gene, binary_threshold, nbi_lookup):
     return "full"
 
 
-# ── Per-gene CV ────────────────────────────────────────────────────
-
 def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
     n = len(y_hc)
-    z_binary     = np.full(n, np.nan)
+    z_binary = np.full(n, np.nan)
     z_count_cond = np.full(n, np.nan)
-    z_full       = np.full(n, np.nan)
-    mu_all       = np.full(n, np.nan)
-    sigma_all    = np.full(n, np.nan)
-    nu_all       = np.full(n, np.nan)
-    n_success    = 0
-    n_removed    = 0
+    z_full = np.full(n, np.nan)
+    mu_all = np.full(n, np.nan)
+    sigma_all = np.full(n, np.nan)
+    nu_all = np.full(n, np.nan)
+    n_success = 0
+    n_removed = 0
 
     for fold_idx, (tr_idx, te_idx) in enumerate(folds):
-        seed_r          = ro.IntVector([42 + fold_idx])
-        n_cyc_r         = ro.IntVector([50])
-        outlier_z       = ro.FloatVector([args.outlier_z])
-        max_iter        = ro.IntVector([args.max_iter])
+        seed_r = ro.IntVector([42 + fold_idx])
+        n_cyc_r = ro.IntVector([50])
+        outlier_z = ro.FloatVector([args.outlier_z])
+        max_iter = ro.IntVector([args.max_iter])
         max_remove_frac = ro.FloatVector([args.max_remove_frac])
-        nu_type_r       = ro.StrVector([args.nu_formula])
-        lambda_sigma    = ro.FloatVector([args.lambda_sigma])
+        nu_type_r = ro.StrVector([args.nu_formula])
+        lambda_sigma = ro.FloatVector([args.lambda_sigma])
 
         res = r_fit_fn(
             _to_r_vec(y_hc[tr_idx]),
@@ -315,21 +289,19 @@ def eval_gene_cv(y_hc, X_hc_scaled, folds, r_fit_fn, col_names, args):
         )
 
         if res.rx2("success")[0]:
-            z_binary[te_idx]     = np.array(res.rx2("z_binary"))
+            z_binary[te_idx] = np.array(res.rx2("z_binary"))
             z_count_cond[te_idx] = np.array(res.rx2("z_count_cond"))
-            z_full[te_idx]       = np.array(res.rx2("z_full"))
-            mu_all[te_idx]       = np.array(res.rx2("mu_test"))
-            sigma_all[te_idx]    = np.array(res.rx2("sigma_test"))
-            nu_all[te_idx]       = np.array(res.rx2("nu_test"))
-            n_removed           += int(res.rx2("n_removed")[0])
-            n_success           += 1
+            z_full[te_idx] = np.array(res.rx2("z_full"))
+            mu_all[te_idx] = np.array(res.rx2("mu_test"))
+            sigma_all[te_idx] = np.array(res.rx2("sigma_test"))
+            nu_all[te_idx] = np.array(res.rx2("nu_test"))
+            n_removed += int(res.rx2("n_removed")[0])
+            n_success += 1
 
     return (z_binary, z_count_cond, z_full,
             mu_all, sigma_all, nu_all,
             n_success / len(folds), n_removed)
 
-
-# ── Resume helper ──────────────────────────────────────────────────
 
 def _load_done_genes(meta_path):
     done = set()
@@ -340,40 +312,38 @@ def _load_done_genes(meta_path):
     return done
 
 
-# ── Main ───────────────────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--det-rate-min",        type=float, default=DET_RATE_MIN)
-    parser.add_argument("--n-folds",              type=int,   default=N_SPLITS)
-    parser.add_argument("--binary-z-threshold",   type=float, default=None,
+    parser.add_argument("--det-rate-min", type=float, default=DET_RATE_MIN)
+    parser.add_argument("--n-folds", type=int, default=N_SPLITS)
+    parser.add_argument("--binary-z-threshold", type=float, default=None,
                         metavar="T",
                         help="genes with det_rate < T use Binary_Z as primary (e.g. 0.10)")
-    parser.add_argument("--nbi-stats",            type=str,   default=None,
+    parser.add_argument("--nbi-stats", type=str, default=None,
                         metavar="PATH",
                         help="path to cv_gamlss_stats.csv; genes with poor NBI fit "
                              "get Binary_Z as primary")
-    parser.add_argument("--nu-formula",       choices=["intercept", "full"],
+    parser.add_argument("--nu-formula", choices=["intercept", "full"],
                         default="intercept",
                         help="nu sub-model formula: 'intercept' (nu~1, default, prevents "
                              "overfitting) or 'full' (nu~all covariates)")
-    parser.add_argument("--outlier-z",        type=float, default=5.0,
+    parser.add_argument("--outlier-z", type=float, default=5.0,
                         help="remove training samples with |z_train| > this (default 5.0)")
-    parser.add_argument("--max-iter",         type=int,   default=2,
+    parser.add_argument("--max-iter", type=int, default=2,
                         help="max outlier-removal iterations per fold (default 2)")
-    parser.add_argument("--max-remove-frac",   type=float, default=0.10,
+    parser.add_argument("--max-remove-frac", type=float, default=0.10,
                         help="max fraction of training samples removable per iteration (default 0.10)")
-    parser.add_argument("--lambda-sigma",   type=float, default=0.05,
+    parser.add_argument("--lambda-sigma", type=float, default=0.05,
                         help="L2 ridge penalty on sigma submodel coefficients (default 0.05; 0=disabled)")
-    parser.add_argument("--no-resume",  action="store_true")
-    parser.add_argument("--limit",      type=int,   default=None,
+    parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument("--limit", type=int, default=None,
                         help="process only first N genes (for testing)")
     args = parser.parse_args()
 
-    SAVE_DIR.mkdir(parents=True, exist_ok=True)
-    meta_path    = SAVE_DIR / "cv_zinb_stats.csv"
-    zscores_path = SAVE_DIR / "cv_zinb_zscores.pkl"
+    config.CV_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    meta_path = config.CV_RESULTS_DIR / "cv_zinb_stats.csv"
+    zscores_path = config.CV_RESULTS_DIR / "cv_zinb_zscores.pkl"
 
     print("Initialising R / ZINB...")
     r_fit_fn = init_r()
@@ -398,15 +368,15 @@ def main():
         print(f"Binary_Z threshold (det_rate) : < {args.binary_z_threshold:.0%}")
 
     if args.limit is not None:
-        gene_names   = gene_names[:args.limit]
+        gene_names = gene_names[:args.limit]
         gene_indices = gene_indices[:args.limit]
         print(f"Limited to {len(gene_names)} gene(s) for testing")
 
     folds = make_stratified_folds(strata_hc, n_splits=args.n_folds)
 
-    ppc_path  = SAVE_DIR / "cv_zinb_ppc.pkl"   # per-sample mu, sigma, nu for PPC
+    ppc_path = config.CV_RESULTS_DIR / "cv_zinb_ppc.pkl"
 
-    done_genes   = set() if args.no_resume else _load_done_genes(meta_path)
+    done_genes = set() if args.no_resume else _load_done_genes(meta_path)
     zscores_dict = {}
     if not args.no_resume and zscores_path.exists():
         try:
@@ -425,8 +395,8 @@ def main():
             ppc_path.unlink()
 
     write_header = args.no_resume or not meta_path.exists()
-    meta_file    = open(meta_path, "w" if args.no_resume else "a", newline="")
-    meta_writer  = csv.DictWriter(meta_file, fieldnames=META_FIELDS)
+    meta_file = open(meta_path, "w" if args.no_resume else "a", newline="")
+    meta_writer = csv.DictWriter(meta_file, fieldnames=META_FIELDS)
     if write_header:
         meta_writer.writeheader()
         meta_file.flush()
@@ -439,8 +409,8 @@ def main():
             n_skipped += 1
             continue
 
-        y_hc_gene  = Y_hc[:, g_idx]
-        det_rate   = float((y_hc_gene > 0).mean())
+        y_hc_gene = Y_hc[:, g_idx]
+        det_rate = float((y_hc_gene > 0).mean())
         mean_count = float(y_hc_gene.mean())
 
         t0 = time.perf_counter()
@@ -450,36 +420,33 @@ def main():
         )
         elapsed = time.perf_counter() - t0
 
-        # ── W1 calibration metrics ────────────────────────────────
-        w1_bin  = wasserstein1_normal(z_bin)
+        w1_bin = wasserstein1_normal(z_bin)
         w1_cond = wasserstein1_normal(z_cond)
         w1_full = wasserstein1_normal(z_full)
 
-        # ── Distribution stats ─────────────────────────────────────
         m_b, s_b, sk_b, ku_b, nv_b = zscore_stats(z_bin)
         m_c, s_c, sk_c, ku_c, nv_c = zscore_stats(z_cond)
         m_f, s_f, sk_f, ku_f, nv_f = zscore_stats(z_full)
 
-        # ── Primary z selection ────────────────────────────────────
-        ptype     = decide_primary(det_rate, g_name, args.binary_z_threshold, nbi_lookup)
+        ptype = decide_primary(det_rate, g_name, args.binary_z_threshold, nbi_lookup)
         z_primary = {"binary": z_bin, "count_cond": z_cond, "full": z_full}[ptype]
 
         row = {
             "gene": g_name, "n_hc": int(is_hc.sum()),
             "det_rate_hc": det_rate, "mean_count_hc": mean_count,
-            "w1_binary":   w1_bin,
-            "mean_binary_z":  m_b,  "std_binary_z":  s_b,
-            "skew_binary_z":  sk_b, "kurt_binary_z":  ku_b, "n_binary": nv_b,
+            "w1_binary": w1_bin,
+            "mean_binary_z": m_b, "std_binary_z": s_b,
+            "skew_binary_z": sk_b, "kurt_binary_z": ku_b, "n_binary": nv_b,
             "w1_count_cond": w1_cond,
             "mean_count_cond_z": m_c, "std_count_cond_z": s_c,
             "skew_count_cond_z": sk_c, "kurt_count_cond_z": ku_c, "n_count_cond": nv_c,
-            "w1_full":     w1_full,
-            "mean_full_z":  m_f,  "std_full_z":  s_f,
-            "skew_full_z":  sk_f, "kurt_full_z":  ku_f, "n_full": nv_f,
-            "mu_mean":    float(np.nanmean(mu_all)),
+            "w1_full": w1_full,
+            "mean_full_z": m_f, "std_full_z": s_f,
+            "skew_full_z": sk_f, "kurt_full_z": ku_f, "n_full": nv_f,
+            "mu_mean": float(np.nanmean(mu_all)),
             "sigma_mean": float(np.nanmean(sigma_all)),
-            "nu_mean":    float(np.nanmean(nu_all)),
-            "n_removed":  n_removed,
+            "nu_mean": float(np.nanmean(nu_all)),
+            "n_removed": n_removed,
             "primary_z_type": ptype,
             "fold_success_rate": fold_ok,
             "time_s": elapsed,
@@ -491,18 +458,18 @@ def main():
         meta_file.flush()
 
         zscores_dict[g_name] = {
-            "binary":     z_bin,
+            "binary": z_bin,
             "count_cond": z_cond,
-            "full":       z_full,
-            "primary":    z_primary,
+            "full": z_full,
+            "primary": z_primary,
         }
         with open(zscores_path, "wb") as f:
             pickle.dump(zscores_dict, f)
 
         ppc_dict[g_name] = {
-            'mu':    mu_all.astype(np.float32),
+            'mu': mu_all.astype(np.float32),
             'sigma': sigma_all.astype(np.float32),
-            'nu':    nu_all.astype(np.float32),
+            'nu': nu_all.astype(np.float32),
         }
         with open(ppc_path, "wb") as f:
             pickle.dump(ppc_dict, f)
@@ -518,13 +485,12 @@ def main():
 
     meta_file.close()
 
-    failures_path = SAVE_DIR / "cv_zinb_failures.csv"
+    failures_path = config.CV_RESULTS_DIR / "cv_zinb_failures.csv"
     try:
         import pandas as pd
         df_all = pd.read_csv(meta_path)
         df_fail = df_all[df_all["any_flag"] == 1].copy()
 
-        # Summarise which flags were triggered per gene
         flag_cols = [c for c in df_fail.columns if c.startswith("flag_") and c != "any_flag"]
         df_fail["failure_types"] = df_fail[flag_cols].apply(
             lambda r: "|".join(c.replace("flag_", "") for c in flag_cols if r[c] == 1),

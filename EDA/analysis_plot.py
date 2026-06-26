@@ -1,26 +1,26 @@
 import math
 import os
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import seaborn as sns
 import scanpy as sc
+import seaborn as sns
 import statsmodels.formula.api as smf
 from scipy import stats
 from scipy.spatial.distance import pdist, squareform
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.svm import SVC
 
 try:
-    from skbio.stats.distance import permanova
     from skbio import DistanceMatrix
+    from skbio.stats.distance import permanova
     _HAS_SKBIO = True
 except ImportError:
     _HAS_SKBIO = False
@@ -213,10 +213,10 @@ def _build_classifiers():
     return {
         "LogReg": make_pipeline(StandardScaler(),
                                 LogisticRegression(max_iter=1000, random_state=42)),
-        "SVM":    make_pipeline(StandardScaler(),
-                                SVC(probability=True, kernel="rbf", random_state=42)),
-        "RF":     RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42),
-        "GBM":    GradientBoostingClassifier(n_estimators=50, max_depth=3, random_state=42),
+        "SVM": make_pipeline(StandardScaler(),
+                             SVC(probability=True, kernel="rbf", random_state=42)),
+        "RF": RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42),
+        "GBM": GradientBoostingClassifier(n_estimators=50, max_depth=3, random_state=42),
     }
 
 
@@ -408,7 +408,7 @@ def plot_rda_unique_heatmap(df_unique, use_hvg, save_path=None):
 def plot_rda_variance_partition(df_partition, title, x_label="Studies (Authors)",
                                  figsize=None, save_path=None):
     """Stacked horizontal bar chart of variance partition."""
-    part_cols   = ["pheno_unique", "conf_unique", "shared", "unexplained"]
+    part_cols = ["pheno_unique", "conf_unique", "shared", "unexplained"]
     part_labels = ["Phenotype Unique", "Confounder Unique", "Shared", "Unexplained"]
     part_colors = ["steelblue", "coral", "mediumseagreen", "lightgrey"]
     df_plot = df_partition[part_cols].fillna(0)
@@ -461,7 +461,7 @@ def plot_normalization_partition(df_partition_all, studies, save_path=None):
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 4.5, n_rows * 6.5), sharey=True)
     axes_flat = [axes] if n_rows * n_cols == 1 else axes.flatten()
 
-    part_cols   = ["pheno_unique", "conf_unique", "shared", "unexplained"]
+    part_cols = ["pheno_unique", "conf_unique", "shared", "unexplained"]
     part_labels = ["Phenotype Unique", "Confounder Unique", "Shared", "Unexplained"]
     part_colors = ["steelblue", "coral", "mediumseagreen", "lightgrey"]
     for i, study in enumerate(studies):
@@ -541,13 +541,7 @@ def check_discrete_covariate_batch_effects(
     min_class_samples=10,
     n_repeats=20,
 ):
-    """
-    HC 샘플에서 bias_list를 feature로 사용해 각 discrete covariate를 분류.
-    Returns (df_auc, df_meta).
-      df_auc : Covariate / Model / AUC / Iteration
-      df_meta: covariate / n_classes / n_samples / classes
-    """
-    obs_hc     = adata.obs[adata.obs[phenotype_col] == hc_label].copy()
+    obs_hc = adata.obs[adata.obs[phenotype_col] == hc_label].copy()
     avail_bias = [b for b in bias_list if b in obs_hc.columns]
     all_records, meta_records = [], []
     models = _build_classifiers()
@@ -559,15 +553,15 @@ def check_discrete_covariate_batch_effects(
         df_sub = obs_hc.dropna(subset=avail_bias + [covar]).copy()
         df_sub[covar] = df_sub[covar].astype(str)
         counts = df_sub[covar].value_counts()
-        keep   = counts[counts >= min_class_samples].index.tolist()
+        keep = counts[counts >= min_class_samples].index.tolist()
         if len(keep) < 2:
             print(f"[Skip] {covar}: < 2 classes with ≥{min_class_samples} samples "
                   f"({dict(counts.head(5))})")
             continue
         df_sub = df_sub[df_sub[covar].isin(keep)]
-        X  = df_sub[avail_bias].values
+        X = df_sub[avail_bias].values
         le = LabelEncoder()
-        y  = le.fit_transform(df_sub[covar])
+        y = le.fit_transform(df_sub[covar])
         n_cls = len(le.classes_)
         meta_records.append({
             "covariate": covar, "n_classes": n_cls,
@@ -663,14 +657,14 @@ def plot_covariate_auc_violins(df_auc, n_cols=4, save_path=None):
     axes_flat = axes.flatten() if n_rows * n_cols > 1 else [axes]
 
     for i, covar in enumerate(covariates):
-        ax   = axes_flat[i]
-        sub  = df_auc[df_auc["Covariate"] == covar]
+        ax = axes_flat[i]
+        sub = df_auc[df_auc["Covariate"] == covar]
         sns.boxplot(data=sub, x="Model", y="AUC", hue="Model",
                     palette=my_pal, ax=ax, showfliers=False, width=0.6, legend=False)
         sns.stripplot(data=sub, x="Model", y="AUC",
                       color="black", alpha=0.3, jitter=True, size=3, ax=ax)
         ax.axhline(0.5, color="gray", linestyle="--", alpha=0.6, linewidth=1)
-        ax.axhline(0.7, color="red",  linestyle=":", linewidth=1.5)
+        ax.axhline(0.7, color="red", linestyle=":", linewidth=1.5)
         ax.set_title(label_map.get(covar, covar), fontweight="bold", fontsize=10)
         ax.set_ylim(0, 1.1)
         ax.set_xlabel("")
@@ -695,7 +689,7 @@ def plot_gene_wise_bias_summary(df_detail, group_name, save_path=None):
     """Joint R² histogram + contamination severity bar chart for one group."""
     joint_r2 = df_detail["Joint_R2_All_Biases"]
     bins_edges = [-np.inf, 0.05, 0.10, 0.30, np.inf]
-    sev_labels = ["Minimal (< 5%)", "Moderate (5–10%)", "High (10–30%)", "Severe (> 30%)"]
+    sev_labels = ["Minimal (< 5%)", "Moderate (5-10%)", "High (10-30%)", "Severe (> 30%)"]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), constrained_layout=True)
 
@@ -727,4 +721,3 @@ def plot_gene_wise_bias_summary(df_detail, group_name, save_path=None):
 
     _save(fig, save_path)
     plt.show()
-
