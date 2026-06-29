@@ -215,13 +215,17 @@ class NormativeModelEngine:
 
     # ---- Data loading ---------------------------------------------------
 
-    def load_hc_data(self, h5ad_path=config.H5AD_PATH):
+    def load_hc_data(self, h5ad_path=config.H5AD_PATH, exclude_authors=None):
         print("Loading HC data...")
         adata = sc.read_h5ad(h5ad_path)
         adata = adata[adata.obs["QC_Passed"] == True]
         adata = adata[adata.obs["Phenotype_Processed"].notna()]
         adata = adata[adata.obs["Phenotype_Processed"] != "Unknown"]
         adata = adata[adata.obs["broad_protocol_category"] != "Exome-based (EB)"]  # WTS only
+        if exclude_authors is not None:
+            if isinstance(exclude_authors, str):
+                exclude_authors = [exclude_authors]
+            adata = adata[~adata.obs["Author"].isin(exclude_authors)]
         self.is_hc = (adata.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
 
         X_raw = adata.obs[config.BIAS_COLUMNS].values.astype(np.float64)
