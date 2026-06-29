@@ -30,15 +30,13 @@
 2. [간·소화기암 그룹](#2-간소화기암-그룹)
    - 2.1 Liver Cancer (Chen)
    - 2.2 Liver Cancer (Roskams-Hieter)
-   - 2.3 Liver Cirrhosis
-   - 2.4 Colorectal Cancer
-   - 2.5 Esophagus Cancer
-   - 2.6 Stomach Cancer
+   - 2.3 Colorectal Cancer
+   - 2.4 Esophagus Cancer
+   - 2.5 Stomach Cancer
 3. [췌장·폐 그룹](#3-췌장폐-그룹)
    - 3.1 Pancreatic Cancer (Moore)
-   - 3.2 Pancreatic Cancer (Reggiardo)
-   - 3.3 Pancreatitis
-   - 3.4 Lung Cancer
+   - 3.2 Pancreatitis
+   - 3.3 Lung Cancer
 4. [면역·혈액 그룹](#4-면역혈액-그룹)
    - 4.1 ICI-induced Myocarditis
    - 4.2 ICI-treated Cancer
@@ -51,6 +49,7 @@
    - 5.3 Other Cancer
 6. [기존 문헌 미보고 Novel 발견 정리](#6-기존-문헌-미보고-novel-발견-정리)
 7. [전체 요약 테이블](#7-전체-요약-테이블)
+8. [방법론적 한계점](#8-방법론적-한계점)
 
 ---
 
@@ -91,10 +90,9 @@
 
 #### 주요 하향 신호
 
-**번역·리보솜 억제 (NES −2.49 최저)**
-- SRP-dependent Cotranslational Targeting (−2.494) · Ribosomal Subunit Biogenesis (−2.405) · Translation (−2.381)
-- 미토콘드리아 번역 억제 (−2.332 ~ −2.177): HIV 및 뉴클레오시드계 ART의 미토콘드리아 독성 반영
-- HIV Tat가 숙주 cap-dependent translation 억제; Vpr이 리보솜 생합성 억제
+**번역·리보솜 축 (NES −2.49 최저)** — *cross-disease confound 포함, §8 한계점 참조*
+- SRP-dependent Cotranslational Targeting (−2.494), Translation (−2.381)
+- HIV Tat의 cap-dependent translation 억제 및 Vpr의 리보솜 생합성 억제가 기여 가능하나, 동일 신호가 22개 표현형 중 21개에서 관찰되므로 HIV-특이 해석에 주의
 
 #### 아티팩트 주의
 
@@ -127,10 +125,9 @@
 
 #### 주요 하향 신호
 
-**번역 억제 — 세 질병 중 최심 (NES −2.743)**
-- Cap-dependent Translation Initiation (−2.743), Eukaryotic Translation Elongation (−2.737)
-- **GCN2 반응 (EIF2AK4, NES −2.488)**: 이중 병원체 부담으로 인한 아미노산 고갈 → GCN2 활성화 → eIF2α 인산화 → 번역 전반 억제
-  ↳ HIV 단독(−2.494)보다 훨씬 깊음 = 이중 병원체 대사 스트레스의 직접 반영
+**번역·리보솜 축 (NES −2.743)** — *cross-disease confound 포함, §8 한계점 참조*
+- **GCN2/EIF2AK4 (NES −2.488) — 질병 특이 신호**: 이중 병원체 부담으로 인한 아미노산 고갈 → GCN2 활성화 → eIF2α 인산화 → 번역 전반 억제. HIV 단독(−2.494)보다 깊음 = 이중 병원체 대사 스트레스를 반영하는 질병 특이적 성분
+- 번역 기계 일반(cap-dependent initiation, elongation)은 cross-disease confound와 혼재
 
 **B 세포 경로 하향 (HIV+TB 고유 신호)**
 - B Cell Proliferation (−2.158), B Cell Activation (−2.060), B Cell Receptor Signaling (−1.979)
@@ -207,14 +204,10 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**번역 기계 전면 억제 (NES 최저 −3.356)**
-- Eukaryotic Translation Elongation (−3.356), Peptide Chain Elongation (−3.330)
-- rRNA Processing, Cap-dependent Translation Initiation, Cytoplasmic Translation
-- 리보솜 단백질(RPL36, RPL21, RPS13, RPS25) 및 번역 인자(EIF4E, EIF3J) 전반 하향
-
-**Starvation Response (−2.715):** GCN2/ISR 활성화 — 종양 미세환경 영양 결핍 반영
-
-**주목:** Chen 코호트에서 번역 억제가 OXPHOS 억제보다 우세 → Group2 평가의 "간암 = OXPHOS 하향, GI암 = 번역 하향" 패턴에서 이탈; n=10 소수 편향 또는 샘플 이질성 가능성
+**번역·리보솜 축 (NES −3.356)** — *cross-disease confound 포함, §8 한계점 참조*
+- **GCN2/Starvation Response (−2.715) — 질병 특이 성분**: 종양 미세환경 영양 결핍 → ISR 활성화
+- 번역 기계 일반(elongation, rRNA processing)은 cross-disease confound와 혼재
+- n=10 소수 한계로 신호 해석에 추가 주의 필요
 
 **신호 품질: MODERATE-HIGH (n=10 한계)**
 
@@ -250,8 +243,7 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호 (단 6개)
 
-- OXPHOS/미토콘드리아 대사 (NES −2.332 ~ −2.108): UQCR11, NDUFA1, COX17 등
-  → Group2에서 확인된 "HCC = Warburg 효과" 재현
+- **Warburg / OXPHOS (NES −2.332 ~ −2.108)**: UQCR11, NDUFA1, COX17 등. 유의 하향 경로 총 6개 중 전부가 OXPHOS/미토콘드리아로, Chen 코호트(OXPHOS 약한 하향)과 함께 HCC의 Warburg 효과를 재현. 단, OXPHOS 하향은 cross-disease confound와 방향이 같으므로 (§8), 두 코호트에서 모두 재현된다는 점이 병인 특이성 지지의 주요 근거임
 
 **[두 코호트 핵심 비교]**
 
@@ -272,31 +264,7 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 ---
 
-### 2.3 Liver Cirrhosis (n=4 · NES>0: 39 · NES<0: 2)
-
-⚠ **n=4로 통계적 신뢰도 매우 낮음; 모든 결과 잠정적**
-
-#### 핵심 신호
-
-**최상위 상향: HDACs Deacetylate Histones (+2.363)**
-- 주도 유전자: H2AC/H2BC/H3C 히스톤군 + 대식세포/보체
-- 간경화에서 문맥 고혈압 → 전신 염증 → 호중구 NETosis → 히스톤 cfRNA 방출로 해석
-- HDAC 에피제네틱 리모델링 (간 섬유화에서 BRG1/SMARCA4 활성화)이 기여 가능
-
-**혈관 리모델링 신호 (+2.203)**
-- Regulation Of Endothelial Cell Migration: KDR(VEGFR-2), FLT4(VEGFR-3), DLL4, EDN1, NOS3, FGF1, EGF
-- 간경화 문맥 고혈압에서 활성화된 LSEC(간 동굴 내피세포) 유래 cfRNA로 해석
-- 섬유화→간경화 진행에서 LSEC 기능 이상이 초기 사건임을 반영
-
-**보체/응고 상향 (+2.041):** HCC와 공통 — 응고병증은 간경화의 임상적 핵심 합병증
-
-**OXPHOS 하향 (−2.280, −2.203):** HCC보다 약한 신호 (−2.92) → **간경화 → HCC 진행에 따른 미토콘드리아 기능 저하가 점진적으로 심화됨**을 시사
-
-**신호 품질: LOW-MODERATE (n=4)**
-
----
-
-### 2.4 Colorectal Cancer (sample n=37 · FDR<0.05 385개 · NES>0: 25 · NES<0: 360)
+### 2.3 Colorectal Cancer (sample n=37 · FDR<0.05 385개 · NES>0: 25 · NES<0: 360)
 
 #### 주요 상향 신호
 
@@ -320,19 +288,16 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**번역·리보솜 완전 억제 (NES 최저 −2.432, 360/385 경로)**
-- Eukaryotic Translation Elongation (−2.432), Peptide Chain Elongation (−2.427)
-- KEGG Ribosome (−2.339), NMD (EJC-independent/enhanced), SRP-dependent targeting
-- GCN2/EIF2AK4 Response To Amino Acid Deficiency (−2.339)
-- Lead genes: RPL/RPS 패밀리 전체, EIF3A/B/J, EIF4A, EIF2B4
-- **Chen et al. eLife 2022에서 직접 보고된 결과와 일치**: "리보솜 생합성 경로가 CRC cfRNA에서 현저히 하향"
-- PloS ONE 2024 CRC cfRNA 연구(PMC11326608)에서도 독립 검증
+**번역·리보솜 축 (NES −2.432, 360/385 경로)** — *cross-disease confound 포함, §8 한계점 참조*
+- Chen et al. eLife 2022 및 PloS ONE 2024에서 독립 보고된 결과와 방향 일치
+- **GCN2/EIF2AK4 (−2.339)**: 아미노산 결핍 → ISR 활성화 — 질병 특이 성분으로 해석 가능
+- 번역 기계 일반 신호는 cross-disease confound와 혼재
 
 **신호 품질: HIGH**
 
 ---
 
-### 2.5 Esophagus Cancer (sample n=25 · FDR<0.05 683개 · NES>0: 148 · NES<0: 535)
+### 2.4 Esophagus Cancer (sample n=25 · FDR<0.05 683개 · NES>0: 148 · NES<0: 535)
 
 #### 주요 상향 신호
 
@@ -365,16 +330,15 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**OXPHOS + 번역 동시 억제 (n=539, 이중 최강)**
-- OXPHOS (ranks 1·3·4·8·9·11·13): Mitochondrial Respiratory Chain Complex Assembly (−2.387)
-- 번역 (ranks 2·5·6·7·10): SRP-dependent Targeting (−2.354), Translation (−2.327)
-- **간암(OXPHOS 우세)과 대장암(번역 우세)의 중간 표현형** — 해부학적 위치(GEJ 인근) 반영
+**OXPHOS + 번역 동시 억제 (n=539)** — *cross-disease confound 포함, §8 한계점 참조*
+- 두 신호 모두 22개 표현형 중 다수에서 관찰되는 cross-disease ubiquitous 패턴
+- "간암(OXPHOS 우세)과 대장암(번역 우세)의 중간 표현형"이라는 해부학적 해석은 흥미롭지만, confound와의 분리가 선행되어야 함
 
 **신호 품질: HIGH**
 
 ---
 
-### 2.6 Stomach Cancer (sample n=24 · FDR<0.05 516개 · NES>0: 13 · NES<0: 503)
+### 2.5 Stomach Cancer (sample n=24 · FDR<0.05 516개 · NES>0: 13 · NES<0: 503)
 
 #### 주요 상향 신호
 
@@ -397,9 +361,9 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**번역 억제 최우세 (503/516 경로; NES 최저 −2.284)**
-- CRC와 동일한 패턴; OXPHOS 하향은 ranks 27-29로 약함
-- GI 하부암의 공통 cfRNA 번역 억제 패턴 확인
+**번역·리보솜 축 (503/516 경로, NES −2.284)** — *cross-disease confound 포함, §8 한계점 참조*
+- CRC와 동일 패턴; OXPHOS 하향은 ranks 27-29로 약함
+- "GI 하부암 공통 번역 억제 패턴"은 cross-disease confound와 분리 후 재평가 필요
 
 **신호 품질: HIGH**
 
@@ -445,9 +409,9 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**OXPHOS 최강 하향 (NES −2.705, 이 표현형 내 최강)**
-- NDUF 패밀리(Complex I), UQCR(Complex III), COX(Complex IV), ATP5(ATP synthase) 전반
-- Warburg 효과; 정상 선포세포 대체로 OXPHOS-고활성 세포 감소
+**OXPHOS 하향 (NES −2.705)** — *cross-disease confound 혼재 가능성, §8 참조*
+- NDUF(Complex I), UQCR(Complex III), COX(Complex IV), ATP5(ATP synthase) 전반
+- Warburg 효과 및 정상 선포세포 감소가 기여 가능하나, cross-disease confound와 방향이 같아 PDAC 특이성 단정 불가
 
 **NF-κB·T/B 세포 면역 억제**
 - NIK to Noncanonical NF-kB (−2.450), Dectin-1 Mediated NF-kB (−2.393)
@@ -463,29 +427,7 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 ---
 
-### 3.2 Pancreatic Cancer — Reggiardo et al. (n=6 · NES>0: 117 · NES<0: 441)
-
-⚠ **n=6; COMPLETE-seq 플랫폼(Illumina+Nanopore 혼합) 특이성; 모든 결과 잠정적**
-
-#### 핵심 이슈: Moore 코호트와의 역전
-
-| 신호 | Moore (n=72) | Reggiardo (n=6) |
-|---|---|---|
-| OXPHOS | 강한 하향 (−2.705) | **상향** (+2.115) — 역전 |
-| RhoGTPase (RHOC, RAC1) | 강한 상향 | **하향** (CDC42−2.614, RAC1−2.550) — 역전 |
-| TGF-β 신호 | 상향 | **하향** — 역전 |
-
-**COMPLETE-seq 플랫폼 편향**: Nanopore 장독물 분석이 미토콘드리아 mRNA 포착 효율이 높아 OXPHOS 역전 가능성 + n=6 소수의 통계적 불안정성
-
-**독특한 하향 신호 (잠정적)**
-- Nucleosome Organization (−2.984), SUMOylation (−2.788 ~ −2.563): PDAC 에피제네틱 재프로그래밍 반영 가능
-- Regulation of Erythrocyte Differentiation (−2.724): 암 관련 빈혈, 골수 억제
-
-**신호 품질: LOW — 생물학적 결론 도출 불가**
-
----
-
-### 3.3 Pancreatitis — Moore et al. (sample n=79 · FDR<0.05 263개 · NES>0: 27 · NES<0: 236)
+### 3.2 Pancreatitis — Moore et al. (sample n=79 · FDR<0.05 263개 · NES>0: 27 · NES<0: 236)
 
 #### 핵심 특징: 상향 신호 희박 (30개만)
 
@@ -513,15 +455,15 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
   췌관 세포에서 중탄산염 분비 장애 → 단백질 플러그 → 선포 손상
 - **췌장 외분비 기능 이상에 특이적인 cfRNA 신호**
 
-**미토콘드리아 번역 억제 (췌장염에서 현저)**
+**미토콘드리아 번역 억제** — *cross-disease confound 혼재, §8 참조*
 - Mitochondrial Translation (−2.302), Mitochondrial Gene Expression (−2.295)
-- 미토콘드리아 손상이 췌장염 발병에서 트립시노겐 활성화의 방아쇠임과 일치
+- 미토콘드리아 손상이 췌장염 발병에서 트립시노겐 활성화의 방아쇠임과 방향 일치하나 confound와 분리 불가
 
 **신호 품질: MODERATE**
 
 ---
 
-### 3.4 Lung Cancer — Chen et al. (sample n=30 · FDR<0.05 520개 · NES>0: 54 · NES<0: 466)
+### 3.3 Lung Cancer — Chen et al. (sample n=30 · FDR<0.05 520개 · NES>0: 54 · NES<0: 466)
 
 #### 주요 상향 신호
 
@@ -553,9 +495,8 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**리보솜·번역 억제 절대 우세 (NES −2.372, 35개 이상 번역 경로)**
-- OXPHOS보다 번역 억제가 압도적 → PDAC·췌장염(OXPHOS 우세)과 반대 패턴
-- 리보솜 단백질 mRNA의 종양 cfRNA 억제 or 혈중 세포 구성 변화 반영
+**번역·리보솜 축 (NES −2.372)** — *cross-disease confound 포함, §8 한계점 참조*
+- OXPHOS보다 번역 억제가 우세 — PDAC와는 다른 패턴이나, 두 신호 모두 cross-disease confound와 혼재
 
 **신호 품질: MODERATE-HIGH**
 
@@ -597,10 +538,9 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**번역 억제 (NES −2.735, 최저)**
-- Eukaryotic Translation Elongation (−2.735), Peptide Chain Elongation (−2.731)
-- GCN2/EIF2AK4 (−2.680): ER 스트레스 → GCN2/PERK → eIF2α 인산화 → 전반 번역 억제
-  ↳ 급성 심근염에서 전신 번역 스트레스 반응
+**번역·리보솜 축 (NES −2.735)** — *cross-disease confound 포함, §8 한계점 참조*
+- **GCN2/EIF2AK4 (−2.680) — 질병 특이 성분**: ER 스트레스 → PERK/GCN2 → eIF2α 인산화 → 번역 억제. ICI-m의 ER 스트레스 상향(ERAD)과 mechanistically 연결되므로 질병 특이적 신호로 해석 가능
+- 번역 기계 일반 신호는 cross-disease confound와 혼재
 
 **신호 품질: HIGH**
 
@@ -626,11 +566,10 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**번역 억제 가장 광범위 (1,073 경로 하향)**
-- Eukaryotic Translation Elongation (−2.808) — 5개 그룹 내 최강
-- 암 악액질·화학요법 병용·ICI 유발 전신 대사 억제의 복합 효과
+**번역·리보솜 축 (1,073 경로, NES −2.808)** — *cross-disease confound 포함, §8 한계점 참조*
 
-**SLIT/ROBO 신호 억제 (−2.472, −2.503)**
+**SLIT/ROBO 억제 (−2.472, −2.503)** — *질병 특이 신호*
+- SLIT2/ROBO1/2: 면역세포 이동 조절 및 혈관 리모델링; ICI 치료 맥락에서 종양 미세환경 변화 반영
 
 **[ICI-m vs ICI-treated Cancer 핵심 감별자]**
 
@@ -671,9 +610,7 @@ HNF4A/FOXA2/NKX6-1 간 분화 전사인자 축도 상향.
 
 #### 주요 하향 신호
 
-**번역 억제 최심 (NES −3.049, 이 그룹 최강)**
-- Eukaryotic Translation Elongation (−3.049), Peptide Chain Elongation (−2.879)
-- SRP-dependent Targeting (−2.644), KEGG Ribosome (−2.596)
+**번역·리보솜 축 (NES −3.049)** — *cross-disease confound 포함, §8 한계점 참조*
 
 **면역글로불린 반응 역설적 하향 (NES −2.790)**
 - Immunoglobulin Mediated Immune Response: HLA-DRA, HLA-DRB1, CD27, CD19, FCER1A
@@ -740,11 +677,9 @@ ME/CFS cfRNA 신호는 사실상 전면적 하향 억제로 수렴한다.
 
 #### 주요 하향 신호 (169개)
 
-**번역 기계 완전 억제 (NES −2.543 최저)**
-- Cytoplasmic Translation (−2.543), Eukaryotic Translation Elongation (−2.466)
-- GCN2/EIF2AK4 Response To Amino Acid Deficiency (−2.358)
-- L13a-Mediated Translational Silencing Of Ceruloplasmin (−2.421): IFN-γ 유발 → GAIT 복합체 → 세룰로플라스민 번역 선택적 억제
-  ↳ ME/CFS의 IFN-γ 매개 염증 상태 암시
+**번역·리보솜 축 (NES −2.543)** — *cross-disease confound 포함, §8 한계점 참조*
+- **GCN2/EIF2AK4 (−2.358) 및 L13a/GAIT (−2.421) — 질병 특이 성분**: GCN2는 ME/CFS 저대사 기전과 연결되고, L13a-mediated silencing은 IFN-γ 매개 염증 상태를 특이적으로 반영하므로 cross-disease confound와 구별 가능한 성분
+- 번역 기계 일반 신호는 confound와 혼재
 
 **FoxO 신호 하향 (NES −2.233) — ME/CFS 특이 발견**
 - KEGG FoxO Signaling Pathway
@@ -796,7 +731,7 @@ ME/CFS cfRNA 신호는 사실상 전면적 하향 억제로 수렴한다.
 | 번역/리보솜 하향 | 59개 (−2.25 최강) | 58개 (−2.14) |
 | OXPHOS/미토 하향 | 29개 (−1.85) | 19개 (−1.80) |
 
-양 군의 **하향 신호는 거의 동일** — 번역·리보솜·OXPHOS·스플라이싱·면역 NF-κB의 광범위 억제로, 만성 허혈/저대사 배경을 공유한다(Ward 2022의 미토콘드리아 억제 보고와 방향 일치). **두 군을 구별하는 것은 상향 신호의 양과 내용**이다.
+양 군의 **하향 신호는 거의 동일** — 번역·리보솜·OXPHOS의 광범위 억제로, 이는 cross-disease confound(§8)와 혼재하여 CAD-특이 해석에 주의가 필요하다. Ward 2022의 미토콘드리아 억제 보고와 방향이 일치하지만 confound 분리 없이 CAD-특이 신호로 단정 불가. **두 군을 구별하는 것은 상향 신호의 양과 내용**이다.
 
 ---
 
@@ -880,10 +815,8 @@ ME/CFS cfRNA 신호는 사실상 전면적 하향 억제로 수렴한다.
 
 #### 주요 하향 신호
 
-**번역·리보솜 (가장 강한, ~90개 경로)**
-- Ribosomal Small Subunit Biogenesis (−2.27, 최강)
-- Cap-dependent Translation Initiation (−2.27)
-- 임신중독증 태반 저산소증 → ISR → eIF2α 인산화 → 전반 번역 억제
+**번역·리보솜 축 (~90개 경로, NES −2.27)** — *cross-disease confound 포함, §8 한계점 참조*
+- 임신중독증 태반 저산소증 → ISR → eIF2α 인산화가 기여 가능하나, confound와 분리 불가
 
 **선천 면역 하향 (~40개 경로)**
 - ISG15 Antiviral Mechanism (−1.99), IFN Signaling (−1.88)
@@ -930,12 +863,9 @@ ME/CFS cfRNA 신호는 사실상 전면적 하향 억제로 수렴한다.
 
 #### 주요 하향 신호
 
-**번역 기계 극단적 억제 (NES −3.10, 이 그룹 최저)**
-- L13a-Mediated Translational Silencing Of Ceruloplasmin (−3.10): **전체 데이터셋 중 최저 NES**
-- Cytoplasmic Translation (−3.09), Eukaryotic Translation Elongation/Termination (−3.09)
-- GCN2 Response (−2.99), KEGG Ribosome (−2.94), SRP-dependent Targeting (−2.90)
+**번역·리보솜 축 (NES −3.10)** — *cross-disease confound 포함, §8 한계점 참조*
 
-**OXPHOS (NES −2.55):** 강한 Warburg 효과; Other Cancer가 PDAC처럼 OXPHOS 억제
+**OXPHOS (NES −2.55)** — *cross-disease confound 혼재, §8 참조*
 
 **SLIT/ROBO (NES −2.89, −2.68):** 종양 억제 축의 cfRNA 소실; 다중암에서 SLIT2 메틸화 소실과 일치
 
@@ -1092,18 +1022,60 @@ ME/CFS cfRNA 신호는 사실상 전면적 하향 억제로 수렴한다.
 
 ---
 
-## 부록: 아티팩트 요약
+## 8. 방법론적 한계점
+
+### 8.1 Cross-disease 기술적 혼재 신호 (핵심 한계)
+
+**번역·리보솜 하향 및 OXPHOS 하향 신호는 22개 표현형 중 각각 21개에서 관찰되며, 질병-특이 신호로 단독 해석 불가하다.**
+
+분석 결과:
+- 번역/리보솜 관련 GSEA 리드 유전자(RPS20, RPL11, RPL34 등)가 22개 질병 중 77–82%에서 leading edge에 등장
+- OXPHOS 핵심 유전자(NDUFA1, ATP5ME, UQCRH 등)는 64–77%에서 반복 검출
+
+**근본 원인 (cfRNA 정규화 모델 설계 한계)**
+
+이 패턴은 두 가지 요인이 분리 불가능하게 혼재한다:
+
+1. **Study-level 기술적 배치 효과**: 개별 연구의 라이브러리 제조 프로토콜·시퀀싱 조건 차이가 BIAS_COLUMNS(10개 공변량)에 의해 완전히 흡수되지 않는다. BIAS_COLUMNS의 within-study 분산 설명력이 평균 ~30%에 불과하여, study-level 오프셋이 Z-score에 잔존한다. (ANOVA: study가 OXPHOS/ribo 유전자 Z-score 분산의 22–35% 설명, F=28–55, p≈0)
+
+2. **혈중 세포 구성 변화**: 다양한 질환에서 호중구증가증·림프구감소증 등 혈액 세포 분율 변화가 OXPHOS/리보솜-풍부 세포(림프구) 비율을 감소시켜 cfRNA 수준에서 이들 신호를 전반적으로 낮춘다. 이 세포 구성 변화 자체는 진짜 생물학적 신호이지만, 질병-특이적이지 않다.
+
+이 두 요인은 **단일 관측값(cfRNA count)에서 분리 불가능**하며, 세포 구성 변수를 공변량으로 추가하면 질병 신호 자체를 제거하게 되므로 현재 설계에서는 교정 불가한 구조적 한계다.
+
+**해석 지침**:
+- 각 질환 섹션에서 `*(cross-disease confound 포함, §8)*` 표시된 하향 신호는 번역/OXPHOS 일반 신호와 disease-specific 성분이 혼재하며, 전자는 위의 이유로 해석을 보류한다
+- GCN2/EIF2AK4, L13a/GAIT, CFTR 등 pathway-specific 하향 신호는 disease-specific 성분으로 잠정 해석 가능하나, 일반 번역 신호와 함께 보고된 경우 주의 필요
+- OXPHOS **상향** 신호(ICI-m, +2.87)는 심근세포 손상에 의한 명백한 disease-specific 기원으로 confound와 무관
+
+---
+
+### 8.2 샘플 수 제한 표현형 (분석 제외)
+
+하기 표현형은 통계적 신뢰도 부족으로 본 리포트 주요 분석에서 제외되었다:
+
+| 표현형 | n | 제외 이유 |
+|---|---|---|
+| Liver Cirrhosis | 4 | 최소 샘플 요건 미충족 (min_samples=5) |
+| Pancreatic Cancer (Reggiardo) | 6 | 소수 샘플 + COMPLETE-seq 플랫폼(Illumina+Nanopore 혼합) 기술 편향으로 Moore 코호트와 주요 신호 역전 관찰 → 생물학적 결론 도출 불가 |
+
+---
+
+### 8.3 기타 해석 주의 사항
 
 **히스톤 클러스터 인플레이션 (HIV/HIV+TB/TB/MGUS에서 주의)**
 - H2BC/H2AC/H3C/H4C 계열 mRNA의 혈장 내 대량 존재
 - 영향 경로: KEGG Alcoholism, KEGG SLE, DNA Methylation, PRC2, Condensation Of Prophase Chromosomes
 - 히스톤 함유 gene set에서 lead genes의 >40%가 히스톤일 경우 아티팩트로 표시
+- 단, NET/NETosis 맥락(HIV/TB/MGUS)에서의 히스톤 신호는 병인적 타당성 있음
 
 **바이러스 경로가 리보솜 대리 신호 역할 (GI암·ME/CFS 등)**
 - "Viral mRNA Translation," "Influenza Viral RNA Transcription" → RPS/RPL 패밀리를 공유; 실제 바이러스 아님
 
 **개발 형태발생 경로 (식도암·위암 중간 NES)**
 - "Aortic Valve Morphogenesis," "Mammary Gland Development" → 암 줄기세포/EMT의 발달 전사인자 반영; 글자 그대로 해석 금지
+
+**CAD_HF+/HF− 차이의 불확실성**
+- 원본 논문(Ward et al. 2022)은 HF+/HF− 간 cfRNA 차이를 검출하지 못함(null). 본 분석의 양성 결과는 정규화 모델의 민감도 이득일 수 있으나, cross-disease confound 및 세포 구성 차이가 기저 하향 신호(번역·OXPHOS)에 영향을 미치는 상황에서 상향 신호 수 차이가 생물학적 차이를 온전히 반영한다고 단정할 수 없다.
 
 ---
 
