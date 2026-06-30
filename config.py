@@ -42,6 +42,10 @@ Z_GENE_NAMES   = Z_SCORES_DIR / "Z_gene_names.npy"
 Z_HC           = Z_SCORES_DIR / "Z_hc.npy"
 Z_HC_NAMES     = Z_SCORES_DIR / "Z_hc_names.npy"
 
+BENCHMARK_DIR      = MODELING_DIR / "Benchmark"
+DESEQ2_RESULTS_DIR = BENCHMARK_DIR / "deseq2_results"
+DESEQ2_GSEA_DIR    = BENCHMARK_DIR / "deseq2_gsea"
+
 BIAS_COLUMNS = [
     "log(Total Reads)",
     "Spliced Reads (%)",

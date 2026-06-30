@@ -367,3 +367,51 @@ def plot_sample(df, sample_id, phenotype='', top_n=20, z_flag=None):
         ax2.legend(handles=legend_els, fontsize=7, loc='lower right')
     plt.tight_layout()
     return fig
+
+
+def plot_rescued_genes(merged, rescued, phenotype, z_flag=None, top_n=20, fig_dir=None, save=True):
+    """DESeq2-excluded (independent filtering) genes vs normative signal: scatter + top-rescued bar.
+
+    Ranking uses max |Z| across disease samples, not the group mean — sparse/rare
+    genes can carry a real signal in only one or two patients.
+    """
+    z_flag = MP['z_flag'] if z_flag is None else z_flag
+    fig_dir = fig_dir or config.BENCHMARK_DIR / 'Figures'
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    excl = merged[merged['excluded']]
+    kept = merged[~merged['excluded']]
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    ax = axes[0]
+    ax.scatter(kept['baseMean'] + 1, kept['norm_max_abs_z'], s=8, alpha=0.25,
+               color='grey', label=f'DESeq2-tested (n={len(kept)})')
+    ax.scatter(excl['baseMean'] + 1, excl['norm_max_abs_z'], s=14, alpha=0.7,
+               color='tomato', label=f'DESeq2-excluded (n={len(excl)})')
+    ax.axhline(z_flag, color='black', lw=1, ls='--', alpha=0.5)
+    ax.set_xscale('log')
+    ax.set_xlabel('DESeq2 baseMean + 1')
+    ax.set_ylabel('Normative max |Z|\n(flagged calls only; 0 = never flagged)')
+    ax.set_title(f'{phenotype}\nexcluded genes vs normative signal', fontsize=12)
+    ax.legend(fontsize=8, frameon=False)
+
+    ax = axes[1]
+    top = rescued.head(top_n)
+    if len(top) == 0:
+        ax.text(0.5, 0.5, 'No rescued genes above threshold', ha='center', va='center',
+                transform=ax.transAxes, color='grey')
+        ax.axis('off')
+    else:
+        ax.barh(range(len(top)), top['norm_max_abs_z'].values, color='tomato', alpha=0.85)
+        ax.set_yticks(range(len(top)))
+        ax.set_yticklabels([f"{s} ({b}, n_flag={n})" for s, b, n in
+                             zip(top['symbol'], top['branch'].fillna('?'), top['norm_n_flagged'])], fontsize=7)
+        ax.invert_yaxis()
+        ax.axvline(z_flag, color='black', lw=1, ls='--', alpha=0.5)
+        ax.set_xlabel('Max |Z| across disease samples')
+        ax.set_title(f'Top rescued genes (n={len(rescued)} total)', fontweight='bold')
+    plt.tight_layout()
+    if save:
+        fname = phenotype.replace(' ', '_').replace('/', '_')
+        plt.savefig(fig_dir / f'rescued_genes_{fname}.png', bbox_inches='tight', dpi=150)
+    plt.show()
+    return fig

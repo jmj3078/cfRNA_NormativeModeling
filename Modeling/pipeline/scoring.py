@@ -59,6 +59,20 @@ def _rare_scores(rare_scorer, gene_names, Y_dis):
     return sc_rare, Y_rare, r_genes, r_cat
 
 
+def _embed_rare_scores(Z, gene_names, r_genes, sc_rare):
+    """Write RareEventScorer scores into the placeholder (zero) columns of an engine Z matrix.
+
+    NormativeModelEngine never fits genes below low_det_thr, so Z[:, those_cols] is always
+    0 -- silently dropping ~3% of protein-coding genes from any downstream consumer of this
+    matrix (gene_selectors, GSEA prerank, signatures). Rare scores are one-sided (>=0): a
+    near-silent gene being detected is only ever an "up" anomaly.
+    """
+    gn_map = {g: i for i, g in enumerate(gene_names)}
+    cols = np.array([gn_map[g] for g in r_genes])
+    Z[:, cols] = sc_rare
+    return Z
+
+
 def _engine_long(engine, gene_names, Z, Y_dis, sa_arr, ph_arr, min_abs_score):
     g_arr = np.array(gene_names)
     branch_of = np.array(['logistic' if (r := engine.genes.get(g)) and r.branch == 'logistic'
@@ -92,18 +106,24 @@ def score_all(engine, rare_scorer, gene_names, X_dis, Y_dis, sample_names, pheno
 
 
 def score_full(engine, rare_scorer, gene_names, X_dis, Y_dis, dis_names, dis_pheno,
-               thr=None, save=True):
-    """Score all disease samples; save Z matrix and long-format parquet to Z_SCORES_DIR."""
+               thr=None, save=True, embed_rare=False, z_disease_path=None):
+    """Score all disease samples; save Z matrix and long-format parquet to Z_SCORES_DIR.
+
+    embed_rare: if True, also write RareEventScorer scores into the returned/saved Z
+    matrix (otherwise those genes stay at the engine's placeholder value). Default False
+    reproduces the original engine-only matrix -- this is opt-in, not the new default,
+    since it changes what every downstream consumer of Z_disease.npy (gene_selectors,
+    GSEA prerank, signatures) sees. Pass save=False with a custom z_disease_path to
+    produce a side-by-side variant without touching the canonical Z_disease.npy.
+    """
     thr = MP['z_flag'] if thr is None else thr
     t0 = time.perf_counter()
     result_full = engine.score(X_dis, Y_dis, gene_names=gene_names, seed=42)
     Z_full = result_full['combined']
     print(f'Z matrix: {Z_full.shape}  ({time.perf_counter()-t0:.1f}s)')
-    if save:
-        config.Z_SCORES_DIR.mkdir(parents=True, exist_ok=True)
-        np.save(config.Z_DISEASE, Z_full)
-        np.save(config.Z_SAMPLE_NAMES, np.array(dis_names))
-        np.save(config.Z_GENE_NAMES, np.array(gene_names))
+
+    # build flagged long-format from the engine-only matrix first, so the rare branch
+    # below isn't double-counted if embed_rare also writes it into Z_full
     df = _engine_long(engine, list(result_full['gene_names']), Z_full, Y_dis,
                       np.array(dis_names), np.array(dis_pheno), thr)
     sc_rare, Y_rare, r_genes, r_cat = _rare_scores(rare_scorer, gene_names, Y_dis)
@@ -115,18 +135,51 @@ def score_full(engine, rare_scorer, gene_names, X_dis, Y_dis, dis_names, dis_phe
             'score_type': np.where(r_cat[rg] == 'silent', 'rare_fixed', 'rare_poisson'),
             'raw_count': Y_rare[rs, rg], 'branch': 'rare'})
         df = pd.concat([df, df_r], ignore_index=True)
+
+    if embed_rare:
+        Z_full = _embed_rare_scores(Z_full, gene_names, r_genes, sc_rare)
     if save:
         config.Z_SCORES_DIR.mkdir(parents=True, exist_ok=True)
+        np.save(z_disease_path or config.Z_DISEASE, Z_full)
+        np.save(config.Z_SAMPLE_NAMES, np.array(dis_names))
+        np.save(config.Z_GENE_NAMES, np.array(gene_names))
         df.to_parquet(config.Z_SCORES_DIR / 'disease_scores_flagged.parquet', index=False)
     return Z_full, df
 
 
-def score_hc(engine, X_hc, Y_hc, gene_names, hc_names, save=True):
-    """Score HC samples and optionally save Z_hc arrays to Z_SCORES_DIR."""
+def score_disease_with_rare(dd, engine=None, rare_scorer=None):
+    """Disease Z matrix with RareEventScorer signal embedded, aligned to dd's
+    OOD/min-sample-filtered sample order (see data_prep.load_disease_filtered).
+
+    In-memory only -- never writes to Z_disease.npy. Intended for an explicit,
+    opt-in 'with_rare' GSEA/gene-selection run compared side-by-side against the
+    canonical (engine-only) results, not as a replacement for dd.Z_dis.
+    """
+    from pipeline import data_prep
+    if engine is None or rare_scorer is None:
+        engine, rare_scorer = load_engine()
+    row_of = {n: i for i, n in enumerate(dd.adata.obs_names)}
+    rows = [row_of[n] for n in dd.dis_names]
+    X_dis = data_prep.bias_matrix(dd.adata)[rows]
+    Y_dis = data_prep.count_matrix(dd.adata)[rows]
+    Z_with_rare, _ = score_full(engine, rare_scorer, dd.gene_names, X_dis, Y_dis,
+                                dd.dis_names, dd.dis_pheno, save=False, embed_rare=True)
+    return Z_with_rare
+
+
+def score_hc(engine, X_hc, Y_hc, gene_names, hc_names, save=True,
+             rare_scorer=None, embed_rare=False, z_hc_path=None):
+    """Score HC samples and optionally save Z_hc arrays to Z_SCORES_DIR.
+
+    embed_rare: see score_full(). Requires rare_scorer when True.
+    """
     res = engine.score(X_hc, Y_hc, gene_names=gene_names, seed=42)
     Z_hc = res['combined']
+    if embed_rare:
+        sc_rare, _, r_genes, _ = _rare_scores(rare_scorer, gene_names, Y_hc)
+        Z_hc = _embed_rare_scores(Z_hc, gene_names, r_genes, sc_rare)
     if save:
         config.Z_SCORES_DIR.mkdir(parents=True, exist_ok=True)
-        np.save(config.Z_HC, Z_hc)
+        np.save(z_hc_path or config.Z_HC, Z_hc)
         np.save(config.Z_HC_NAMES, np.array(hc_names))
     return Z_hc
