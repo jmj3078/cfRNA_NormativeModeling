@@ -1,6 +1,7 @@
 import pickle
 import re
 
+import numpy as np
 import pandas as pd
 
 import config
@@ -72,3 +73,54 @@ def rescued_genes(merged, min_n_flagged=1):
     """DESeq2-excluded (independent filtering) genes with at least one flagged disease sample."""
     sub = merged[merged['excluded'] & (merged['norm_n_flagged'] >= min_n_flagged)].copy()
     return sub.sort_values('norm_max_abs_z', ascending=False)
+
+
+def gene_sample_detail(dd, phenotype, genes_df):
+    """Per-sample raw count + Z-score for genes_df['ensg']/['branch'] within one
+    phenotype's disease group, with a 'flagged' column from disease_scores_flagged.parquet.
+
+    NBI/ZINBI/logistic genes pull Z straight from dd.Z_dis. Rare-branch genes are not in
+    dd.Z_dis (RareEventScorer scores them separately -- see load_flagged_calls), so their
+    Z is computed on the fly, restricted to just these genes for speed.
+    """
+    from pipeline import data_prep
+    from pipeline.scoring import _rare_scores, load_engine
+
+    names = [n for n, p in zip(dd.dis_names, dd.dis_pheno) if p == phenotype]
+    row_of = {n: i for i, n in enumerate(dd.adata.obs_names)}
+    rows = [row_of[n] for n in names]
+    dis_row_of = {n: i for i, n in enumerate(dd.dis_names)}
+    dis_rows = [dis_row_of[n] for n in names]
+    col_of = {g: i for i, g in enumerate(dd.gene_names)}
+
+    ensg_list = genes_df['ensg'].tolist()
+    is_rare = genes_df['branch'].astype(str).str.startswith('rare')
+    engine_genes = genes_df.loc[~is_rare, 'ensg'].tolist()
+    rare_genes = genes_df.loc[is_rare, 'ensg'].tolist()
+
+    Y = data_prep.count_matrix(dd.adata)[rows][:, [col_of[g] for g in ensg_list]]
+    counts = pd.DataFrame(Y, index=names, columns=ensg_list)
+
+    z_parts = []
+    if engine_genes:
+        cols = [col_of[g] for g in engine_genes]
+        Z = dd.Z_dis[np.ix_(dis_rows, cols)]
+        z_parts.append(pd.DataFrame(Z, index=names, columns=engine_genes))
+    if rare_genes:
+        _, rare_scorer = load_engine()
+        Y_rare = counts[rare_genes].values
+        sc_rare, _, r_genes, _ = _rare_scores(rare_scorer, rare_genes, Y_rare)
+        z_parts.append(pd.DataFrame(sc_rare, index=names, columns=list(r_genes)))
+    z = pd.concat(z_parts, axis=1)[ensg_list]
+
+    long = (counts.rename_axis('sample').reset_index()
+                  .melt(id_vars='sample', var_name='ensg', value_name='raw_count'))
+    long = long.merge(
+        z.rename_axis('sample').reset_index().melt(id_vars='sample', var_name='ensg', value_name='z'),
+        on=['sample', 'ensg'])
+
+    flagged = pd.read_parquet(config.Z_SCORES_DIR / 'disease_scores_flagged.parquet')
+    flagged = flagged[flagged['sample'].isin(names) & flagged['gene'].isin(ensg_list)]
+    flag_keys = set(zip(flagged['sample'], flagged['gene']))
+    long['flagged'] = [(s, g) in flag_keys for s, g in zip(long['sample'], long['ensg'])]
+    return long

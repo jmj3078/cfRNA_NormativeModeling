@@ -369,19 +369,37 @@ def plot_sample(df, sample_id, phenotype='', top_n=20, z_flag=None):
     return fig
 
 
-def plot_rescued_genes(merged, rescued, phenotype, z_flag=None, top_n=20, fig_dir=None, save=True):
-    """DESeq2-excluded (independent filtering) genes vs normative signal: scatter + top-rescued bar.
+def _strip_panel(ax, detail, value_col, ensg_to_y, n_genes, rng, xlabel, xscale=None,
+                 vlines=()):
+    """One column of a per-gene strip plot: every disease sample as a point, jittered on
+    y, flagged samples in red on top of grey others -- so multiple flagged samples per
+    gene all stay visible instead of collapsing into a single summary bar."""
+    for is_flag, color, size, alpha, z in [(False, 'grey', 14, 0.5, 2), (True, 'tomato', 45, 0.9, 3)]:
+        sub = detail[detail['flagged'] == is_flag]
+        y = sub['ensg'].map(ensg_to_y) + rng.uniform(-0.18, 0.18, len(sub))
+        ax.scatter(sub[value_col], y, s=size, color=color, alpha=alpha, edgecolors='none',
+                  zorder=z, label='flagged sample' if is_flag else 'other disease samples')
+    if xscale:
+        ax.set_xscale(xscale)
+    for v in vlines:
+        ax.axvline(v, color='black', lw=1, ls='--', alpha=0.5)
+    ax.set_ylim(n_genes - 0.5, -0.5)
+    ax.set_xlabel(xlabel)
+    ax.legend(fontsize=7, loc='lower right', frameon=False)
 
-    Ranking uses max |Z| across disease samples, not the group mean — sparse/rare
-    genes can carry a real signal in only one or two patients.
-    """
+
+def plot_rescued_genes(merged, rescued, phenotype, dd=None, z_flag=None, top_n=20,
+                       fig_dir=None, save=True):
+    """DESeq2-excluded genes vs normative signal: overview scatter + per-gene raw-count
+    and Z-score strip plots (one point per disease sample, flagged ones highlighted)."""
+    from pipeline.benchmark import gene_sample_detail
     z_flag = MP['z_flag'] if z_flag is None else z_flag
     fig_dir = fig_dir or config.BENCHMARK_DIR / 'Figures'
     fig_dir.mkdir(parents=True, exist_ok=True)
     excl = merged[merged['excluded']]
     kept = merged[~merged['excluded']]
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(19, 5))
     ax = axes[0]
     ax.scatter(kept['baseMean'] + 1, kept['norm_max_abs_z'], s=8, alpha=0.25,
                color='grey', label=f'DESeq2-tested (n={len(kept)})')
@@ -394,24 +412,42 @@ def plot_rescued_genes(merged, rescued, phenotype, z_flag=None, top_n=20, fig_di
     ax.set_title(f'{phenotype}\nexcluded genes vs normative signal', fontsize=12)
     ax.legend(fontsize=8, frameon=False)
 
-    ax = axes[1]
     top = rescued.head(top_n)
-    if len(top) == 0:
-        ax.text(0.5, 0.5, 'No rescued genes above threshold', ha='center', va='center',
-                transform=ax.transAxes, color='grey')
-        ax.axis('off')
-    else:
-        ax.barh(range(len(top)), top['norm_max_abs_z'].values, color='tomato', alpha=0.85)
-        ax.set_yticks(range(len(top)))
-        ax.set_yticklabels([f"{s} ({b}, n_flag={n})" for s, b, n in
-                             zip(top['symbol'], top['branch'].fillna('?'), top['norm_n_flagged'])], fontsize=7)
-        ax.invert_yaxis()
-        ax.axvline(z_flag, color='black', lw=1, ls='--', alpha=0.5)
-        ax.set_xlabel('Max |Z| across disease samples')
-        ax.set_title(f'Top rescued genes (n={len(rescued)} total)', fontweight='bold')
+    for ax in axes[1:]:
+        if len(top) == 0:
+            ax.text(0.5, 0.5, 'No rescued genes above threshold', ha='center', va='center',
+                    transform=ax.transAxes, color='grey')
+            ax.axis('off')
+        elif dd is None:
+            ax.text(0.5, 0.5, 'pass dd= for per-sample strip plot', ha='center', va='center',
+                    transform=ax.transAxes, color='grey')
+            ax.axis('off')
+
+    if len(top) > 0 and dd is not None:
+        detail = gene_sample_detail(dd, phenotype, top[['ensg', 'branch']])
+        rng = np.random.default_rng(0)
+        labels = [f"{s} ({b}, n_flag={n:.0f})" for s, b, n in
+                  zip(top['symbol'], top['branch'].fillna('?'), top['norm_n_flagged'])]
+        ensg_to_y = {g: i for i, g in enumerate(top['ensg'])}
+
+        _strip_panel(axes[1], detail.assign(raw_count=detail['raw_count'] + 1), 'raw_count',
+                    ensg_to_y, len(top), rng, 'Raw count + 1 (one point per disease sample)',
+                    xscale='log')
+        axes[1].set_yticks(range(len(top)))
+        axes[1].set_yticklabels(labels, fontsize=7)
+        axes[1].invert_yaxis()
+        axes[1].set_title(f'Top rescued genes (n={len(rescued)} total)')
+
+        _strip_panel(axes[2], detail, 'z', ensg_to_y, len(top), rng,
+                    'Z-score (one point per disease sample)', vlines=(z_flag, -z_flag))
+        axes[2].set_yticks(range(len(top)))
+        axes[2].set_yticklabels([])
+        axes[2].invert_yaxis()
+        axes[2].set_title('Z-score distribution within disease group')
+
     plt.tight_layout()
     if save:
         fname = phenotype.replace(' ', '_').replace('/', '_')
-        plt.savefig(fig_dir / f'rescued_genes_{fname}.png', bbox_inches='tight', dpi=150)
+        plt.savefig(fig_dir / f'rescued_genes_{fname}.png', bbox_inches='tight')
     plt.show()
     return fig
