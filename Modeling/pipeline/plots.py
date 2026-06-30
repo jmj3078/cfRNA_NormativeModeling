@@ -222,54 +222,106 @@ def _roc_shadow(ax, roc_d, color, label, auc, lw=1.5, alpha=0.18):
                     alpha=alpha, color=color)
 
 
-def plot_roc_curves(method_name, all_results, dis_pheno, cv=None, fig_dir=None, save=True):
-    cv = MP['n_splits'] if cv is None else cv
-    fig_dir = fig_dir or config.CV_FIG_DIR
-    fig_dir.mkdir(parents=True, exist_ok=True)
-    res = all_results[method_name]; pp = res['per_pheno']
-    phenos = sorted(np.unique(dis_pheno))
-    ncols = 5; nrows = (len(phenos) + ncols - 1) // ncols
+def _pr_shadow(ax, pr_d, color, label, ap, prevalence=None, lw=1.5, alpha=0.18):
+    if not pr_d or not pr_d.get('recs'):
+        ax.text(0.5, 0.5, 'N/A', ha='center', va='center', transform=ax.transAxes, color='grey')
+        return
+    base = np.linspace(0, 1, 101)
+    precs = []
+    for rec, prec in zip(pr_d['recs'], pr_d['precs']):
+        order = np.argsort(rec)
+        precs.append(np.interp(base, rec[order], prec[order]))
+    mean_p = np.mean(precs, axis=0); std_p = np.std(precs, axis=0)
+    ap_str = f'{ap:.2f}' if not np.isnan(ap) else '—'
+    ax.plot(base, mean_p, color=color, lw=lw, label=f'{label} AP={ap_str}')
+    ax.fill_between(base, np.clip(mean_p - std_p, 0, 1), np.clip(mean_p + std_p, 0, 1),
+                    alpha=alpha, color=color)
+    if prevalence is not None:
+        ax.axhline(prevalence, color='k', lw=0.7, ls='--', alpha=0.35)
 
+
+def _curve_grid(curves, value_of, kind, color, label, suptitle, fname, fig_dir, save):
+    """Familiar per-phenotype shadow-curve grid (ROC or PR), mirroring plot_roc_curves."""
+    phenos = sorted(curves, key=lambda p: -(curves[p]['n'] if curves[p] else 0))
+    ncols = 5; nrows = (len(phenos) + ncols - 1) // ncols
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3.5, nrows * 3.5))
     axf = axes.flatten()
     for ax, ph in zip(axf, phenos):
-        rb = res['roc_bin'].get(ph); n = (dis_pheno == ph).sum()
-        auc_lr = pp.loc[ph, 'auc_logreg'] if ph in pp.index else np.nan
-        auc_rf = pp.loc[ph, 'auc_rf'] if ph in pp.index else np.nan
-        if rb is None:
-            ax.text(0.5, 0.5, f'n={n} < {cv}\n(excluded)', ha='center', va='center',
+        cv = curves[ph]
+        if cv is None:
+            ax.text(0.5, 0.5, '(excluded)', ha='center', va='center',
                     transform=ax.transAxes, color='grey')
-            ax.set_title(f'{ph}  (n={n})'); ax.axis('off'); continue
-        _roc_shadow(ax, rb.get('lr'), '#377eb8', 'LogReg', auc_lr)
-        _roc_shadow(ax, rb.get('rf'), '#e41a1c', 'RF', auc_rf)
-        ax.plot([0, 1], [0, 1], 'k--', lw=0.7, alpha=0.35)
+            ax.set_title(f'{ph}'); ax.axis('off'); continue
+        val = value_of.get(ph, np.nan)
+        if kind == 'roc':
+            _roc_shadow(ax, cv['roc'], color, label, val)
+            ax.plot([0, 1], [0, 1], 'k--', lw=0.7, alpha=0.35)
+            ax.set_xlabel('FPR'); ax.set_ylabel('TPR')
+        else:
+            _pr_shadow(ax, cv['pr'], color, label, val, prevalence=cv['prevalence'])
+            ax.set_xlabel('Recall'); ax.set_ylabel('Precision')
         ax.set_xlim(-0.05, 1.05); ax.set_ylim(-0.05, 1.05)
-        ax.set_xlabel('FPR'); ax.set_ylabel('TPR'); ax.set_title(f'{ph}  (n={n})')
-        ax.legend(frameon=False, loc='lower right')
+        ax.set_title(f'{ph}  (n={cv["n"]})'); ax.tick_params(labelsize=6)
+        ax.legend(frameon=False, loc='lower right' if kind == 'roc' else 'upper right',
+                  fontsize=7)
     for ax in axf[len(phenos):]:
         ax.axis('off')
-    fig.suptitle(f'HC vs Disease ROC — {method_name}  ({cv}-fold, shadow = ±1 SD)', y=1.01)
+    fig.suptitle(suptitle, y=1.005)
     plt.tight_layout()
     if save:
-        plt.savefig(fig_dir / f'roc_binary_{method_name}.png', bbox_inches='tight', dpi=150)
+        plt.savefig(fig_dir / fname, bbox_inches='tight', dpi=150)
     plt.show()
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3.5, nrows * 3.5))
-    axf = axes.flatten()
-    for ax, ph in zip(axf, phenos):
-        rm = res['roc_mc'].get(ph, {}); n = (dis_pheno == ph).sum()
-        auc = pp.loc[ph, 'auc_multiclass'] if ph in pp.index else np.nan
-        _roc_shadow(ax, rm, '#4daf4a', 'OVR LogReg', auc)
-        ax.plot([0, 1], [0, 1], 'k--', lw=0.7, alpha=0.35)
-        ax.set_xlim(-0.05, 1.05); ax.set_ylim(-0.05, 1.05)
-        ax.set_title(f'{ph}  (n={n})'); ax.set_xlabel('FPR'); ax.set_ylabel('TPR')
-        ax.tick_params(labelsize=5); ax.legend(frameon=False, loc='lower right')
-    for ax in axf[len(phenos):]:
-        ax.axis('off')
-    fig.suptitle(f'Multiclass OVR ROC — {method_name}  ({cv}-fold, shadow = ±1 SD)', y=1.01)
+
+NEG_MODE_LABEL = {'real_hc': 'real HC cohort', 'null_fixed': 'healthy null N(0,1)',
+                  'null_matched': 'healthy null N(0,1), count-matched'}
+
+
+def plot_validation_curves(method, curves, binary_df, multi_df, controls,
+                           neg_modes=None, fig_dir=None, save=True):
+    """Nested-CV validation in the familiar shadow-curve idiom: binary ROC + PR grids for
+    each negative mode (real_hc / null_fixed / null_matched), multiclass disease-vs-disease
+    ROC + PR, and the real-HC-vs-null calibration panel (hugs diagonal/baseline if
+    calibrated)."""
+    fig_dir = fig_dir or config.CV_FIG_DIR
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    cv = curves[method]
+    neg_modes = neg_modes or list(cv['binary'].keys())
+    mdf = multi_df[multi_df['method'] == method].set_index('phenotype')
+
+    for nm in neg_modes:
+        bdf = binary_df[(binary_df['method'] == method) & (binary_df['neg_mode'] == nm)] \
+            .set_index('phenotype')
+        lab = NEG_MODE_LABEL.get(nm, nm)
+        _curve_grid(cv['binary'][nm], bdf['auc'].to_dict(), 'roc', '#377eb8', 'LogReg',
+                    f'Disease vs {lab} — ROC (nested) — {method}  ({MP["n_splits"]}-fold, shadow=±1 SD)',
+                    f'val_roc_binary_{method}_{nm}.png', fig_dir, save)
+        _curve_grid(cv['binary'][nm], bdf['auprc'].to_dict(), 'pr', '#377eb8', 'LogReg',
+                    f'Disease vs {lab} — PR (nested) — {method}  (dashed=prevalence baseline)',
+                    f'val_pr_binary_{method}_{nm}.png', fig_dir, save)
+    _curve_grid(cv['multi'], mdf['auc_mc'].to_dict(), 'roc', '#4daf4a', 'OVR',
+                f'Disease vs Disease ROC (nested) — {method}',
+                f'val_roc_multiclass_{method}.png', fig_dir, save)
+    _curve_grid(cv['multi'], mdf['auprc_mc'].to_dict(), 'pr', '#4daf4a', 'OVR',
+                f'Disease vs Disease PR (nested) — {method}  (dashed=prevalence baseline)',
+                f'val_pr_multiclass_{method}.png', fig_dir, save)
+
+    ctrl_auc, _, hc = controls[method]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+    _roc_shadow(ax1, hc['roc'], '#999999', 'HC vs null', ctrl_auc)
+    ax1.plot([0, 1], [0, 1], 'k--', lw=0.7, alpha=0.35)
+    ax1.set_xlim(-0.05, 1.05); ax1.set_ylim(-0.05, 1.05)
+    ax1.set_xlabel('FPR'); ax1.set_ylabel('TPR'); ax1.set_title('ROC')
+    ax1.legend(frameon=False, loc='lower right')
+    _pr_shadow(ax2, hc['pr'], '#999999', 'HC vs null', np.nan, prevalence=hc['prevalence'])
+    ax2.set_xlim(-0.05, 1.05); ax2.set_ylim(-0.05, 1.05)
+    ax2.set_xlabel('Recall'); ax2.set_ylabel('Precision'); ax2.set_title('PR')
+    ax2.legend(frameon=False, loc='upper right')
+    fig.suptitle(f'Calibration control: real HC vs healthy null — {method}  '
+                 f'(~0.5 / baseline = calibrated)', y=1.02)
     plt.tight_layout()
     if save:
-        plt.savefig(fig_dir / f'roc_multiclass_{method_name}.png', bbox_inches='tight', dpi=150)
+        plt.savefig(fig_dir / f'val_negcontrol_hc_{method}.png', bbox_inches='tight', dpi=150)
     plt.show()
 
 
