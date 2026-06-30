@@ -6,8 +6,8 @@ from scipy.stats import norm
 
 import config
 
-PALETTE = {'NBI': '#E41A1C', 'ZINBI': '#377EB8', 'Logistic': '#4DAF4A'}
-MODEL_ORDER = ['NBI', 'ZINBI', 'Logistic']
+PALETTE = {'NBI': '#E41A1C', 'ZINBI': '#377EB8', 'Logistic': '#4DAF4A', 'Rare': '#984EA3'}
+MODEL_ORDER = ['NBI', 'ZINBI', 'Logistic', 'Rare']
 ETP_THR = 1.96
 W1_EXPECTED = 0.048
 METRIC_DEFS = [
@@ -32,15 +32,20 @@ def load_pkl(path):
 
 
 def load_cv_outputs(cv_dir=None):
-    """Load cv_*.py outputs (stats csv + zscores pkl); return (nb, zinb, logr, nb_z, zinb_z, logr_z)."""
+    """Load cv_*.py outputs (stats csv + zscores pkl).
+
+    Returns (nb, zinb, logr, rare, nb_z, zinb_z, logr_z, rare_z).
+    """
     cv_dir = cv_dir or config.CV_RESULTS_DIR
     nb = load_csv(cv_dir / 'cv_gamlss_stats.csv')
     zinb = load_csv(cv_dir / 'cv_zinb_stats.csv')
     logr = load_csv(cv_dir / 'cv_logistic_stats.csv')
+    rare = load_csv(cv_dir / 'cv_rare_stats.csv')
     nb_z = load_pkl(cv_dir / 'cv_gamlss_zscores.pkl')
     zinb_z = load_pkl(cv_dir / 'cv_zinb_zscores.pkl')
     logr_z = load_pkl(cv_dir / 'cv_logistic_zscores.pkl')
-    return nb, zinb, logr, nb_z, zinb_z, logr_z
+    rare_z = load_pkl(cv_dir / 'cv_rare_zscores.pkl')
+    return nb, zinb, logr, rare, nb_z, zinb_z, logr_z, rare_z
 
 
 def _get_zarr(z_dict, gene, z_type):
@@ -94,7 +99,7 @@ def extract_metrics(df, label, mz_col, sz_col, sk_col, ku_col, success_col,
     })
 
 
-def build_all_df(nb, zinb, logr, nb_z, zinb_z, logr_z):
+def build_all_df(nb, zinb, logr, rare, nb_z, zinb_z, logr_z, rare_z):
     frames = []
     if nb is not None:
         frames.append(extract_metrics(nb, 'NBI', 'mean_z', 'std_z', 'skew_z', 'kurt_z',
@@ -106,6 +111,10 @@ def build_all_df(nb, zinb, logr, nb_z, zinb_z, logr_z):
     if logr is not None:
         frames.append(extract_metrics(logr, 'Logistic', 'mean_z', 'std_z', 'skew_z', 'kurt_z',
                                       'fold_success_rate', logr_z, 'full', flag_col='any_flag'))
+    if rare is not None:
+        frames.append(extract_metrics(rare, 'Rare', 'mean_z', 'std_z', 'skew_z', 'kurt_z',
+                                      'fold_success_rate', rare_z, 'full', w1_col='w1',
+                                      flag_col='any_flag'))
     all_df = pd.concat(frames, ignore_index=True)
     models_present = [m for m in MODEL_ORDER if m in all_df['model'].unique()]
     return all_df, models_present

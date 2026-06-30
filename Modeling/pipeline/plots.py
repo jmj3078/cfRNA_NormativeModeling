@@ -409,7 +409,6 @@ def plot_rescued_genes(merged, rescued, phenotype, dd=None, z_flag=None, top_n=2
     ax.set_xscale('log')
     ax.set_xlabel('DESeq2 baseMean + 1')
     ax.set_ylabel('Normative max |Z|\n(flagged calls only; 0 = never flagged)')
-    ax.set_title(f'{phenotype}\nexcluded genes vs normative signal', fontsize=12)
     ax.legend(fontsize=8, frameon=False)
 
     top = rescued.head(top_n)

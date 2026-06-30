@@ -1,9 +1,6 @@
-import pickle
 import re
-
 import numpy as np
 import pandas as pd
-
 import config
 
 
@@ -23,17 +20,13 @@ def load_training_summary():
     return pd.read_csv(config.ENGINE_DIR / 'training_summary.csv')
 
 
-def load_rare_ref():
-    with open(config.RARE_REF, 'rb') as f:
-        return pickle.load(f)
-
-
 def gene_branch_table():
-    """Per-gene branch + HC detection rate across all three normative sub-models"""
-    train = load_training_summary().rename(columns={'gene': 'ensg'})[['ensg', 'branch', 'det_rate']]
-    rare = load_rare_ref().rename(columns={'gene': 'ensg', 'det_rate_hc': 'det_rate'})
-    rare['branch'] = 'rare_' + rare['category']
-    return pd.concat([train, rare[['ensg', 'branch', 'det_rate']]], ignore_index=True)
+    """Per-gene branch + HC detection rate across all normative branches.
+
+    training_summary.csv now carries every branch including 'rare' (the pooled covariate
+    GLM is an engine branch), so this is a straight read.
+    """
+    return load_training_summary().rename(columns={'gene': 'ensg'})[['ensg', 'branch', 'det_rate']]
 
 
 def load_flagged_calls(dd, phenotype):
@@ -79,12 +72,11 @@ def gene_sample_detail(dd, phenotype, genes_df):
     """Per-sample raw count + Z-score for genes_df['ensg']/['branch'] within one
     phenotype's disease group, with a 'flagged' column from disease_scores_flagged.parquet.
 
-    NBI/ZINBI/logistic genes pull Z straight from dd.Z_dis. Rare-branch genes are not in
-    dd.Z_dis (RareEventScorer scores them separately -- see load_flagged_calls), so their
-    Z is computed on the fly, restricted to just these genes for speed.
+    NBI/ZINBI/logistic genes pull Z straight from dd.Z_dis. Rare-branch genes are zeroed
+    in the canonical dd.Z_dis (placeholder contract), so their covariate-GLM Z is read from
+    the unified Z_rare_disease.npy artifact, aligned by sample name.
     """
     from pipeline import data_prep
-    from pipeline.scoring import _rare_scores, load_engine
 
     names = [n for n, p in zip(dd.dis_names, dd.dis_pheno) if p == phenotype]
     row_of = {n: i for i, n in enumerate(dd.adata.obs_names)}
@@ -107,10 +99,13 @@ def gene_sample_detail(dd, phenotype, genes_df):
         Z = dd.Z_dis[np.ix_(dis_rows, cols)]
         z_parts.append(pd.DataFrame(Z, index=names, columns=engine_genes))
     if rare_genes:
-        _, rare_scorer = load_engine()
-        Y_rare = counts[rare_genes].values
-        sc_rare, _, r_genes, _ = _rare_scores(rare_scorer, rare_genes, Y_rare)
-        z_parts.append(pd.DataFrame(sc_rare, index=names, columns=list(r_genes)))
+        all_names = np.load(config.Z_SAMPLE_NAMES, allow_pickle=True).tolist()
+        rg_all = np.load(config.Z_RARE_GENE_NAMES, allow_pickle=True).tolist()
+        Z_rare = np.load(config.Z_RARE_DISEASE)
+        row_of = {n: i for i, n in enumerate(all_names)}
+        rg_of = {g: i for i, g in enumerate(rg_all)}
+        sub = Z_rare[np.ix_([row_of[n] for n in names], [rg_of[g] for g in rare_genes])]
+        z_parts.append(pd.DataFrame(sub, index=names, columns=rare_genes))
     z = pd.concat(z_parts, axis=1)[ensg_list]
 
     long = (counts.rename_axis('sample').reset_index()

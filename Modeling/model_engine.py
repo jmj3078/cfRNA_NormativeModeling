@@ -48,12 +48,14 @@ import pandas as pd
 import rpy2.robjects as ro
 import rpy2.robjects.numpy2ri as rpyn
 import scanpy as sc
+import statsmodels.api as sm
 from rpy2.robjects.conversion import localconverter
 from scipy.sparse import issparse
-from scipy.stats import nbinom, norm
+from scipy.stats import nbinom, norm, poisson
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+from statsmodels.discrete.discrete_model import NegativeBinomial
 
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="rpy2")
@@ -66,6 +68,9 @@ import config
 
 LOW_DET_THR = config.MODELING_PARAMS["low_det_thr"]
 DET_RATE_MIN = config.MODELING_PARAMS["det_rate_min"]
+RARE_DET_MAX = config.MODELING_PARAMS["rare_det_max"]
+RARE_OVERDISP_THR = config.MODELING_PARAMS["rare_overdisp_thr"]
+RARE_Z_CAP = config.MODELING_PARAMS["rare_z_cap"]
 MEAN_COUNT_MIN = config.MODELING_PARAMS["mean_count_min"]
 LR_C = config.MODELING_PARAMS["lr_c"]
 LR_MAX_ITER = config.MODELING_PARAMS["lr_max_iter"]
@@ -82,6 +87,30 @@ def _bernoulli_rqr(p_detect, y, seed=None):
     hi = np.clip(np.maximum(a, b), 1e-8, 1 - 1e-8)
     rng = np.random.default_rng(seed)
     return norm.ppf(rng.uniform(lo, hi)).astype(np.float32)
+
+
+def _poisson_rqr(y, mu, seed=None):
+    """Poisson RQR: z ~ N(0,1) when Y ~ Poisson(mu)."""
+    y = np.asarray(y)
+    lo = np.where(y > 0, poisson.cdf(y - 1, mu), 0.0)
+    hi = poisson.cdf(y, mu)
+    lo = np.clip(lo, 1e-12, 1 - 1e-12)
+    hi = np.clip(hi, 1e-12, 1 - 1e-12)
+    rng = np.random.default_rng(seed)
+    return norm.ppf(rng.uniform(np.minimum(lo, hi), np.maximum(lo, hi))).astype(np.float32)
+
+
+def _nb_rqr(y, mu, alpha, seed=None):
+    """Negative-binomial RQR (statsmodels alpha parameterization: var = mu + alpha*mu^2)."""
+    y = np.asarray(y)
+    n = 1.0 / alpha
+    p = np.clip(n / (n + mu), 1e-12, 1 - 1e-12)
+    lo = np.where(y > 0, nbinom.cdf(y - 1, n, p), 0.0)
+    hi = nbinom.cdf(y, n, p)
+    lo = np.clip(lo, 1e-12, 1 - 1e-12)
+    hi = np.clip(hi, 1e-12, 1 - 1e-12)
+    rng = np.random.default_rng(seed)
+    return norm.ppf(rng.uniform(np.minimum(lo, hi), np.maximum(lo, hi))).astype(np.float32)
 
 
 def _nbi_rqr_from_coeffs(mu_coef, sigma_coef, X_test, y_test, seed=None):
@@ -143,13 +172,16 @@ def _to_r_vec(arr):
 @dataclass
 class GeneRecord:
     name: str
-    branch: str       # "logistic" | "nbi" | "zinbi"
+    branch: str       # "logistic" | "nbi" | "zinbi" | "rare"
     det_rate: float
 
     logistic_model: LogisticRegression = None
     mu_coef: np.ndarray = None
     sigma_coef: np.ndarray = None
     nu_coef: np.ndarray = None   # ZINBI only
+
+    mean_hc: float = None        # rare only (pooled-GLM offset baseline)
+    category: str = None         # rare only ("silent" | "near_silent")
 
     fit_ok: bool = False
     n_removed: int = 0
@@ -179,6 +211,9 @@ class NormativeModelEngine:
         zinbi_nu_formula="intercept",
         low_det_thr=LOW_DET_THR,
         det_rate_min=DET_RATE_MIN,
+        rare_det_max=RARE_DET_MAX,
+        rare_overdisp_thr=RARE_OVERDISP_THR,
+        rare_z_cap=RARE_Z_CAP,
         mean_count_min=MEAN_COUNT_MIN,
         lr_C=LR_C,
         nbi_outlier_z=5.0,
@@ -192,6 +227,9 @@ class NormativeModelEngine:
         self.zinbi_nu_formula = zinbi_nu_formula
         self.low_det_thr = low_det_thr
         self.det_rate_min = det_rate_min
+        self.rare_det_max = rare_det_max
+        self.rare_overdisp_thr = rare_overdisp_thr
+        self.rare_z_cap = rare_z_cap
         self.mean_count_min = mean_count_min
         self.lr_C = lr_C
         self.nbi_outlier_z = nbi_outlier_z
@@ -209,6 +247,8 @@ class NormativeModelEngine:
         self.genes = {}
         self.logistic_genes = []
         self.count_genes = []
+        self.rare_genes = []
+        self.rare_glm = None
 
         self._r_nbi_fn = None
         self._r_zinbi_fn = None
@@ -251,7 +291,10 @@ class NormativeModelEngine:
 
         for i, g in enumerate(self.pc_gene_names):
             dr, mc = float(det_r[i]), float(mean_c[i])
-            if dr < self.det_rate_min:
+            if dr < self.rare_det_max:
+                rec = GeneRecord(name=g, branch="rare", det_rate=dr, mean_hc=mc,
+                                 category="silent" if dr == 0 else "near_silent")
+                self.genes[g] = rec
                 continue
             if dr < self.low_det_thr:
                 branch = "logistic"   # 1% <= det < 10%
@@ -260,11 +303,32 @@ class NormativeModelEngine:
             self.genes[g] = GeneRecord(name=g, branch=branch, det_rate=dr)
 
         self.logistic_genes = [g for g, r in self.genes.items() if r.branch == "logistic"]
-        self.count_genes = [g for g, r in self.genes.items() if r.branch != "logistic"]
-        print(f"Branches: logistic={len(self.logistic_genes)}"
+        self.count_genes = [g for g, r in self.genes.items()
+                            if r.branch not in ("logistic", "rare")]
+        self.rare_genes = [g for g, r in self.genes.items() if r.branch == "rare"]
+        print(f"Branches: rare={len(self.rare_genes)}"
+              f"  logistic={len(self.logistic_genes)}"
               f"  {self.count_model}={len(self.count_genes)}"
-              f"  (threshold={self.low_det_thr:.0%})")
-        return {"logistic": self.logistic_genes, self.count_model: self.count_genes}
+              f"  (rare<{self.rare_det_max:.0%}, logistic<{self.low_det_thr:.0%})")
+        return {"rare": self.rare_genes, "logistic": self.logistic_genes,
+                self.count_model: self.count_genes}
+
+    def add_rare_branch(self):
+        """Add rare GeneRecords to an already-loaded engine without disturbing existing
+        per-gene (logistic/nbi) records. For the --rare-only attach path."""
+        assert self.Y_hc is not None, "Call load_hc_data() first."
+        Y_pc = self.Y_hc[:, self.pc_indices]
+        det_r = (Y_pc > 0).mean(axis=0)
+        mean_c = Y_pc.mean(axis=0)
+        for i, g in enumerate(self.pc_gene_names):
+            dr = float(det_r[i])
+            if dr < self.rare_det_max and g not in self.genes:
+                self.genes[g] = GeneRecord(name=g, branch="rare", det_rate=dr,
+                                           mean_hc=float(mean_c[i]),
+                                           category="silent" if dr == 0 else "near_silent")
+        self.rare_genes = [g for g, r in self.genes.items() if r.branch == "rare"]
+        print(f"Rare branch: {len(self.rare_genes)} genes added")
+        return self.rare_genes
 
     # ---- R init --------------------------------------------------------
 
@@ -331,16 +395,66 @@ class NormativeModelEngine:
         else:
             rec.fail_reason = str(res.rx2("msg")[0])
 
+    def train_rare(self):
+        """Fit one pooled covariate GLM shared across all rare genes.
+
+        log(mu_ij) = log(mean_hc_j + eps) [offset] + beta^T x_i [shared].
+        Poisson first; escalate to Negative Binomial only if pooled deviance/df exceeds
+        the lenient rare_overdisp_thr. Stores self.rare_glm and marks rare records fit_ok.
+        """
+        rare_recs = [self.genes[g] for g in self.rare_genes]
+        if not rare_recs:
+            return
+        n_hc = self.X_hc_scaled.shape[0]
+        eps = 1.0 / (2 * n_hc)
+        cols = [self.pc_indices[self.pc_gene_names.index(r.name)] for r in rare_recs]
+        Y_rare = self.Y_hc[:, cols]
+        mean_hc = Y_rare.mean(axis=0)
+        for r, m in zip(rare_recs, mean_hc):
+            r.mean_hc = float(m)
+        n_rare = len(rare_recs)
+        sample_idx = np.repeat(np.arange(n_hc), n_rare)
+        gene_idx = np.tile(np.arange(n_rare), n_hc)
+        Xc = np.column_stack([np.ones(n_hc * n_rare), self.X_hc_scaled[sample_idx]])
+        y = Y_rare[sample_idx, gene_idx]
+        offset = np.log(mean_hc[gene_idx] + eps)
+        pois = sm.GLM(y, Xc, family=sm.families.Poisson(), offset=offset).fit()
+        ratio = float(pois.deviance / pois.df_resid)
+        if ratio <= self.rare_overdisp_thr:
+            family, beta, alpha = "poisson", np.asarray(pois.params), None
+        else:
+            nb = NegativeBinomial(y, Xc, offset=offset).fit(disp=False)
+            family, beta, alpha = "negbin", np.asarray(nb.params[:-1]), float(nb.params[-1])
+        self.rare_glm = {"family": family, "beta": beta, "alpha": alpha,
+                         "eps": eps, "overdisp_ratio": ratio}
+        for r in rare_recs:
+            r.fit_ok = True
+        print(f"Rare branch: {n_rare} genes pooled, family={family}, "
+              f"deviance/df={ratio:.3f}")
+
+    def _rare_z(self, rec, X_test, y_col, seed):
+        g = self.rare_glm
+        Xc = np.column_stack([np.ones(len(X_test)), X_test])
+        mu = (rec.mean_hc + g["eps"]) * np.exp(Xc @ g["beta"])
+        mu = np.clip(mu, 1e-12, 1e8)
+        if g["family"] == "poisson":
+            z = _poisson_rqr(y_col, mu, seed)
+        else:
+            z = _nb_rqr(y_col, mu, g["alpha"], seed)
+        return np.clip(z, -self.rare_z_cap, self.rare_z_cap).astype(np.float32)
+
     # ---- Bulk training -------------------------------------------------
 
     def train(self, verbose=True, limit=None):
         assert self.genes, "Call assign_branches() first."
-        all_genes = list(self.genes.keys())[:limit]
-        n_log = sum(1 for g in all_genes if self.genes[g].branch == "logistic")
-        print(f"Training {len(all_genes)} genes  "
-              f"(logistic={n_log}, {self.count_model}={len(all_genes)-n_log})")
+        per_gene = [g for g in list(self.genes.keys())[:limit]
+                    if self.genes[g].branch != "rare"]
+        n_log = sum(1 for g in per_gene if self.genes[g].branch == "logistic")
+        print(f"Training {len(per_gene)} per-gene  "
+              f"(logistic={n_log}, {self.count_model}={len(per_gene)-n_log})  "
+              f"+ rare pooled={len(self.rare_genes)}")
 
-        for i, g in enumerate(all_genes):
+        for i, g in enumerate(per_gene):
             rec = self.genes[g]
             try:
                 if   rec.branch == "logistic": self._train_logistic(rec)
@@ -351,11 +465,12 @@ class NormativeModelEngine:
                 if verbose:
                     print(f"  [ERR] {g} ({rec.branch}): {exc}")
             if verbose and (i + 1) % 500 == 0:
-                ok = sum(1 for g2 in all_genes if self.genes[g2].fit_ok)
-                print(f"  [{i+1:5d}/{len(all_genes)}] fitted={ok}")
+                ok = sum(1 for g2 in per_gene if self.genes[g2].fit_ok)
+                print(f"  [{i+1:5d}/{len(per_gene)}] fitted={ok}")
 
-        ok = sum(1 for g in all_genes if self.genes[g].fit_ok)
-        print(f"Training complete: {ok}/{len(all_genes)} succeeded.")
+        self.train_rare()
+        ok = sum(1 for g in self.genes if self.genes[g].fit_ok)
+        print(f"Training complete: {ok}/{len(self.genes)} succeeded.")
 
     # ---- Scoring -------------------------------------------------------
 
@@ -394,6 +509,8 @@ class NormativeModelEngine:
                 if rec.branch == "logistic":
                     p = rec.logistic_model.predict_proba(X_test)[:, 1]
                     Z[:, j] = _bernoulli_rqr(p, y_col, seed + j)
+                elif rec.branch == "rare":
+                    Z[:, j] = self._rare_z(rec, X_test, y_col, seed + j)
                 elif rec.branch == "zinbi":
                     Z[:, j] = _zinbi_rqr_from_coeffs(
                         rec.mu_coef, rec.sigma_coef, rec.nu_coef,
@@ -407,15 +524,27 @@ class NormativeModelEngine:
         log_idx = [j for j, g in enumerate(gene_names)
                    if self.genes.get(g) and self.genes[g].branch == "logistic"]
         cnt_idx = [j for j, g in enumerate(gene_names)
-                   if self.genes.get(g) and self.genes[g].branch != "logistic"]
+                   if self.genes.get(g) and self.genes[g].branch not in ("logistic", "rare")]
+        rare_idx = [j for j, g in enumerate(gene_names)
+                    if self.genes.get(g) and self.genes[g].branch == "rare"]
+
+        # canonical "combined" stays engine-only (logistic | count); rare columns are
+        # zeroed to preserve the historical Z_disease.npy placeholder contract. Callers
+        # wanting rare use the separate "rare" matrix or "combined_all".
+        combined = Z.copy()
+        if rare_idx:
+            combined[:, rare_idx] = 0.0
 
         return {
             "logistic": Z[:, log_idx] if log_idx else np.zeros((n_test, 0), np.float32),
             "count": Z[:, cnt_idx] if cnt_idx else np.zeros((n_test, 0), np.float32),
-            "combined": Z,
+            "rare": Z[:, rare_idx] if rare_idx else np.zeros((n_test, 0), np.float32),
+            "combined": combined,
+            "combined_all": Z,
             "gene_names": gene_names,
             "logistic_gene_names": [gene_names[j] for j in log_idx],
             "count_gene_names": [gene_names[j] for j in cnt_idx],
+            "rare_gene_names": [gene_names[j] for j in rare_idx],
         }
 
     def to_dataframe(self, result, sample_ids=None, which="combined"):
@@ -563,9 +692,11 @@ class NormativeModelEngine:
 
         with open(directory / "genes.pkl", "wb") as f: pickle.dump(self.genes, f)
         with open(directory / "scaler.pkl", "wb") as f: pickle.dump(self.scaler, f)
+        if self.rare_glm is not None:
+            with open(directory / "rare_glm.pkl", "wb") as f: pickle.dump(self.rare_glm, f)
 
-        _SKIP = {"genes", "scaler", "X_hc_scaled", "Y_hc", "is_hc",
-                 "pc_gene_names", "pc_indices", "logistic_genes", "count_genes"}
+        _SKIP = {"genes", "scaler", "X_hc_scaled", "Y_hc", "is_hc", "rare_glm",
+                 "pc_gene_names", "pc_indices", "logistic_genes", "count_genes", "rare_genes"}
         cfg = {k: v for k, v in vars(self).items()
                if not k.startswith("_") and k not in _SKIP}
         with open(directory / "config.pkl", "wb") as f: pickle.dump(cfg, f)
@@ -590,8 +721,13 @@ class NormativeModelEngine:
                         if k in cls.__init__.__code__.co_varnames})
         with open(directory / "genes.pkl", "rb") as f: engine.genes = pickle.load(f)
         with open(directory / "scaler.pkl", "rb") as f: engine.scaler = pickle.load(f)
+        rare_glm_path = directory / "rare_glm.pkl"
+        if rare_glm_path.exists():
+            with open(rare_glm_path, "rb") as f: engine.rare_glm = pickle.load(f)
         engine.logistic_genes = [g for g, r in engine.genes.items() if r.branch == "logistic"]
-        engine.count_genes = [g for g, r in engine.genes.items() if r.branch != "logistic"]
+        engine.count_genes = [g for g, r in engine.genes.items()
+                              if r.branch not in ("logistic", "rare")]
+        engine.rare_genes = [g for g, r in engine.genes.items() if r.branch == "rare"]
         n_ok = sum(1 for r in engine.genes.values() if r.fit_ok)
         print(f"Engine loaded from {directory}/  ({n_ok} fitted genes)")
         return engine

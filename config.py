@@ -41,6 +41,10 @@ Z_SAMPLE_NAMES = Z_SCORES_DIR / "Z_sample_names.npy"
 Z_GENE_NAMES   = Z_SCORES_DIR / "Z_gene_names.npy"
 Z_HC           = Z_SCORES_DIR / "Z_hc.npy"
 Z_HC_NAMES     = Z_SCORES_DIR / "Z_hc_names.npy"
+Z_RARE_DISEASE    = Z_SCORES_DIR / "Z_rare_disease.npy"
+Z_RARE_HC         = Z_SCORES_DIR / "Z_rare_hc.npy"
+Z_RARE_GENE_NAMES = Z_SCORES_DIR / "Z_rare_gene_names.npy"
+RARE_GLM       = ENGINE_DIR / "rare_glm.pkl"
 
 BENCHMARK_DIR      = MODELING_DIR / "Benchmark"
 DESEQ2_RESULTS_DIR = BENCHMARK_DIR / "deseq2_results"
@@ -65,8 +69,11 @@ MODELING_PARAMS = {
     "z_flag":          3.0,
     "stratify_col":    "Batch_ID",
     "n_splits":        5,
-    "det_rate_min":    0.10,   
-    "low_det_thr":     0.01,
+    "det_rate_min":    0.01,
+    "low_det_thr":     0.10,
+    "rare_det_max":    0.01,
+    "rare_overdisp_thr": 2.0,
+    "rare_z_cap":      10.0,
     "mean_count_min":  2.0,
     "lr_c":            1.0,
     "lr_max_iter":     1000,
