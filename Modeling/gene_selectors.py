@@ -17,6 +17,7 @@ Usage
 
 import numpy as np
 from scipy.linalg import svd
+from sklearn.linear_model import LogisticRegression
 
 
 class GeneSelector:
@@ -72,6 +73,64 @@ class GeneSelector:
             ))
         return sorted(selected)
 
+    def _centroids(self):
+        return np.array([self.Z_dis[self.pheno == ph].mean(axis=0) for ph in self.phenos])
+
+    def _specific_scores(self, ubiquity_penalty=True, ubiquity_abs_z=0.5):
+        """Per-phenotype specificity score: |centroid_ph - mean(other-disease centroids)|.
+
+        The contrast is vs the other diseases (not vs HC=0), so a gene perturbed in this
+        phenotype only ranks high while one perturbed across all diseases cancels out. When
+        ubiquity_penalty, the score is further damped by (1 - ubiquity) so a gene that is
+        still anomalous in most phenotypes is suppressed (integrated approach 1 then 2).
+        Returns {phenotype: score_vec}.
+        """
+        cents = self._centroids()
+        ubiq = self.compute_ubiquity(abs_z_thr=ubiquity_abs_z) if ubiquity_penalty else None
+        out = {}
+        for i, ph in enumerate(self.phenos):
+            others = np.delete(cents, i, axis=0).mean(axis=0)
+            score = np.abs(cents[i] - others)
+            if ubiquity_penalty:
+                score = score * (1.0 - ubiq)
+            out[ph] = score
+        return out
+
+    def effect_size_specific(self, n_per_pheno=30, ubiquity_penalty=True, ubiquity_abs_z=0.5):
+        """Top-N per phenotype by disease-specific effect size (contrast vs other diseases,
+        then ubiquity damping). Cuts the broadly-anomalous genes the vs-HC effect_size keeps."""
+        scores = self._specific_scores(ubiquity_penalty, ubiquity_abs_z)
+        selected = set()
+        for ph in self.phenos:
+            selected.update(self._to_sym(self.gn[np.argsort(-scores[ph])[:n_per_pheno]]))
+        return sorted(selected)
+
+    def _l1_scores(self, C=0.1):
+        out = {}
+        for ph in self.phenos:
+            y = (self.pheno == ph).astype(int)
+            if y.sum() < 2 or (1 - y).sum() < 2:
+                out[ph] = None
+                continue
+            lr = LogisticRegression(penalty='l1', solver='liblinear', C=C, max_iter=500)
+            lr.fit(self.Z_dis, y)
+            out[ph] = np.abs(lr.coef_[0])
+        return out
+
+    def l1_logistic(self, n_per_pheno=30, C=0.1):
+        """Top-N per phenotype by |coef| from an OVR L1 logistic separating each disease
+        from the OTHER diseases (HC excluded). Discriminative -> favors phenotype-specific
+        genes; a gene perturbed across all diseases gets ~0 weight. Supervised: in
+        validation it MUST be refit inside each CV fold (selection._select_idx builds the
+        selector on the train rows only) to avoid selection-bias leakage."""
+        scores = self._l1_scores(C)
+        selected = set()
+        for ph in self.phenos:
+            if scores[ph] is None:
+                continue
+            selected.update(self._to_sym(self.gn[np.argsort(-scores[ph])[:n_per_pheno]]))
+        return sorted(selected)
+
     def proportion_per_pheno(self, n_per_pheno=30, thr=3.0):
         """Returns {phenotype: [genes]} sorted by flagging proportion."""
         flagged = np.abs(self.Z_dis) >= thr
@@ -104,15 +163,31 @@ class GeneSelector:
             ).tolist()
         return result
 
+    def effect_size_specific_per_pheno(self, n_per_pheno=30, ubiquity_penalty=True,
+                                       ubiquity_abs_z=0.5):
+        """Returns {phenotype: [genes]} by disease-specific effect size."""
+        scores = self._specific_scores(ubiquity_penalty, ubiquity_abs_z)
+        return {ph: self._to_sym(self.gn[np.argsort(-scores[ph])[:n_per_pheno]]).tolist()
+                for ph in self.phenos}
+
+    def l1_logistic_per_pheno(self, n_per_pheno=30, C=0.1):
+        """Returns {phenotype: [genes]} by OVR L1 logistic |coef| (disease vs other diseases)."""
+        scores = self._l1_scores(C)
+        return {ph: (self._to_sym(self.gn[np.argsort(-scores[ph])[:n_per_pheno]]).tolist()
+                     if scores[ph] is not None else [])
+                for ph in self.phenos}
+
     def top_ranked_per_pheno(self, n_per_pheno=30, method='proportion', **kwargs):
         """Unified interface for per-phenotype selection.
 
-        method : 'proportion' | 'effect_size' | 'svd'
+        method : 'proportion' | 'effect_size' | 'svd' | 'effect_size_specific' | 'l1'
         """
         dispatch = {
             'proportion': self.proportion_per_pheno,
             'effect_size': self.effect_size_per_pheno,
             'svd': self.svd_signature_per_pheno,
+            'effect_size_specific': self.effect_size_specific_per_pheno,
+            'l1': self.l1_logistic_per_pheno,
         }
         if method not in dispatch:
             raise ValueError(f"method must be one of {list(dispatch)}")
@@ -125,6 +200,8 @@ class GeneSelector:
             f'proportion_top{n}': lambda: self.proportion(n_per_pheno=n),
             f'effect_size_top{n}': lambda: self.effect_size(n_per_pheno=n),
             f'svd_top{n}': lambda: self.svd_signature(n_per_pheno=n),
+            f'effect_specific_top{n}': lambda: self.effect_size_specific(n_per_pheno=n),
+            f'l1_logistic_top{n}': lambda: self.l1_logistic(n_per_pheno=n),
         }
 
     def compute_ubiquity(self, abs_z_thr=0.5):

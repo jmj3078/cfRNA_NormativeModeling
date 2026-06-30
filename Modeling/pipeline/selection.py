@@ -44,9 +44,32 @@ def _select_idx(Z, pheno, gene_names, method, n_per_pheno):
     gs = GeneSelector(Z, pheno, gene_names)
     genes = {'proportion': gs.proportion,
              'effect_size': gs.effect_size,
-             'svd': gs.svd_signature}[method](n_per_pheno=n_per_pheno)
+             'svd': gs.svd_signature,
+             'effect_size_specific': gs.effect_size_specific,
+             'l1': gs.l1_logistic}[method](n_per_pheno=n_per_pheno)
     g2i = {g: i for i, g in enumerate(gene_names)}
     return [g2i[g] for g in genes if g in g2i]
+
+
+CONTRAST_METHODS = ('effect_size_specific', 'l1')
+
+
+def _fold_select(method, X, tr, yy, sub_ph, gene_names, n_per_pheno):
+    """Leakage-free per-fold gene selection for the binary / calibration tasks.
+
+    Magnitude selectors (proportion / effect_size / svd) rank within the positive rows
+    only -- a within-disease ranking that matches their production use. The contrast /
+    supervised selectors need >= 2 classes, so they select on the full train fold using
+    the binary labels (disease vs negative); selection still touches train rows only, so
+    no test-fold label leaks in.
+    """
+    if method in CONTRAST_METHODS:
+        lab = np.where(yy[tr] == 1, '_d', '_hc')
+        return _select_idx(X[tr], lab, gene_names, method, n_per_pheno)
+    pos = tr[yy[tr] == 1]
+    if len(pos) < 2:
+        return None
+    return _select_idx(X[pos], sub_ph[pos], gene_names, method, n_per_pheno)
 
 
 def _new_curves(n, prevalence):
@@ -114,10 +137,9 @@ def eval_binary_nested(Z_dis, dis_pheno, gene_names, method, neg_mode, Z_hc,
             skf = StratifiedKFold(CV, shuffle=True, random_state=seed)
             a, ap, ba = [], [], []
             for tr, te in skf.split(X, yy):
-                pos = tr[yy[tr] == 1]
-                if len(pos) < 2:
+                idx = _fold_select(method, X, tr, yy, sub_ph, gene_names, n_per_pheno)
+                if not idx:
                     continue
-                idx = _select_idx(X[pos], sub_ph[pos], gene_names, method, n_per_pheno)
                 lr = LogisticRegression(max_iter=500, C=0.1).fit(X[tr][:, idx], yy[tr])
                 p = lr.predict_proba(X[te][:, idx])[:, 1]
                 a.append(roc_auc_score(yy[te], p))
@@ -208,8 +230,9 @@ def calibration_control_hc(Z_hc, gene_names, method, n_per_pheno=30, seed=42):
     cv = _new_curves(n, 0.5)
     a = []
     for tr, te in skf.split(X, y):
-        ppos = tr[y[tr] == 1]
-        idx = _select_idx(X[ppos], sub_ph[ppos], gene_names, method, n_per_pheno)
+        idx = _fold_select(method, X, tr, y, sub_ph, gene_names, n_per_pheno)
+        if not idx:
+            continue
         lr = LogisticRegression(max_iter=500, C=0.1).fit(X[tr][:, idx], y[tr])
         p = lr.predict_proba(X[te][:, idx])[:, 1]
         a.append(roc_auc_score(y[te], p))
@@ -218,7 +241,8 @@ def calibration_control_hc(Z_hc, gene_names, method, n_per_pheno=30, seed=42):
 
 
 def run_validation(Z_dis, Z_hc, dis_pheno, gene_names, n_per_pheno=30, n_perm=20,
-                   methods=('proportion', 'effect_size', 'svd')):
+                   methods=('proportion', 'effect_size', 'svd',
+                            'effect_size_specific', 'l1')):
     """Leakage-controlled validation across selectors. The binary task is computed under
     all three NEG_MODES (real_hc / null_fixed / null_matched) so they can be compared.
 
