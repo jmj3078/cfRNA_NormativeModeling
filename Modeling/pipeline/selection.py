@@ -140,7 +140,7 @@ def eval_binary_nested(Z_dis, dis_pheno, gene_names, method, neg_mode, Z_hc,
                 idx = _fold_select(method, X, tr, yy, sub_ph, gene_names, n_per_pheno)
                 if not idx:
                     continue
-                lr = LogisticRegression(max_iter=500, C=0.1).fit(X[tr][:, idx], yy[tr])
+                lr = LogisticRegression(max_iter=500, C=0.1, n_jobs=-1).fit(X[tr][:, idx], yy[tr])
                 p = lr.predict_proba(X[te][:, idx])[:, 1]
                 a.append(roc_auc_score(yy[te], p))
                 ap.append(average_precision_score(yy[te], p))
@@ -181,7 +181,7 @@ def eval_multiclass_nested(Z_dis, dis_pheno, gene_names, method,
         for tr, te in skf.split(Z_dis, yy):
             ph_tr = np.array([str(v) for v in yy[tr]])
             idx = _select_idx(Z_dis[tr], ph_tr, gene_names, method, n_per_pheno)
-            clf = LogisticRegression(max_iter=500, C=0.1, multi_class='ovr')
+            clf = LogisticRegression(max_iter=500, C=0.1, multi_class='ovr', n_jobs=-1)
             clf.fit(Z_dis[tr][:, idx], yy[tr])
             proba = clf.predict_proba(Z_dis[te][:, idx])
             present = {c: j for j, c in enumerate(clf.classes_)}
@@ -233,7 +233,7 @@ def calibration_control_hc(Z_hc, gene_names, method, n_per_pheno=30, seed=42):
         idx = _fold_select(method, X, tr, y, sub_ph, gene_names, n_per_pheno)
         if not idx:
             continue
-        lr = LogisticRegression(max_iter=500, C=0.1).fit(X[tr][:, idx], y[tr])
+        lr = LogisticRegression(max_iter=500, C=0.1, n_jobs=-1).fit(X[tr][:, idx], y[tr])
         p = lr.predict_proba(X[te][:, idx])[:, 1]
         a.append(roc_auc_score(y[te], p))
         _stash_curves(cv, y[te], p)
