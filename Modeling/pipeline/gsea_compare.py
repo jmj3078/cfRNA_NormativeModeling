@@ -23,11 +23,13 @@ def _load_dir(d):
 
 
 def load_sets():
-    """Three FDR-filtered term-set dicts keyed by canonical phenotype name:
-    no_filter (rare-excluded normative), with_rare (rare-included), deseq2 (DESeq2 rank GSEA)."""
+    """FDR-filtered term-set dicts keyed by canonical phenotype name.
+    Returns (no_filter, with_rare, deseq2, deseq2_cov). deseq2_cov is empty
+    until run_deseq2_covariate.py has been run."""
     return (_load_dir(config.GSEA_DIR / 'no_filter'),
             _load_dir(config.GSEA_DIR / 'with_rare'),
-            _load_dir(config.DESEQ2_GSEA_DIR))
+            _load_dir(config.DESEQ2_GSEA_DIR),
+            _load_dir(config.DESEQ2_COV_GSEA_DIR))
 
 
 def _lib(term):
@@ -80,7 +82,7 @@ COMPARISONS = {
 def compare_all(save=True):
     """Per-disease term-overlap stats for all three comparisons + per-disease diff term
     lists. Returns (stats_df, diffs) where diffs[comparison][phenotype][which] = frame."""
-    nf, wr, dq = load_sets()
+    nf, wr, dq, _ = load_sets()
     src = {'no_filter': nf, 'with_rare': wr, 'deseq2': dq}
     rows, diffs = [], {}
     for name, (lkey, rkey) in COMPARISONS.items():
@@ -144,7 +146,7 @@ def deseq2_coverage(save=True):
     pathways that the normative model finds. A normative term is db_supported if its lead
     genes intersect the Open Targets reference; captured if DESeq2 also calls it significant.
     Computed against both normative variants (no_filter, with_rare). Returns a stats frame."""
-    nf, wr, dq = load_sets()
+    nf, wr, dq, _ = load_sets()
     ref = load_reference()
     rows = []
     for nkey, norm in [('no_filter', nf), ('with_rare', wr)]:
@@ -171,6 +173,80 @@ def deseq2_coverage(save=True):
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         cov.to_csv(OUT_DIR / 'deseq2_coverage.csv', index=False)
     return cov
+
+
+def deseq2_cov_vs_nocov(save=True):
+    """Term-level comparison between covariate-adjusted DESeq2 and no-covariate DESeq2.
+    Also adds deseq2_cov to the symmetric db_hit_rates table. Returns (overlap_df, rates_df)."""
+    _, _, dq, dq_cov = load_sets()
+    if not dq_cov:
+        raise RuntimeError('No covariate DESeq2 GSEA results found. Run run_deseq2_covariate.py first.')
+    ref = load_reference()
+    rows_ov, rows_db = [], []
+    for ph in sorted(set(dq) & set(dq_cov)):
+        st = overlap(dq[ph], dq_cov[ph])
+        st.update({'phenotype': ph})
+        rows_ov.append(st)
+    for ph in sorted(set(dq_cov)):
+        dref = ref.get(ph, set())
+        leads = _term_leads(dq_cov[ph])
+        n_sig = len(leads)
+        n_db = sum(1 for lead in leads.values() if lead & dref) if dref else 0
+        rows_db.append({'phenotype': ph, 'method': 'deseq2_cov', 'n_sig': n_sig, 'n_db': n_db,
+                        'db_hit_rate': round(n_db / n_sig, 3) if n_sig else np.nan,
+                        'has_ot_ref': len(dref) > 0})
+    ov = pd.DataFrame(rows_ov)
+    db = pd.DataFrame(rows_db)
+    if save:
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        ov.to_csv(OUT_DIR / 'deseq2_cov_vs_nocov_overlap.csv', index=False)
+        db.to_csv(OUT_DIR / 'deseq2_cov_db_hits.csv', index=False)
+    return ov, db
+
+
+def db_hit_rates(save=True):
+    """Symmetric DB-support comparison across methods. For EACH method (deseq2 / no_filter /
+    with_rare) and phenotype, the fraction of its OWN FDR-significant terms whose lead genes
+    intersect the Open Targets reference (db_hit_rate = n_db / n_sig), plus absolute counts.
+
+    Unlike deseq2_coverage -- which defines DB-support only on normative terms and then asks
+    how many DESeq2 recovers -- every method is scored by the same lead-gene-vs-reference
+    rule, so the DESeq2 and normative DB-hit ratios are directly comparable. Returns
+    (rates, summary): rates is per phenotype x method; summary pools over phenotypes that have
+    a reference (pooled_db_hit_rate = total_db / total_sig, plus the per-phenotype mean)."""
+    nf, wr, dq, dq_cov = load_sets()
+    ref = load_reference()
+    methods = {'deseq2': dq, 'no_filter': nf, 'with_rare': wr}
+    if dq_cov:
+        methods['deseq2_cov'] = dq_cov
+    rows = []
+    for ph in sorted(set().union(*[set(m) for m in methods.values()])):
+        dref = ref.get(ph, set())
+        for mkey, mset in methods.items():
+            if ph not in mset:
+                continue
+            leads = _term_leads(mset[ph])
+            n_sig = len(leads)
+            n_db = sum(1 for lead in leads.values() if lead & dref) if dref else 0
+            rows.append({'phenotype': ph, 'method': mkey, 'n_sig': n_sig, 'n_db': n_db,
+                         'db_hit_rate': round(n_db / n_sig, 3) if n_sig else np.nan,
+                         'has_ot_ref': len(dref) > 0})
+    rates = pd.DataFrame(rows)
+    sub = rates[rates['has_ot_ref']]
+    g = sub.groupby('method')
+    summary = pd.DataFrame({
+        'n_pheno': g.size(),
+        'total_sig': g['n_sig'].sum(),
+        'total_db': g['n_db'].sum(),
+        'mean_db_hit_rate': g['db_hit_rate'].mean().round(3),
+    })
+    summary['pooled_db_hit_rate'] = (summary['total_db'] / summary['total_sig']).round(3)
+    summary = summary.reset_index()
+    if save:
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        rates.to_csv(OUT_DIR / 'db_hit_rates.csv', index=False)
+        summary.to_csv(OUT_DIR / 'db_hit_rates_summary.csv', index=False)
+    return rates, summary
 
 
 def validate_rare_novel(diffs, save=True):

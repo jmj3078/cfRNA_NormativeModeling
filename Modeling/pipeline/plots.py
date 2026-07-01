@@ -502,3 +502,53 @@ def plot_rescued_genes(merged, rescued, phenotype, dd=None, z_flag=None, top_n=2
         plt.savefig(fig_dir / f'rescued_genes_{fname}.png', bbox_inches='tight')
     plt.show()
     return fig
+
+
+DB_METHOD_STYLE = {'deseq2': ('#DD8452', 'DESeq2'),
+                   'deseq2_cov': ('#C44E52', 'DESeq2 + covariates'),
+                   'no_filter': ('#4C72B0', 'Normative (no_filter)'),
+                   'with_rare': ('#55A868', 'Normative (with_rare)')}
+
+
+def plot_db_hit_rates(rates, summary, fig_dir=None, save=True):
+    """Symmetric DB-support comparison, counts first. Left: per-phenotype DB-supported term
+    counts (n_db) for each method. Right: pooled DB-supported (filled) inside all-significant
+    (outline) with the pooled DB-hit rate annotated, so absolute coverage and precision are
+    both visible. Only phenotypes with an Open Targets reference are shown."""
+    fig_dir = fig_dir or (config.BENCHMARK_DIR / 'Figures')
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    sub = rates[rates['has_ot_ref']].copy()
+    methods = [m for m in DB_METHOD_STYLE if m in set(sub['method'])]
+    order = sub.groupby('phenotype')['n_db'].sum().sort_values().index.tolist()
+    piv = sub.pivot(index='phenotype', columns='method', values='n_db').reindex(order)
+    y = np.arange(len(order))
+    h = 0.8 / len(methods)
+    fig, axes = plt.subplots(1, 2, figsize=(13, 8), gridspec_kw={'width_ratios': [2.4, 1]})
+    ax = axes[0]
+    for i, m in enumerate(methods):
+        c, lab = DB_METHOD_STYLE[m]
+        ax.barh(y + (i - (len(methods) - 1) / 2) * h, piv[m].values, height=h, color=c, label=lab)
+    ax.set_yticks(y)
+    ax.set_yticklabels(order, fontsize=8)
+    ax.set_xlabel('DB-supported significant terms (count)')
+    ax.set_title('Per-phenotype DB-hit counts')
+    ax.legend(frameon=False, fontsize=8, loc='lower right')
+    ax2 = axes[1]
+    sm = summary.set_index('method').reindex(methods)
+    xb = np.arange(len(methods))
+    cols = [DB_METHOD_STYLE[m][0] for m in methods]
+    ax2.bar(xb, sm['total_sig'].values, color='none', edgecolor='grey', lw=1.0)
+    ax2.bar(xb, sm['total_db'].values, color=cols)
+    for k, m in enumerate(methods):
+        ax2.text(k, sm.loc[m, 'total_db'],
+                 f"{int(sm.loc[m, 'total_db'])}\n({sm.loc[m, 'pooled_db_hit_rate']:.2f})",
+                 ha='center', va='bottom', fontsize=8)
+    ax2.set_xticks(xb)
+    ax2.set_xticklabels([DB_METHOD_STYLE[m][1] for m in methods], rotation=30, ha='right', fontsize=8)
+    ax2.set_ylabel('pooled term count')
+    ax2.set_title('DB-supported (fill) vs all significant (outline)\nlabel: n_db (pooled DB-hit rate)')
+    fig.tight_layout()
+    if save:
+        plt.savefig(fig_dir / 'db_hit_rates.png', bbox_inches='tight', dpi=200)
+    plt.show()
+    return fig

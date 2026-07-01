@@ -49,6 +49,8 @@ RARE_GLM       = ENGINE_DIR / "rare_glm.pkl"
 BENCHMARK_DIR      = MODELING_DIR / "Benchmark"
 DESEQ2_RESULTS_DIR = BENCHMARK_DIR / "deseq2_results"
 DESEQ2_GSEA_DIR    = BENCHMARK_DIR / "deseq2_gsea"
+DESEQ2_COV_RESULTS_DIR = BENCHMARK_DIR / "deseq2_covariate_results"
+DESEQ2_COV_GSEA_DIR    = BENCHMARK_DIR / "deseq2_covariate_gsea"
 
 BIAS_COLUMNS = [
     "log(Total Reads)",
