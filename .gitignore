@@ -2,7 +2,6 @@
 /OpenAccess_nfcore/*
 /RPM_nfcore/*
 /_legacy/*
-CLAUDE.md
 .claude
 *.json
 *.h5ad
