@@ -1,7 +1,12 @@
 import datetime
 import json
+import sys
 import time
 import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import config
 
@@ -11,27 +16,26 @@ TOP_N = 300
 # phenotype (GSEA file stem) -> Open Targets disease search query.
 # Heterogeneous / undefined-cohort phenotypes map to None (no OT gene reference; literature-only).
 PHENO_QUERY = {
-    'CAD_HF+': 'coronary artery disease',
-    'CAD_HF-': 'coronary artery disease',
-    'Colorectal Cancer': 'colorectal carcinoma',
+    'CAD_HF+ (Ward)': 'coronary artery disease',
+    'CAD_HF- (Ward)': 'coronary artery disease',
+    'Colorectal Cancer (Chen)': 'colorectal carcinoma',
     'Esophagus Cancer (Chen)': 'esophageal carcinoma',
-    'HIV': 'HIV infection',
-    'HIV + Tuberculosis': 'tuberculosis',
-    'Tuberculosis': 'tuberculosis',
+    'HIV (Chang)': 'HIV infection',
+    'HIV + Tuberculosis (Chang)': 'tuberculosis',
+    'Tuberculosis (Chang)': 'tuberculosis',
     'Liver Cancer (Chen)': 'hepatocellular carcinoma',
     'Liver Cancer (Roskams-Hieter)': 'hepatocellular carcinoma',
-    'Liver Cirrhosis': 'liver cirrhosis',
-    'Lung Cancer': 'lung carcinoma',
-    'ME_CFS': 'chronic fatigue syndrome',
-    'MGUS': 'monoclonal gammopathy of undetermined significance',
-    'MM': 'multiple myeloma',
+    'Lung Cancer (Chen)': 'lung carcinoma',
+    'ME_CFS (Gardella)': 'chronic fatigue syndrome',
+    'MGUS (Roskams-Hieter)': 'monoclonal gammopathy of undetermined significance',
+    'MM (Roskams-Hieter)': 'multiple myeloma',
     'Pancreatic Cancer (Moore)': 'pancreatic carcinoma',
-    'Pancreatitis': 'pancreatitis',
-    'Pre-eclampsia': 'pre-eclampsia',
-    'Stomach Cancer': 'gastric carcinoma',
-    'Other Cancer': 'cancer',
-    'ICI-treated Cancer': None,
-    'ICI-m': 'myocarditis',
+    'Pancreatitis (Moore)': 'pancreatitis',
+    'Pre-eclampsia (Moufarrej)': 'pre-eclampsia',
+    'Stomach Cancer (Chen)': 'gastric carcinoma',
+    'Other Cancer (Moore)': 'cancer',
+    'ICI-treated Cancer (Raissadati)': None,
+    'ICI-m (Raissadati)': 'myocarditis',
 }
 
 
