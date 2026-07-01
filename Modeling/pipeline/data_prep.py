@@ -40,7 +40,7 @@ def make_phenotypes(adata):
     multi = {ph for ph, aus in pmap.items() if len(aus) > 1}
     phenos = np.array([
         ph if ph == 'Healthy Control' else
-        (f"{ph.strip()} ({first_author(au)})" if ph.strip() in multi else ph.strip())
+        f"{ph.strip()} ({first_author(au)})"
         for ph, au in zip(phenos, authors)
     ])
     return is_hc, phenos, sorted(multi)
