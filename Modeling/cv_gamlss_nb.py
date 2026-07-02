@@ -90,10 +90,12 @@ def load_hc_data():
     return X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices
 
 
-def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices, det_rate_min):
+def select_candidate_genes(Y_raw, is_hc, pc_gene_names, pc_indices, det_rate_min, det_rate_max=None):
     Y_hc = Y_raw[is_hc][:, pc_indices]
     det_r = (Y_hc > 0).mean(axis=0)
     cand = det_r >= det_rate_min
+    if det_rate_max is not None:
+        cand &= det_r < det_rate_max
     return np.array(pc_gene_names)[cand].tolist(), pc_indices[cand]
 
 
@@ -195,6 +197,10 @@ def _load_done_genes(meta_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--det-rate-min", type=float, default=DET_RATE_MIN)
+    parser.add_argument("--det-rate-max", type=float, default=None,
+                        help="upper bound on HC detection rate (exclusive); restricts to a band")
+    parser.add_argument("--out-dir", type=str, default=None,
+                        help="output directory (default config.CV_RESULTS_DIR); use to keep canonical results separate")
     parser.add_argument("--n-folds", type=int, default=N_SPLITS)
     parser.add_argument("--outlier-z", type=float, default=5.0,
                         help="remove training samples with |z_train| > this value (default 5.0)")
@@ -209,9 +215,10 @@ def main():
                         help="only process first N genes (for testing)")
     args = parser.parse_args()
 
-    config.CV_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    meta_path = config.CV_RESULTS_DIR / "cv_gamlss_stats.csv"
-    zscores_path = config.CV_RESULTS_DIR / "cv_gamlss_zscores.pkl"
+    out_dir = Path(args.out_dir) if args.out_dir else config.CV_RESULTS_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    meta_path = out_dir / "cv_gamlss_stats.csv"
+    zscores_path = out_dir / "cv_gamlss_zscores.pkl"
 
     print("Initialising R / gamlss...")
     r_fit_fn = init_r()
@@ -220,13 +227,14 @@ def main():
     X_hc_scaled, Y_raw, is_hc, strata_hc, pc_gene_names, pc_indices = load_hc_data()
     gene_names, gene_indices = select_candidate_genes(
         Y_raw, is_hc, pc_gene_names, pc_indices,
-        args.det_rate_min,
+        args.det_rate_min, args.det_rate_max,
     )
     Y_hc = Y_raw[is_hc]
 
+    band = f">={args.det_rate_min}" if args.det_rate_max is None \
+        else f"[{args.det_rate_min}, {args.det_rate_max})"
     print(f"HC samples      : {is_hc.sum()}")
-    print(f"Candidate genes : {len(gene_names)}"
-          f"  (det>={args.det_rate_min})")
+    print(f"Candidate genes : {len(gene_names)}  (det {band})")
 
     if args.limit is not None:
         gene_names = gene_names[:args.limit]
@@ -236,7 +244,7 @@ def main():
     folds = make_stratified_folds(strata_hc, n_splits=args.n_folds)
     col_names = BIAS_COLUMNS
 
-    ppc_path = config.CV_RESULTS_DIR / "cv_gamlss_nb_ppc.pkl"
+    ppc_path = out_dir / "cv_gamlss_nb_ppc.pkl"
 
     done_genes = set() if args.no_resume else _load_done_genes(meta_path)
     zscores_dict = {}

@@ -421,85 +421,129 @@ def plot_sample(df, sample_id, phenotype='', top_n=20, z_flag=None):
     return fig
 
 
-def _strip_panel(ax, detail, value_col, ensg_to_y, n_genes, rng, xlabel, xscale=None,
-                 vlines=()):
-    """One column of a per-gene strip plot: every disease sample as a point, jittered on
-    y, flagged samples in red on top of grey others -- so multiple flagged samples per
-    gene all stay visible instead of collapsing into a single summary bar."""
-    for is_flag, color, size, alpha, z in [(False, 'grey', 14, 0.5, 2), (True, 'tomato', 45, 0.9, 3)]:
-        sub = detail[detail['flagged'] == is_flag]
-        y = sub['ensg'].map(ensg_to_y) + rng.uniform(-0.18, 0.18, len(sub))
-        ax.scatter(sub[value_col], y, s=size, color=color, alpha=alpha, edgecolors='none',
-                  zorder=z, label='flagged sample' if is_flag else 'other disease samples')
-    if xscale:
-        ax.set_xscale(xscale)
-    for v in vlines:
-        ax.axvline(v, color='black', lw=1, ls='--', alpha=0.5)
-    ax.set_ylim(n_genes - 0.5, -0.5)
-    ax.set_xlabel(xlabel)
-    ax.legend(fontsize=7, loc='lower right', frameon=False)
 
+def plot_venn_benchmarks(dd, padj_thr=0.05, ncols=3, fig_dir=None, save=True):
+    """Per-phenotype 3-way Venn: DESeq2 (no-cov) | DESeq2 (w/cov) | Normative Model.
+    Phenotypes without any DESeq2 result file (e.g. no matched HC) are skipped.
+    """
+    import warnings
+    from matplotlib_venn import venn3
+    from pipeline.benchmark import build_venn_sets, deseq2_path
 
-def plot_rescued_genes(merged, rescued, phenotype, dd=None, z_flag=None, top_n=20,
-                       fig_dir=None, save=True):
-    """DESeq2-excluded genes vs normative signal: overview scatter + per-gene raw-count
-    and Z-score strip plots (one point per disease sample, flagged ones highlighted)."""
-    from pipeline.benchmark import gene_sample_detail
-    z_flag = MP['z_flag'] if z_flag is None else z_flag
-    fig_dir = fig_dir or config.BENCHMARK_DIR / 'Figures'
+    fig_dir = fig_dir or (config.BENCHMARK_DIR / 'Figures')
     fig_dir.mkdir(parents=True, exist_ok=True)
-    excl = merged[merged['excluded']]
-    kept = merged[~merged['excluded']]
 
-    fig, axes = plt.subplots(1, 3, figsize=(19, 5))
-    ax = axes[0]
-    ax.scatter(kept['baseMean'] + 1, kept['norm_max_abs_z'], s=8, alpha=0.25,
-               color='grey', label=f'DESeq2-tested (n={len(kept)})')
-    ax.scatter(excl['baseMean'] + 1, excl['norm_max_abs_z'], s=14, alpha=0.7,
-               color='tomato', label=f'DESeq2-excluded (n={len(excl)})')
-    ax.axhline(z_flag, color='black', lw=1, ls='--', alpha=0.5)
-    ax.set_xscale('log')
-    ax.set_xlabel('DESeq2 baseMean + 1')
-    ax.set_ylabel('Normative max |Z|\n(flagged calls only; 0 = never flagged)')
-    ax.legend(fontsize=8, frameon=False)
+    phenos = [ph for ph in sorted(np.unique(dd.dis_pheno))
+              if deseq2_path(ph, cov=False).exists() or deseq2_path(ph, cov=True).exists()]
 
-    top = rescued.head(top_n)
-    for ax in axes[1:]:
-        if len(top) == 0:
-            ax.text(0.5, 0.5, 'No rescued genes above threshold', ha='center', va='center',
-                    transform=ax.transAxes, color='grey')
-            ax.axis('off')
-        elif dd is None:
-            ax.text(0.5, 0.5, 'pass dd= for per-sample strip plot', ha='center', va='center',
-                    transform=ax.transAxes, color='grey')
-            ax.axis('off')
+    nrows = (len(phenos) + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 4.5, nrows * 4.0))
+    axf = np.array(axes).flatten()
 
-    if len(top) > 0 and dd is not None:
-        detail = gene_sample_detail(dd, phenotype, top[['ensg', 'branch']])
-        rng = np.random.default_rng(0)
-        labels = [f"{s} ({b}, n_flag={n:.0f})" for s, b, n in
-                  zip(top['symbol'], top['branch'].fillna('?'), top['norm_n_flagged'])]
-        ensg_to_y = {g: i for i, g in enumerate(top['ensg'])}
+    SET_COLORS = ('#4C72B0', '#C44E52', '#55A868')
+    SET_LABELS = ('DESeq2\n(no-cov)', 'DESeq2\n(w/cov)', 'Normative\nModel')
 
-        _strip_panel(axes[1], detail.assign(raw_count=detail['raw_count'] + 1), 'raw_count',
-                    ensg_to_y, len(top), rng, 'Raw count + 1 (one point per disease sample)',
-                    xscale='log')
-        axes[1].set_yticks(range(len(top)))
-        axes[1].set_yticklabels(labels, fontsize=7)
-        axes[1].invert_yaxis()
-        axes[1].set_title(f'Top rescued genes (n={len(rescued)} total)')
+    for ax, ph in zip(axf, phenos):
+        sets = build_venn_sets(dd, ph, padj_thr=padj_thr)
+        s_a, s_b, s_c = sets[SET_LABELS[0]], sets[SET_LABELS[1]], sets[SET_LABELS[2]]
+        only_a = len(s_a - s_b - s_c)
+        only_b = len(s_b - s_a - s_c)
+        only_c = len(s_c - s_a - s_b)
+        ab = len((s_a & s_b) - s_c)
+        ac = len((s_a & s_c) - s_b)
+        bc = len((s_b & s_c) - s_a)
+        abc = len(s_a & s_b & s_c)
+        raw = (only_a, only_b, ab, only_c, ac, bc, abc)
+        scaled = tuple(int(np.sqrt(r) * 10) if r > 0 else 0 for r in raw)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            v = venn3(subsets=scaled, set_labels=SET_LABELS, ax=ax,
+                      set_colors=SET_COLORS, alpha=0.55)
+        if v is not None:
+            for text in (v.set_labels or []):
+                if text:
+                    text.set_fontsize(8)
+            if v.subset_labels:
+                for lbl, actual in zip(v.subset_labels, raw):
+                    if lbl is not None:
+                        lbl.set_text(str(actual))
+                        lbl.set_fontsize(9)
+        n_a, n_b, n_c = len(s_a), len(s_b), len(s_c)
+        ax.set_title(f'{ph}\n(no-cov:{n_a}  w/cov:{n_b}  NM:{n_c})', fontsize=8, pad=4)
 
-        _strip_panel(axes[2], detail, 'z', ensg_to_y, len(top), rng,
-                    'Z-score (one point per disease sample)', vlines=(z_flag, -z_flag))
-        axes[2].set_yticks(range(len(top)))
-        axes[2].set_yticklabels([])
-        axes[2].invert_yaxis()
-        axes[2].set_title('Z-score distribution within disease group')
+    for ax in axf[len(phenos):]:
+        ax.axis('off')
 
+    fig.suptitle(
+        f'Gene-level hit overlap per phenotype  (DESeq2 padj<{padj_thr}, Normative |z|≥{MP["z_flag"]} any sample)',
+        y=1.01, fontsize=10)
     plt.tight_layout()
     if save:
-        fname = phenotype.replace(' ', '_').replace('/', '_')
-        plt.savefig(fig_dir / f'rescued_genes_{fname}.png', bbox_inches='tight')
+        plt.savefig(fig_dir / 'venn_benchmarks.png', bbox_inches='tight', dpi=200)
+    plt.show()
+    return fig
+
+
+def plot_venn_gsea_pathways(wr, dq, dq_cov, ncols=3, fig_dir=None, save=True):
+    """Per-phenotype 3-way pathway Venn: DESeq2(no-cov) | DESeq2(w/cov) | NM(with_rare).
+    Only phenotypes present in at least one DESeq2 GSEA result are shown.
+    Circle areas are sqrt-scaled; labels show true counts.
+    Palette matches the gene-level Venn (plot_venn_benchmarks).
+    """
+    import warnings
+    from matplotlib_venn import venn3
+
+    fig_dir = fig_dir or (config.BENCHMARK_DIR / 'Figures')
+    fig_dir.mkdir(parents=True, exist_ok=True)
+
+    phenos = sorted((set(dq) | set(dq_cov)) & set(wr))
+    nrows = (len(phenos) + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 4.5, nrows * 4.0))
+    axf = np.array(axes).flatten()
+
+    SET_COLORS = ('#4C72B0', '#C44E52', '#55A868')
+    SET_LABELS = ('DESeq2\n(no-cov)', 'DESeq2\n(w/cov)', 'NM\n(with_rare)')
+
+    def _terms(d, ph):
+        return set(d.get(ph, pd.DataFrame()).get('Term', pd.Series()).dropna())
+
+    for ax, ph in zip(axf, phenos):
+        s_a = _terms(dq, ph)
+        s_b = _terms(dq_cov, ph)
+        s_c = _terms(wr, ph)
+        only_a = len(s_a - s_b - s_c)
+        only_b = len(s_b - s_a - s_c)
+        only_c = len(s_c - s_a - s_b)
+        ab = len((s_a & s_b) - s_c)
+        ac = len((s_a & s_c) - s_b)
+        bc = len((s_b & s_c) - s_a)
+        abc = len(s_a & s_b & s_c)
+        raw = (only_a, only_b, ab, only_c, ac, bc, abc)
+        scaled = tuple(int(np.sqrt(r) * 10) if r > 0 else 0 for r in raw)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            v = venn3(subsets=scaled, set_labels=SET_LABELS, ax=ax,
+                      set_colors=SET_COLORS, alpha=0.55)
+        if v is not None:
+            for text in (v.set_labels or []):
+                if text:
+                    text.set_fontsize(8)
+            if v.subset_labels:
+                for lbl, actual in zip(v.subset_labels, raw):
+                    if lbl is not None:
+                        lbl.set_text(str(actual))
+                        lbl.set_fontsize(9)
+        ax.set_title(f'{ph}\n(no-cov:{len(s_a)}  w/cov:{len(s_b)}  NM:{len(s_c)})',
+                     fontsize=8, pad=4)
+
+    for ax in axf[len(phenos):]:
+        ax.axis('off')
+
+    fig.suptitle('GSEA pathway overlap per phenotype  (FDR < 0.05)',
+                 y=1.01, fontsize=10)
+    plt.tight_layout()
+    if save:
+        plt.savefig(fig_dir / 'venn_gsea_pathways.png', bbox_inches='tight', dpi=200)
     plt.show()
     return fig
 
