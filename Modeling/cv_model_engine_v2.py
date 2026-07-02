@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 """Stratified 5-fold CV calibration check for the trained NormativeModelEngineV2.
 
-The route (A/B/C) AND the specific model within Route B (GAIC full-vs-intercept
-choice, or the final intercept-only fallback -- see b_source in
-training_summary.csv) each gene ended up on are taken as FIXED from the
-full-data training -- route/model selection happens once on all HC data, and CV
-only re-evaluates held-out calibration for that same model, never re-decides the
-chain. This mirrors cv_gamlss_nb.py's W1/mean/std/skew/kurt diagnostics, computed
-per gene from pooled held-out z.
+The route (pool/model) AND the specific stage within route "model" (nbi,
+nb_fixed with its GAIC full-vs-intercept choice, or the final intercept stage --
+see stage/mean_model_chosen in training_summary.csv) each gene ended up on are
+taken as FIXED from the full-data training -- route/stage selection happens once
+on all HC data, and CV only re-evaluates held-out calibration for that same
+model, never re-decides the chain. This mirrors cv_gamlss_nb.py's
+W1/mean/std/skew/kurt diagnostics, computed per gene from pooled held-out z.
 
 Usage:
     python cv_model_engine_v2.py               # full run
@@ -76,10 +76,11 @@ def z_stats(z):
                skew_z=float(skew(v)), kurt_z=float(kurtosis(v)), n_valid=n)
 
 
-def cv_route_a(y, Xs, folds, mean_hc_full, rare_glm_full, seed):
-    """Held-out z for a single Route A (rare-pooled) gene, refitting the shared
-    pooled beta per fold is out of scope here -- reuse the full-data pooled GLM
-    (consistent with 'route decided from full data' but scored on held-out y)."""
+def cv_pool(y, Xs, folds, mean_hc_full, rare_glm_full, seed):
+    """Held-out z for a single route "pool" (rare-pooled) gene, refitting the
+    shared pooled beta per fold is out of scope here -- reuse the full-data
+    pooled GLM (consistent with 'route decided from full data' but scored on
+    held-out y)."""
     n = len(y)
     z = np.full(n, np.nan)
     eps = rare_glm_full["eps"]
@@ -93,10 +94,10 @@ def cv_route_a(y, Xs, folds, mean_hc_full, rare_glm_full, seed):
     return z
 
 
-def cv_route_b(y, Xs, folds, alpha_fn, outlier_z, max_iter, max_remove_frac, seed,
-               beta_explode_thr=None, gaic_k=None):
-    """Re-fits Route B (full-vs-intercept GAIC comparison) per fold, falling
-    through to fit_intercept_only_gene if the full IRLS diverges."""
+def cv_nb_fixed(y, Xs, folds, alpha_fn, outlier_z, max_iter, max_remove_frac, seed,
+                beta_explode_thr=None, gaic_k=None):
+    """Re-fits stage nb_fixed (full-vs-intercept GAIC comparison) per fold,
+    falling through to fit_intercept_only_gene if the full IRLS diverges."""
     n = len(y)
     z = np.full(n, np.nan)
     for fi, (tr, te) in enumerate(folds):
@@ -117,9 +118,9 @@ def cv_route_b(y, Xs, folds, alpha_fn, outlier_z, max_iter, max_remove_frac, see
     return z
 
 
-def cv_intercept_fallback(y, alpha_fn, folds, seed):
-    """Re-evaluates genes whose final model IS the intercept-only fallback
-    (b_source == 'intercept_fallback' in training_summary.csv): closed-form,
+def cv_intercept(y, alpha_fn, folds, seed):
+    """Re-evaluates genes whose final stage IS "intercept"
+    (stage == 'intercept' in training_summary.csv): closed-form,
     per fold, mirroring fit_intercept_only_gene exactly."""
     n = len(y)
     z = np.full(n, np.nan)
@@ -132,8 +133,8 @@ def cv_intercept_fallback(y, alpha_fn, folds, seed):
     return z
 
 
-def cv_route_c(y, Xs, folds, r_fit_fn, col_names, outlier_z, max_iter, max_remove_frac,
-              lambda_sigma, seed):
+def cv_nbi(y, Xs, folds, r_fit_fn, col_names, outlier_z, max_iter, max_remove_frac,
+          lambda_sigma, seed):
     n = len(y)
     z = np.full(n, np.nan)
     for fi, (tr, te) in enumerate(folds):
@@ -190,8 +191,9 @@ def main():
     folds = list(StratifiedKFold(N_SPLITS, shuffle=True, random_state=args.seed)
                 .split(np.zeros(n_hc), strata))
 
+    stage_key = summary["stage"].where(summary["stage"] != "", summary["route"])
     print(f"Starting CV on {len(summary)} genes  "
-         f"(route counts: {summary['route'].value_counts().to_dict()})")
+         f"(stage counts: {stage_key.value_counts().to_dict()})")
 
     rows = []
     zdict = {}
@@ -203,26 +205,26 @@ def main():
             continue
         y = Y[:, j]
         route = row["route"]
-        b_source = row.get("b_source", "")
-        if route == "A":
-            z = cv_route_a(y, Xs, folds, y.mean(), rare_glm_full, args.seed)
-        elif route == "B" and b_source == "intercept_fallback":
-            z = cv_intercept_fallback(y, alpha_fn, folds, args.seed)
-        elif route == "B":
-            z = cv_route_b(y, Xs, folds, alpha_fn, engine_cfg["outlier_z"],
-                           engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"], args.seed,
-                           beta_explode_thr=engine_cfg["beta_explode_thr"], gaic_k=engine_cfg["gaic_k"])
-        elif route == "C":
-            z = cv_route_c(y, Xs, folds, r_fit_fn, config.BIAS_COLUMNS, engine_cfg["outlier_z"],
-                           engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"],
-                           engine_cfg["ridge_lambda_sigma"], args.seed)
+        stage = row.get("stage", "")
+        if route == "pool":
+            z = cv_pool(y, Xs, folds, y.mean(), rare_glm_full, args.seed)
+        elif route == "model" and stage == "intercept":
+            z = cv_intercept(y, alpha_fn, folds, args.seed)
+        elif route == "model" and stage == "nb_fixed":
+            z = cv_nb_fixed(y, Xs, folds, alpha_fn, engine_cfg["outlier_z"],
+                            engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"], args.seed,
+                            beta_explode_thr=engine_cfg["beta_explode_thr"], gaic_k=engine_cfg["gaic_k"])
+        elif route == "model" and stage == "nbi":
+            z = cv_nbi(y, Xs, folds, r_fit_fn, config.BIAS_COLUMNS, engine_cfg["outlier_z"],
+                      engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"],
+                      engine_cfg["ridge_lambda_sigma"], args.seed)
         else:
             continue
         zdict[gene] = z.astype(np.float32)
         st = z_stats(z)
-        st.update(gene=gene, route=route, b_source=b_source, nz=int(row["nz"]))
+        st.update(gene=gene, route=route, stage=stage, nz=int(row["nz"]))
         rows.append(st)
-        route_counts[route] = route_counts.get(route, 0) + 1
+        route_counts[stage or route] = route_counts.get(stage or route, 0) + 1
 
         if (i + 1) % 50 == 0 or (i + 1) == len(summary):
             elapsed = time.perf_counter() - t0
@@ -237,8 +239,9 @@ def main():
     with open(out_dir / "cv_zscores.pkl", "wb") as f:
         pickle.dump(zdict, f)
 
-    print("\nCalibration by route (median):")
-    print(df.groupby("route")[["w1", "mean_z", "std_z", "skew_z", "kurt_z"]].median().to_string())
+    print("\nCalibration by stage (median):")
+    group_key = df["stage"].where(df["stage"] != "", df["route"])
+    print(df.groupby(group_key)[["w1", "mean_z", "std_z", "skew_z", "kurt_z"]].median().to_string())
     print(f"\nSaved -> {out_dir}/cv_stats.csv, cv_zscores.pkl")
 
 

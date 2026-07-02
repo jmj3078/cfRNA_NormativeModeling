@@ -93,21 +93,6 @@ def _nbi_rqr_from_coeffs(mu_coef, sigma_coef, X_test, y_test, seed=None):
     return norm.ppf(rng.uniform(lo, hi)).astype(np.float32)
 
 
-def _nbi_rqr_intercept(mu_coef, sigma_coef, y_test, seed=None):
-    n = len(y_test)
-    mu = np.full(n, np.exp(mu_coef[0])).clip(1e-4, 1e6)
-    sigma = np.full(n, np.exp(sigma_coef[0])).clip(1e-8, 1e3)
-    theta = (1.0 / sigma).clip(1e-4, 1e4)
-    p_nb = np.clip(theta / (theta + mu), 1e-8, 1 - 1e-8)
-    yi = np.asarray(y_test, dtype=int)
-    a = np.where(yi > 0, nbinom.cdf(yi - 1, n=theta, p=p_nb), 0.0)
-    b = nbinom.cdf(yi, n=theta, p=p_nb)
-    lo = np.clip(np.minimum(a, b), 1e-8, 1 - 1e-8)
-    hi = np.clip(np.maximum(a, b), 1e-8, 1 - 1e-8)
-    rng = np.random.default_rng(seed)
-    return norm.ppf(rng.uniform(lo, hi)).astype(np.float32)
-
-
 # ---- rpy2 helpers ---------------------------------------------------------
 
 def _to_r_matrix(arr, col_names):
@@ -122,7 +107,7 @@ def _to_r_vec(arr):
         return ro.conversion.py2rpy(np.ascontiguousarray(arr, dtype=np.float64))
 
 
-# ---- Route B: pure-Python unpenalized mean-only NB (fixed dispersion) ----
+# ---- stage "nb_fixed": pure-Python unpenalized mean-only NB (fixed dispersion) ----
 
 def _nb_irls(y, X, alpha, max_iter=100, tol=1e-8):
     """Unpenalized NB2(alpha fixed) mean-model IRLS. Returns (beta, converged)."""
@@ -249,26 +234,23 @@ def fit_route_b_gene(y_train, X_train, alpha_fn, outlier_z, max_iter, max_remove
 @dataclass
 class GeneRecordV2:
     name: str
-    initial_route: str      # "A" | "C"  (Phase 1 gating: rare pooling, or NBI-first)
-    route: str = ""          # final route actually used: "A" | "B" | "C" | "excluded"
+    initial_route: str      # "pool" | "model"  (Phase 1 gating)
+    route: str = ""          # final route actually used: "pool" | "model" | "excluded"
+    stage: str = ""          # which model stage produced the fit: "nbi" | "nb_fixed" | "intercept"
     nz: int = 0
     attempted: bool = False  # True once train() has processed this gene (vs. skipped by --limit)
 
-    # Route C (NBI)
+    # stage == "nbi" (full NBI GAMLSS, mu and sigma on covariates)
     mu_coef: np.ndarray = None
     sigma_coef: np.ndarray = None
-    nbi_chosen: str = ""     # "full" (only value used; kept for compatibility with scoring)
     nbi_explode: str = ""    # "" | "mu" | "sigma" | "mu+sigma"  (which submodel triggered demotion)
 
-    # Route B (mean-only NB, fixed dispersion) -- covers both the GAIC full-vs-
-    # intercept comparison AND the intercept-only fallback below it; b_source
-    # distinguishes which one actually produced this gene's fit.
+    # stage in {"nb_fixed", "intercept"} (mean-only NB, dispersion fixed from the trend)
     beta: np.ndarray = None
     alpha: float = None
-    b_chosen: str = ""       # "full" | "intercept"
-    b_source: str = ""       # "route_b_gaic" | "intercept_fallback"
+    mean_model_chosen: str = ""  # "full" | "intercept"  (GAIC choice within stage == "nb_fixed")
 
-    # Route A (rare pooling)
+    # route == "pool" (rare pooling)
     mean_hc: float = None
 
     fit_ok: bool = False
@@ -347,20 +329,20 @@ class NormativeModelEngineV2:
 
     def assign_routes(self):
         """Only NZ-based decision in the whole pipeline: nz < nz_a_max goes to
-        rare pooling directly; everything else attempts Route C first and lets
-        the C -> B -> intercept-only demotion chain decide the rest from actual
-        fit outcomes, not a fixed NZ cutoff."""
+        rare pooling directly; everything else attempts the nbi stage first and
+        lets the nbi -> nb_fixed -> intercept demotion chain decide the rest from
+        actual fit outcomes, not a fixed NZ cutoff."""
         assert self.Y_hc is not None, "Call load_hc_data() first."
         Y_pc = self.Y_hc[:, self.pc_indices]
         nz = (Y_pc > 0).sum(axis=0)
         self.genes = {}
         for i, g in enumerate(self.pc_gene_names):
             n = int(nz[i])
-            route = "A" if n < self.nz_a_max else "C"
+            route = "pool" if n < self.nz_a_max else "model"
             self.genes[g] = GeneRecordV2(name=g, initial_route=route, nz=n)
         counts = pd.Series([r.initial_route for r in self.genes.values()]).value_counts()
-        print(f"Phase 1 gating: A(rare)={counts.get('A',0)}  "
-              f"C-candidates(NBI-first)={counts.get('C',0)}  (nz_a_max={self.nz_a_max})")
+        print(f"Phase 1 gating: pool={counts.get('pool',0)}  "
+              f"model-candidates(nbi-first)={counts.get('model',0)}  (nz_a_max={self.nz_a_max})")
         return counts
 
     # ---- R init -------------------------------------------------------------
@@ -373,13 +355,13 @@ class NormativeModelEngineV2:
     def _gene_y(self, g):
         return self.Y_hc[:, self._gene_col[g]]
 
-    # ---- Phase 2: Route C (full NBI GAMLSS, mu AND sigma on covariates) ------
+    # ---- stage "nbi": full NBI GAMLSS (mu AND sigma on covariates) -----------
 
-    def _train_route_c(self, rec):
+    def _fit_nbi(self, rec):
         """Try full NBI only -- no intercept-only competitor is fit here. Any
         failure (R non-convergence, rpy2-level exception, or coefficient
-        explosion in mu or sigma) demotes straight to Route B, which does its
-        own full-vs-intercept GAIC comparison using the shared
+        explosion in mu or sigma) demotes straight to stage "nb_fixed", which
+        does its own full-vs-intercept GAIC comparison using the shared
         fit_intercept_only_gene closed form."""
         self._init_r()
         y = self._gene_y(rec.name)
@@ -410,15 +392,15 @@ class NormativeModelEngineV2:
         rec.mu_coef = beta_full
         rec.sigma_coef = sigma_full
         rec.n_removed = int(res_full.rx2("n_removed")[0])
-        rec.nbi_chosen = "full"
-        rec.route = "C"
+        rec.route = "model"
+        rec.stage = "nbi"
         rec.fit_ok = True
         return True
 
-    # ---- Phase 3: Route B (unpenalized mean-only NB) --------------------------
+    # ---- stage "nb_fixed": unpenalized mean-only NB ---------------------------
 
-    def _train_route_b(self, rec):
-        """False demotes to the final intercept-only fallback."""
+    def _fit_nb_fixed(self, rec):
+        """False demotes to the final intercept-only stage."""
         y = self._gene_y(rec.name)
         res = fit_route_b_gene(y, self.X_hc_scaled, self.alpha_fn,
                                self.outlier_z, self.max_outlier_iter, self.max_remove_frac,
@@ -428,18 +410,18 @@ class NormativeModelEngineV2:
             return False
         rec.beta = res["beta"] if res["chosen"] == "full" else res["beta_null"]
         rec.alpha = res["alpha"]
-        rec.b_chosen = res["chosen"]
-        rec.b_source = "route_b_gaic"
+        rec.mean_model_chosen = res["chosen"]
         rec.n_removed = res["n_removed"]
-        rec.route = "B"
+        rec.route = "model"
+        rec.stage = "nb_fixed"
         rec.fit_ok = True
         return True
 
-    # ---- Final fallback: closed-form intercept-only NB -----------------------
+    # ---- stage "intercept": closed-form intercept-only NB --------------------
 
-    def _train_intercept_fallback(self, rec):
-        """Last step of the demotion chain, reached only when Route B's full
-        IRLS itself diverges. fit_intercept_only_gene is a closed-form
+    def _fit_intercept(self, rec):
+        """Last step of the demotion chain, reached only when stage "nb_fixed"'s
+        full IRLS itself diverges. fit_intercept_only_gene is a closed-form
         computation (mu=mean(y), dispersion from the trend) that succeeds for
         any y with a finite positive mean -- i.e. essentially always. The rare
         pathological failure (non-finite y or invalid trend lookup) is excluded
@@ -451,14 +433,14 @@ class NormativeModelEngineV2:
             return False
         rec.beta = res["beta"]
         rec.alpha = res["alpha"]
-        rec.b_chosen = "intercept"
-        rec.b_source = "intercept_fallback"
+        rec.mean_model_chosen = "intercept"
         rec.n_removed = res["n_removed"]
-        rec.route = "B"
+        rec.route = "model"
+        rec.stage = "intercept"
         rec.fit_ok = True
         return True
 
-    # ---- Phase 4: Route A (rare pooling, pooled GLM, always succeeds) --------
+    # ---- route "pool" (rare pooling, pooled GLM, always succeeds) ------------
 
     def train_rare(self, gene_list):
         if not gene_list:
@@ -470,7 +452,7 @@ class NormativeModelEngineV2:
         mean_hc = Y_rare.mean(axis=0)
         for g, m in zip(gene_list, mean_hc):
             self.genes[g].mean_hc = float(m)
-            self.genes[g].route = "A"
+            self.genes[g].route = "pool"
             self.genes[g].fit_ok = True
             self.genes[g].attempted = True
 
@@ -489,71 +471,74 @@ class NormativeModelEngineV2:
             family, beta, alpha = "negbin", np.asarray(nb.params[:-1]), float(nb.params[-1])
         self.rare_glm = {"family": family, "beta": beta, "alpha": alpha,
                          "eps": eps, "overdisp_ratio": ratio}
-        print(f"Route A (rare pooling): {n_rare} genes pooled, family={family}, "
+        print(f"Route pool (rare pooling): {n_rare} genes pooled, family={family}, "
               f"deviance/df={ratio:.3f}")
 
     # ---- Bulk training with demotion chain -----------------------------------
 
     def train(self, verbose=True, limit=None):
-        """C -> B -> intercept-only, one gene at a time, each step attempted only
-        after the previous one actually failed. Route A candidates (NZ < nz_a_max)
-        never enter this chain -- they go straight to pooled rare fitting."""
+        """nbi -> nb_fixed -> intercept, one gene at a time, each step attempted
+        only after the previous one actually failed. Pool candidates (NZ <
+        nz_a_max) never enter this chain -- they go straight to pooled rare
+        fitting."""
         assert self.genes, "Call assign_routes() first."
         if self.alpha_fn is None:
             self.build_dispersion_trend()
 
         all_genes = list(self.genes.keys())[:limit]
-        route_c = [g for g in all_genes if self.genes[g].initial_route == "C"]
-        route_a = [g for g in all_genes if self.genes[g].initial_route == "A"]
-        print(f"Training: C-candidates(NBI-first)={len(route_c)}  A-candidates(rare)={len(route_a)}")
+        model_candidates = [g for g in all_genes if self.genes[g].initial_route == "model"]
+        pool_candidates = [g for g in all_genes if self.genes[g].initial_route == "pool"]
+        print(f"Training: model-candidates(nbi-first)={len(model_candidates)}  "
+              f"pool-candidates(rare)={len(pool_candidates)}")
 
-        demoted_to_b = []
-        for i, g in enumerate(route_c):
+        demoted_to_nb_fixed = []
+        for i, g in enumerate(model_candidates):
             rec = self.genes[g]
             rec.attempted = True
             try:
-                ok = self._train_route_c(rec)
+                ok = self._fit_nbi(rec)
             except Exception as exc:
                 ok = False
                 rec.fail_reason = str(exc)
             if not ok:
-                demoted_to_b.append(g)
+                demoted_to_nb_fixed.append(g)
             if verbose and (i + 1) % 500 == 0:
-                print(f"  [Route C {i+1:5d}/{len(route_c)}] demoted_so_far={len(demoted_to_b)}")
-        print(f"Step 1 (Route C, NBI): {len(route_c)-len(demoted_to_b)} fitted, "
-              f"{len(demoted_to_b)} demoted to Route B")
+                print(f"  [stage nbi {i+1:5d}/{len(model_candidates)}] "
+                      f"demoted_so_far={len(demoted_to_nb_fixed)}")
+        print(f"Step 1 (stage nbi): {len(model_candidates)-len(demoted_to_nb_fixed)} fitted, "
+              f"{len(demoted_to_nb_fixed)} demoted to stage nb_fixed")
 
         demoted_to_intercept = []
-        for i, g in enumerate(demoted_to_b):
+        for i, g in enumerate(demoted_to_nb_fixed):
             rec = self.genes[g]
             try:
-                ok = self._train_route_b(rec)
+                ok = self._fit_nb_fixed(rec)
             except Exception as exc:
                 ok = False
                 rec.fail_reason = str(exc)
             if not ok:
                 demoted_to_intercept.append(g)
             if verbose and (i + 1) % 500 == 0:
-                print(f"  [Route B {i+1:5d}/{len(demoted_to_b)}] "
+                print(f"  [stage nb_fixed {i+1:5d}/{len(demoted_to_nb_fixed)}] "
                       f"demoted_so_far={len(demoted_to_intercept)}")
-        print(f"Step 2 (Route B, mean-only NB): {len(demoted_to_b)-len(demoted_to_intercept)} fitted, "
-              f"{len(demoted_to_intercept)} demoted to intercept-only fallback")
+        print(f"Step 2 (stage nb_fixed): {len(demoted_to_nb_fixed)-len(demoted_to_intercept)} fitted, "
+              f"{len(demoted_to_intercept)} demoted to stage intercept")
 
         excluded = []
         for i, g in enumerate(demoted_to_intercept):
             rec = self.genes[g]
             try:
-                ok = self._train_intercept_fallback(rec)
+                ok = self._fit_intercept(rec)
             except Exception as exc:
                 ok = False
                 rec.fail_reason = str(exc)
             if not ok:
                 excluded.append(g)
                 rec.route = "excluded"
-        print(f"Step 3 (intercept-only fallback): "
+        print(f"Step 3 (stage intercept): "
               f"{len(demoted_to_intercept)-len(excluded)} fitted, {len(excluded)} EXCLUDED")
 
-        self.train_rare(route_a)
+        self.train_rare(pool_candidates)
 
         n_fitted = sum(1 for r in self.genes.values() if r.fit_ok)
         n_excluded = sum(1 for r in self.genes.values() if r.route == "excluded")
@@ -588,19 +573,16 @@ class NormativeModelEngineV2:
                 continue
             y_col = Y_test[:, j].astype(np.float64)
             try:
-                if rec.route == "A":
+                if rec.route == "pool":
                     Z[:, j] = self._rare_z(rec, X_test, y_col, seed + j)
-                elif rec.route == "B":
-                    if rec.b_chosen == "full":
+                elif rec.stage == "nbi":
+                    Z[:, j] = _nbi_rqr_from_coeffs(rec.mu_coef, rec.sigma_coef, X_test, y_col, seed + j)
+                elif rec.stage in ("nb_fixed", "intercept"):
+                    if rec.mean_model_chosen == "full":
                         mu = np.clip(np.exp(Xa @ rec.beta), 1e-6, 1e8)
                     else:
                         mu = np.full(n_test, np.exp(rec.beta[0])).clip(1e-6, 1e8)
                     Z[:, j] = _nb_rqr(y_col, mu, rec.alpha, seed + j)
-                elif rec.route == "C":
-                    if rec.nbi_chosen == "full":
-                        Z[:, j] = _nbi_rqr_from_coeffs(rec.mu_coef, rec.sigma_coef, X_test, y_col, seed + j)
-                    else:
-                        Z[:, j] = _nbi_rqr_intercept(rec.mu_coef, rec.sigma_coef, y_col, seed + j)
             except Exception:
                 pass
         return Z
@@ -613,9 +595,8 @@ class NormativeModelEngineV2:
         genes were gated (initial_route set) but never attempted."""
         recs = [r for r in self.genes.values() if r.attempted] if attempted_only else self.genes.values()
         rows = [{"gene": r.name, "initial_route": r.initial_route, "route": r.route,
-                 "nz": r.nz, "fit_ok": r.fit_ok, "attempted": r.attempted,
-                 "nbi_chosen": r.nbi_chosen, "nbi_explode": r.nbi_explode,
-                 "b_chosen": r.b_chosen, "b_source": r.b_source,
+                 "stage": r.stage, "nz": r.nz, "fit_ok": r.fit_ok, "attempted": r.attempted,
+                 "nbi_explode": r.nbi_explode, "mean_model_chosen": r.mean_model_chosen,
                  "n_removed": r.n_removed, "fail_reason": r.fail_reason}
                 for r in recs]
         return pd.DataFrame(rows).set_index("gene")
