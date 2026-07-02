@@ -48,6 +48,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./Modeling/GSEA/ : GSEA 산출 (조건별 하위폴더 no_filter/with_rare/ubiqNN_absN, 각 gsea_result_*.csv · Clusters/ · Figures/) + 해석 리포트. no_filter/GSEA_Master_Report.md(rare 미포함) · with_rare/GSEA_Master_Report.md(rare 포함, DB+20질병 문헌검증: rare-led 신규신호 카탈로그+미보고 후보) · Analysis_Provenance.md(rare/DESeq2 비교에 쓴 모든 DB 엔드포인트·쿼리·resolve된 질병ID·PubMed 쿼리/히트 기록, 검증·재현용)
 ./Modeling/Benchmark/ : Normative Modeling vs DESeq2 정성/정량 비교 전용 = config.BENCHMARK_DIR. deseq2_results/(deseq2_*.csv·gsea_result_*.csv per phenotype, PyDESeq2 within-study 공변량미보정=config.DESEQ2_RESULTS_DIR) · deseq2_gsea/(공변량미보정 GSEA=config.DESEQ2_GSEA_DIR) · deseq2_covariate_results/(공변량보정 DESeq2 결과=config.DESEQ2_COV_RESULTS_DIR, run_deseq2_covariate.py 산출) · deseq2_covariate_gsea/(공변량보정 GSEA=config.DESEQ2_COV_GSEA_DIR) · disease_reference/(질병별 Open Targets association 상위 300 유전자 JSON = DB 교차검증 참조) · gsea_compare/(gsea_compare.py 산출: overlap_stats.csv · rare_novel_validated/summary.csv · deseq2_coverage.csv · deseq2_cov_vs_nocov_overlap.csv · deseq2_cov_db_hits.csv · db_hit_rates*.csv · {comparison}__{which}__{pheno}.csv diff 리스트) · rescued_genes_*.csv(분석1 산출) · DESeq2_vs_Normative_Report.md(term 커버리지/방향불일치 비교) · Figures/
 ./Modeling/노트북 : disease_scoring → gene_selection → gene_enrichment → gsea_heuristic_signatures(수동 theme,PPT용) · gsea_enrichmentmap_signatures(데이터기반 군집) · model_comparison(CV 평가) · deseq2_benchmark(분석1: DESeq2 independent-filtering 제외 유전자 중 normative Z-score로 살아나는 시그널 탐색, phenotype 단위로 점진 확장 예정) · gsea_rare_deseq2_comparison(rare 포함/미포함/DESeq2 3자 GSEA term 비교 재현 thin-runner: gsea_compare 호출→gsea_compare/ 산출물 재생성)
+./Modeling/dispersion_trend.py : Phase 0(normative-v2). 공변량 무시하고 raw count에서 gene별 NB2 MoM dispersion(sigma=(var-mean)/mean^2) 계산 → nz>=trend_min_nz(30)만 신뢰 → log(mu) 25구간 nonzero-가중 중앙값 → lowess(log-log) 평활. load_trend()가 alpha_of(mean)->dispersion 클로저 반환(alpha_floor~alpha_cap 클립). Route B/intercept 분산 고정에 사용
+./Modeling/model_engine_v2.py : `NormativeModelEngineV2`(normative-v2 본체). NZ 게이팅 + demotion chain (아래 핵심 아키텍처 참조)
+./Modeling/run_model_engine_v2.py : v2 엔진 학습 스크립트 → config.ENGINE_DIR_V2(engine_state_v2/). demotion-chain 통계(초기게이팅×최종route crosstab)+funnel figure 출력. `--limit N`(smoke test) · `--nz-a-max`
+./Modeling/cv_model_engine_v2.py · ./Modeling/summarize_cv_results_v2.py : v2 엔진 CV 및 결과 요약 → config.CV_RESULTS_DIR_V2
+./Modeling/engine_state_v2/ : run_model_engine_v2.py 산출 = config.ENGINE_DIR_V2. genes.pkl(GeneRecordV2 dict) · scaler.pkl · rare_glm.pkl · config.pkl · training_summary.csv · dispersion_trend.json(=config.DISPERSION_TREND_PATH) · route_demotion_summary.png
 
 ### pipeline/ 주요 진입점 (노트북에서 실제 호출되는 함수)
 - `data_prep.load_disease_filtered()` → `DiseaseData` dataclass (Z_dis · dis_pheno · dis_names · gene_names · gene_syms · adata · is_hc · X_raw) 반환. 분석 노트북의 공통 진입점.
@@ -65,6 +70,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **데이터 흐름**: h5ad(config.H5AD_PATH=merged_qc) → 엔진 학습(engine_state/) → disease scoring(Z_scores/ 의 Z_disease.npy=engine-only canonical + Z_rare_disease.npy=rare 별도) → OOD(Mahalanobis, HC-fit) + MIN_SAMPLES 필터(data_prep.py) → gene_selection/enrichment/GSEA/comparison.
 - **rare 저장/사용은 통합 + opt-in**. canonical Z_disease.npy는 engine-only(rare 컬럼 0 placeholder) 유지로 기존 downstream 불변. rare 공변량 GLM z는 Z_rare_*.npy로 따로 저장되고, disease_scores_flagged.parquet에는 전 분기 통합 long으로 들어감. GSEA/signature 등에서 rare를 합쳐 쓸지는 `scoring.score_disease_with_rare(dd)` / `scoring.load_z(with_rare=True)`로 분석 단계에서 선택(기본은 미포함).
 - **pipeline/ 패키지가 분석 로직, 노트북은 thin runner**. 같은 분석을 재현하려면 노트북이 아니라 pipeline 모듈을 수정. `pipeline/__init__.py`와 각 엔트리 스크립트가 자체적으로 root를 sys.path에 등록하므로 config/모듈 import는 재선언 없이 동작.
+- **normative-v2 (`NormativeModelEngineV2`, model_engine_v2.py) = NZ 게이팅 + demotion chain 재설계**. v1의 3-way detection-rate 분기(rare/logistic/NBI)를 대체하는 별도 엔진(`config.ENGINE_DIR_V2`). HC nonzero 샘플 수(NZ) 기준 게이팅은 **단 하나**뿐:
+  - **Route pool** (`nz < nz_a_max`=22): v1의 rare 분기와 동일한 풀링 GLM(offset=log(mean_hc+eps), shared beta, Poisson→deviance/df>`rare_overdisp_thr`시 NB). nz_a_max=22는 10공변량+intercept(11 free param) 추정 하한(11)의 2배 안전마진.
+  - **Route model** (`nz >= nz_a_max`): NZ로 더 세분하지 않고 전부 stage "nbi"부터 시도 → 실패하면 실제 fit 결과에 따라 강등(demotion), 고정 NZ 컷오프 없음.
+- **Demotion chain (정보 손실 우선순위, 한 단계씩)**:
+  1. **stage nbi**: R `gamlss` full NBI(mu·sigma 모두 공변량 회귀, sigma는 `ridge_lambda_sigma` L2). R 비수렴/예외/계수폭발(`beta_explode_thr`=5.0, mu 또는 sigma) → 강등.
+  2. **stage nb_fixed**: 순수 파이썬 IRLS(`_nb_irls`)로 mean-only NB, dispersion은 Phase 0 trend에서 고정(`alpha_of(mean)`, 공변량은 mean에만 사용). outlier 반복 제거(`outlier_z`=5.0, `max_remove_frac`=0.05) 후 full vs intercept-only를 GAIC(`gaic_k`=2.0=AIC)로 비교해 `mean_model_chosen` 결정. IRLS 발산 → 강등.
+  3. **stage intercept**: 닫힌 형태(mu=mean(y), dispersion=trend) 최종 폴백. 유한 양수 평균이면 사실상 항상 성공; 실패 시 해당 유전자 **excluded**.
+  - Route pool은 이 체인에 절대 진입하지 않음(항상 성공, 별도 `train_rare()`).
+- **Phase 0 (dispersion_trend.py)**: 공변량 무시, raw count MoM dispersion을 log(mu) 구간별 lowess로 평활한 covariate-free 트렌드(edgeR/DESeq2 trended-dispersion과 유사 형태). stage nb_fixed/intercept가 이 트렌드로 dispersion을 고정해 공변량 자유도를 전부 mean에 씀. stage nbi는 trend 미사용(sigma도 직접 회귀).
+- **Z-score(RQR)는 stage별 함수 분리**: nbi→`_nbi_rqr_from_coeffs`, nb_fixed/intercept→`_nb_rqr`, pool→`_poisson_rqr`/`_nb_rqr`(rare_z_cap=10 클립). `GeneRecordV2`가 gene마다 (initial_route, route, stage, 계수, fail_reason)을 보관해 `training_summary.csv`로 전체 demotion 이력 추적 가능.
+- v1(model_engine.py, engine_state/)과 v2는 **독립된 별도 엔진**이며 병행 유지 중 — 어느 쪽을 쓸지는 분석 노트북/스크립트가 import하는 모듈로 결정(config.ENGINE_DIR vs ENGINE_DIR_V2).
 
 ### 실행 명령어
 - **R 의존성**: 엔진 학습(run_model_engine.py)과 `cv_gamlss_nb/zinb.py`는 R + `gamlss` 패키지가 설치되고 rpy2가 인식 가능해야 함(gamlss.r를 source). logistic 분기·모든 scoring(RQR)은 순수 파이썬으로 R 불필요.

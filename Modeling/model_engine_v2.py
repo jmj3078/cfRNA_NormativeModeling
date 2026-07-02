@@ -1,30 +1,4 @@
-"""NZ-gated normative model engine (normative-v2).
-
-Gating (Phase 1, on HC nonzero sample count NZ) -- the ONLY NZ-based gate:
-  Route A (NZ < nz_a_max)   -> rare pooling (pooled offset GLM across genes)
-  NZ >= nz_a_max            -> always attempts Route C first (see demotion chain)
-nz_a_max=22 is the minimum sample size for which a 10-covariate + intercept mean
-model (11 free parameters) is even theoretically estimable, with a 2x safety
-margin. There is deliberately NO separate B/C NZ threshold: whether a gene ends
-up on Route C, B, or the intercept-only fallback is decided by whether the fit
-actually succeeds, not by a fixed NZ cutoff.
-
-Demotion chain (strict information-loss priority, one step at a time):
-  1. Route C: full NBI GAMLSS (mu AND sigma regressed on covariates).
-     Fails (R error, non-convergence, or coefficient explosion in mu or sigma)
-       -> demote directly to Route B. (No separate "Route C intercept-only" step
-          -- that would let two different intercept models both compete for the
-          same demotion slot; the single intercept-only fallback at the bottom
-          of the chain covers this.)
-  2. Route B: unpenalized mean-only NB, dispersion FIXED from the covariate-free
-     mean-dispersion trend (all 10 covariates on the mean only).
-     Fails (IRLS divergence or coefficient explosion)
-       -> demote to the intercept-only fallback.
-  3. Intercept-only NB fallback: mu = mean(y), dispersion fixed from the same
-     trend. Nearly always succeeds; if it still fails, the gene is excluded.
-  Route A candidates (NZ < nz_a_max) go straight to pooled rare fitting and never
-  enter this chain.
-"""
+"""NZ-gated normative model engine (normative-v2)"""
 
 import pickle
 import sys

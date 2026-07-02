@@ -1,6 +1,7 @@
 /Data/*
 /OpenAccess_nfcore/*
 /RPM_nfcore/*
+*/__pycache__/*
 /_legacy/*
 .claude
 *.json
