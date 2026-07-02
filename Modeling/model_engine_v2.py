@@ -1,27 +1,29 @@
-"""NZ-gated 4-Phase normative model engine (normative-v2).
+"""NZ-gated normative model engine (normative-v2).
 
-Gating (Phase 1, on HC nonzero sample count NZ):
-  Route A (NZ < nz_a_max)                -> rare pooling (Phase 4)
-  Route B (nz_a_max <= NZ < nz_bc_split)  -> penalized mean-only NB, dispersion
-                                             borrowed from the covariate-free
-                                             mean-dispersion trend (Phase 3)
-  Route C (NZ >= nz_bc_split)             -> full NBI GAMLSS (mu and sigma both
-                                             regressed on covariates) (Phase 2)
+Gating (Phase 1, on HC nonzero sample count NZ) -- the ONLY NZ-based gate:
+  Route A (NZ < nz_a_max)   -> rare pooling (pooled offset GLM across genes)
+  NZ >= nz_a_max            -> always attempts Route C first (see demotion chain)
+nz_a_max=22 is the minimum sample size for which a 10-covariate + intercept mean
+model (11 free parameters) is even theoretically estimable, with a 2x safety
+margin. There is deliberately NO separate B/C NZ threshold: whether a gene ends
+up on Route C, B, or the intercept-only fallback is decided by whether the fit
+actually succeeds, not by a fixed NZ cutoff.
 
-Demotion chain (information-loss priority: NBI -> mean-only -> pooled):
-  Route C candidate fails (full AND intercept-only NBI) -> try Route B.
-    Route B also fails                                  -> EXCLUDE (no rare fallback:
-                                                            NZ>=nz_bc_split means this
-                                                            gene was never rare-pooling
-                                                            material).
-  Route B candidate fails (full AND intercept-only mean-only NB) -> Route A (rare
-                                                                     pooling, always
-                                                                     succeeds).
-  Route A candidate -> rare pooling directly.
-
-Discrete covariates (batch, study, ...) are NEVER used as model covariates, only
-the 10 continuous BIAS_COLUMNS. Batch is only used for CV fold stratification
-elsewhere.
+Demotion chain (strict information-loss priority, one step at a time):
+  1. Route C: full NBI GAMLSS (mu AND sigma regressed on covariates).
+     Fails (R error, non-convergence, or coefficient explosion in mu or sigma)
+       -> demote directly to Route B. (No separate "Route C intercept-only" step
+          -- that would let two different intercept models both compete for the
+          same demotion slot; the single intercept-only fallback at the bottom
+          of the chain covers this.)
+  2. Route B: unpenalized mean-only NB, dispersion FIXED from the covariate-free
+     mean-dispersion trend (all 10 covariates on the mean only).
+     Fails (IRLS divergence or coefficient explosion)
+       -> demote to the intercept-only fallback.
+  3. Intercept-only NB fallback: mu = mean(y), dispersion fixed from the same
+     trend. Nearly always succeeds; if it still fails, the gene is excluded.
+  Route A candidates (NZ < nz_a_max) go straight to pooled rare fitting and never
+  enter this chain.
 """
 
 import pickle
@@ -120,23 +122,25 @@ def _to_r_vec(arr):
         return ro.conversion.py2rpy(np.ascontiguousarray(arr, dtype=np.float64))
 
 
-# ---- Route B: pure-Python penalized mean-only NB (fixed dispersion) ------
+# ---- Route B: pure-Python unpenalized mean-only NB (fixed dispersion) ----
 
-def _ridge_nb_irls(y, X, alpha, lam, max_iter=100, tol=1e-8):
-    """L2-penalized NB2(alpha fixed) mean-model IRLS. X includes intercept col 0
-    (unpenalized); columns 1: are penalized by lam. Returns (beta, converged)."""
+def _nb_irls(y, X, alpha, max_iter=100, tol=1e-8):
+    """Unpenalized NB2(alpha fixed) mean-model IRLS. Returns (beta, converged)."""
     n, p = X.shape
     beta = np.zeros(p)
     beta[0] = np.log(max(y.mean(), 1e-3))
-    pen = np.eye(p) * lam
-    pen[0, 0] = 0.0
     for _ in range(max_iter):
         eta = X @ beta
+        if np.max(np.abs(eta)) > 30:
+            # exp(30) ~ 1e13 is already unphysical for a mean-count model; the clip
+            # below would silently mask this as a converged fit instead of a
+            # diverging one, so treat it as IRLS divergence explicitly.
+            return beta, False
         mu = np.clip(np.exp(eta), 1e-6, 1e8)
         w = mu / (1.0 + alpha * mu)
         z = eta + (y - mu) / np.clip(mu, 1e-6, None)
         WX = X * w[:, None]
-        XtWX = X.T @ WX + pen
+        XtWX = X.T @ WX
         XtWz = X.T @ (w * z)
         try:
             beta_new = np.linalg.solve(XtWX, XtWz)
@@ -158,25 +162,39 @@ def _nb_deviance(y, mu, alpha):
     return float(2 * term.sum())
 
 
-def fit_route_b_gene(y_train, X_train, alpha_fn, lam, outlier_z, max_iter, max_remove_frac,
+def fit_intercept_only_gene(y_train, alpha_fn):
+    """Closed-form intercept-only NB: mu = mean(y_train), dispersion fixed from
+    the covariate-free trend. No optimization, no covariates -- succeeds for any
+    y with a finite, positive mean. Used both (a) as the intercept side of Route
+    B's full-vs-intercept GAIC comparison, and (b) as the final fallback when
+    Route B's full IRLS itself fails to converge -- one implementation, no
+    duplicated closed-form math. Returns dict(success, beta, alpha, fail_reason)."""
+    mean_y = float(y_train.mean()) if np.all(np.isfinite(y_train)) else np.nan
+    if not np.isfinite(mean_y) or mean_y <= 0:
+        return dict(success=False, fail_reason="intercept_only_undefined_mean", n_removed=0)
+    alpha_g = alpha_fn(mean_y)
+    if not np.isfinite(alpha_g) or alpha_g <= 0:
+        return dict(success=False, fail_reason="intercept_only_invalid_alpha", n_removed=0)
+    beta = np.array([np.log(mean_y)])
+    return dict(success=True, beta=beta, alpha=alpha_g, n_removed=0, fail_reason="")
+
+
+def fit_route_b_gene(y_train, X_train, alpha_fn, outlier_z, max_iter, max_remove_frac,
                      beta_explode_thr=None, gaic_k=None):
-    """Penalized mean-only NB with fixed dispersion from the trend. Fits full
-    (covariate) and intercept-only models, with |z|>5 outlier removal (<=5%),
-    returns dict(success, beta, beta_null, alpha, gaic_full, gaic_null, chosen,
-    n_removed, fail_reason)."""
+    """Unpenalized mean-only NB (fixed dispersion from the trend), GAIC full-vs-intercept."""
     beta_explode_thr = MP2["beta_explode_thr"] if beta_explode_thr is None else beta_explode_thr
     gaic_k = MP2["gaic_k"] if gaic_k is None else gaic_k
     n = len(y_train)
     Xa = np.column_stack([np.ones(n), X_train])
     keep = np.ones(n, dtype=bool)
     n_removed = 0
-    beta = beta_null = None
+    beta = None
     alpha_g = alpha_fn(float(y_train.mean()))
 
     for _ in range(max_iter):
         y_k, X_k = y_train[keep], Xa[keep]
         alpha_g = alpha_fn(float(y_k.mean()))
-        beta, ok = _ridge_nb_irls(y_k, X_k, alpha_g, lam)
+        beta, ok = _nb_irls(y_k, X_k, alpha_g)
         if not ok or not np.all(np.isfinite(beta)):
             return dict(success=False, fail_reason="irls_diverged", n_removed=n_removed)
         mu_k = np.clip(np.exp(X_k @ beta), 1e-6, 1e8)
@@ -199,10 +217,19 @@ def fit_route_b_gene(y_train, X_train, alpha_fn, lam, outlier_z, max_iter, max_r
     edf_full = X_k.shape[1]
     gaic_full = dev_full + gaic_k * edf_full
 
-    mu0 = np.full(1, np.log(max(y_k.mean(), 1e-3)))
-    beta_null = np.concatenate([mu0, np.zeros(Xa.shape[1] - 1)])
-    mu_null = np.full(len(y_k), np.exp(mu0[0])).clip(1e-6, 1e8)
-    dev_null = _nb_deviance(y_k, mu_null, alpha_g)
+    null_res = fit_intercept_only_gene(y_k, alpha_fn)
+    if not null_res["success"]:
+        # The full IRLS already succeeded, so a usable fit exists regardless;
+        # the closed-form intercept model failing here would only happen for a
+        # pathological y_k (should not occur once the full fit converged), so
+        # just skip the comparison and keep the full fit.
+        return dict(success=True, beta=beta, beta_null=beta, alpha=alpha_g,
+                   gaic_full=gaic_full, gaic_null=np.inf, chosen="full",
+                   beta_max=float(np.abs(beta[1:]).max()), n_removed=n_removed, fail_reason="")
+
+    beta_null = np.concatenate([null_res["beta"], np.zeros(Xa.shape[1] - 1)])
+    mu_null = np.full(len(y_k), np.exp(null_res["beta"][0])).clip(1e-6, 1e8)
+    dev_null = _nb_deviance(y_k, mu_null, null_res["alpha"])
     gaic_null = dev_null + gaic_k * 1
 
     beta_max = float(np.abs(beta[1:]).max())
@@ -211,7 +238,8 @@ def fit_route_b_gene(y_train, X_train, alpha_fn, lam, outlier_z, max_iter, max_r
     else:
         chosen = "full" if gaic_full < gaic_null else "intercept"
 
-    return dict(success=True, beta=beta, beta_null=beta_null, alpha=alpha_g,
+    chosen_alpha = null_res["alpha"] if chosen == "intercept" else alpha_g
+    return dict(success=True, beta=beta, beta_null=beta_null, alpha=chosen_alpha,
                gaic_full=gaic_full, gaic_null=gaic_null, chosen=chosen,
                beta_max=beta_max, n_removed=n_removed, fail_reason="")
 
@@ -221,7 +249,7 @@ def fit_route_b_gene(y_train, X_train, alpha_fn, lam, outlier_z, max_iter, max_r
 @dataclass
 class GeneRecordV2:
     name: str
-    initial_route: str      # "A" | "B" | "C"  (Phase 1 gating)
+    initial_route: str      # "A" | "C"  (Phase 1 gating: rare pooling, or NBI-first)
     route: str = ""          # final route actually used: "A" | "B" | "C" | "excluded"
     nz: int = 0
     attempted: bool = False  # True once train() has processed this gene (vs. skipped by --limit)
@@ -229,13 +257,16 @@ class GeneRecordV2:
     # Route C (NBI)
     mu_coef: np.ndarray = None
     sigma_coef: np.ndarray = None
-    nbi_chosen: str = ""     # "full" | "intercept"
+    nbi_chosen: str = ""     # "full" (only value used; kept for compatibility with scoring)
     nbi_explode: str = ""    # "" | "mu" | "sigma" | "mu+sigma"  (which submodel triggered demotion)
 
-    # Route B (mean-only NB, fixed dispersion)
+    # Route B (mean-only NB, fixed dispersion) -- covers both the GAIC full-vs-
+    # intercept comparison AND the intercept-only fallback below it; b_source
+    # distinguishes which one actually produced this gene's fit.
     beta: np.ndarray = None
     alpha: float = None
     b_chosen: str = ""       # "full" | "intercept"
+    b_source: str = ""       # "route_b_gaic" | "intercept_fallback"
 
     # Route A (rare pooling)
     mean_hc: float = None
@@ -248,14 +279,13 @@ class GeneRecordV2:
 # ---- Engine ---------------------------------------------------------------
 
 class NormativeModelEngineV2:
-    def __init__(self, nz_a_max=None, nz_bc_split=None, trend_min_nz=None,
-                ridge_lambda_mu=None, outlier_z=None, max_outlier_iter=None,
+    def __init__(self, nz_a_max=None, trend_min_nz=None,
+                ridge_lambda_sigma=None, outlier_z=None, max_outlier_iter=None,
                 max_remove_frac=None, beta_explode_thr=None, gaic_k=None,
                 rare_overdisp_thr=None, rare_z_cap=None):
         self.nz_a_max = nz_a_max or MP2["nz_a_max"]
-        self.nz_bc_split = nz_bc_split or MP2["nz_bc_split"]
         self.trend_min_nz = trend_min_nz or MP2["trend_min_nz"]
-        self.ridge_lambda_mu = ridge_lambda_mu or MP2["ridge_lambda_mu"]
+        self.ridge_lambda_sigma = ridge_lambda_sigma or MP2["ridge_lambda_sigma"]
         self.gaic_k = gaic_k or MP2["gaic_k"]
         self.outlier_z = outlier_z or MP2["outlier_z"]
         self.max_outlier_iter = max_outlier_iter or MP2["max_outlier_iter"]
@@ -316,22 +346,21 @@ class NormativeModelEngineV2:
     # ---- Phase 1: gating ----------------------------------------------------
 
     def assign_routes(self):
+        """Only NZ-based decision in the whole pipeline: nz < nz_a_max goes to
+        rare pooling directly; everything else attempts Route C first and lets
+        the C -> B -> intercept-only demotion chain decide the rest from actual
+        fit outcomes, not a fixed NZ cutoff."""
         assert self.Y_hc is not None, "Call load_hc_data() first."
         Y_pc = self.Y_hc[:, self.pc_indices]
         nz = (Y_pc > 0).sum(axis=0)
         self.genes = {}
         for i, g in enumerate(self.pc_gene_names):
             n = int(nz[i])
-            if n < self.nz_a_max:
-                route = "A"
-            elif n < self.nz_bc_split:
-                route = "B"
-            else:
-                route = "C"
+            route = "A" if n < self.nz_a_max else "C"
             self.genes[g] = GeneRecordV2(name=g, initial_route=route, nz=n)
         counts = pd.Series([r.initial_route for r in self.genes.values()]).value_counts()
-        print(f"Phase 1 gating: A={counts.get('A',0)} B={counts.get('B',0)} "
-              f"C={counts.get('C',0)}  (nz_a_max={self.nz_a_max}, nz_bc_split={self.nz_bc_split})")
+        print(f"Phase 1 gating: A(rare)={counts.get('A',0)}  "
+              f"C-candidates(NBI-first)={counts.get('C',0)}  (nz_a_max={self.nz_a_max})")
         return counts
 
     # ---- R init -------------------------------------------------------------
@@ -340,14 +369,18 @@ class NormativeModelEngineV2:
         if self._r_nbi_fn is None:
             ro.r(f'source("{config.R_HELPER}")')
             self._r_nbi_fn = ro.globalenv["train_nbi_coeffs"]
-            self._r_nbi_null_fn = ro.globalenv["train_nbi_coeffs_null"]
 
     def _gene_y(self, g):
         return self.Y_hc[:, self._gene_col[g]]
 
-    # ---- Phase 2: Route C (NBI, full vs intercept, GAIC) ---------------------
+    # ---- Phase 2: Route C (full NBI GAMLSS, mu AND sigma on covariates) ------
 
     def _train_route_c(self, rec):
+        """Try full NBI only -- no intercept-only competitor is fit here. Any
+        failure (R non-convergence, rpy2-level exception, or coefficient
+        explosion in mu or sigma) demotes straight to Route B, which does its
+        own full-vs-intercept GAIC comparison using the shared
+        fit_intercept_only_gene closed form."""
         self._init_r()
         y = self._gene_y(rec.name)
         try:
@@ -355,63 +388,39 @@ class NormativeModelEngineV2:
                 _to_r_vec(y), _to_r_matrix(self.X_hc_scaled, config.BIAS_COLUMNS),
                 ro.IntVector([50]), ro.FloatVector([self.outlier_z]),
                 ro.IntVector([self.max_outlier_iter]), ro.FloatVector([self.max_remove_frac]),
-                ro.FloatVector([self.ridge_lambda_mu]),
+                ro.FloatVector([self.ridge_lambda_sigma]),
             )
-            full_ok = bool(res_full.rx2("success")[0])
         except Exception as exc:
-            # rpy2-level exception (not a clean gamlss "success=FALSE"): still fall
-            # through to try the intercept-only null model below, same as an R-side
-            # fit failure, instead of demoting immediately.
             rec.fail_reason = f"nbi_full_error:{exc}"
-            res_full = None
-            full_ok = False
-
-        beta_full = np.array(res_full.rx2("mu_coef")) if full_ok else None
-        sigma_full = np.array(res_full.rx2("sigma_coef")) if full_ok else None
-        mu_explode = full_ok and float(np.abs(beta_full[1:]).max()) > self.beta_explode_thr
-        sigma_explode = full_ok and float(np.abs(sigma_full[1:]).max()) > self.beta_explode_thr
-        full_explode = mu_explode or sigma_explode
-
-        try:
-            res_null = self._r_nbi_null_fn(_to_r_vec(y), ro.IntVector([50]))
-        except Exception as exc:
-            rec.fail_reason = f"nbi_null_error:{exc}"
-            res_null = None
-        null_ok = res_null is not None and bool(res_null.rx2("success")[0])
-
-        if full_ok and full_explode:
-            rec.nbi_explode = "+".join(t for t, e in [("mu", mu_explode), ("sigma", sigma_explode)] if e)
-
-        if not null_ok and (not full_ok or full_explode):
-            rec.fail_reason = rec.fail_reason or "nbi_full_and_null_failed"
             return False
 
-        if full_ok and not full_explode and null_ok:
-            gaic_full = float(res_full.rx2("gaic")[0])
-            gaic_null = float(res_null.rx2("gaic")[0])
-            chosen = "full" if gaic_full < gaic_null else "intercept"
-        elif full_ok and not full_explode:
-            chosen = "full"
-        else:
-            chosen = "intercept"
+        if not bool(res_full.rx2("success")[0]):
+            rec.fail_reason = str(res_full.rx2("msg")[0]) or "nbi_full_not_converged"
+            return False
 
-        if chosen == "full":
-            rec.mu_coef = np.array(res_full.rx2("mu_coef"))
-            rec.sigma_coef = np.array(res_full.rx2("sigma_coef"))
-            rec.n_removed = int(res_full.rx2("n_removed")[0])
-        else:
-            rec.mu_coef = np.array(res_null.rx2("mu_coef"))
-            rec.sigma_coef = np.array(res_null.rx2("sigma_coef"))
-        rec.nbi_chosen = chosen
+        beta_full = np.array(res_full.rx2("mu_coef"))
+        sigma_full = np.array(res_full.rx2("sigma_coef"))
+        mu_explode = float(np.abs(beta_full[1:]).max()) > self.beta_explode_thr
+        sigma_explode = float(np.abs(sigma_full[1:]).max()) > self.beta_explode_thr
+        if mu_explode or sigma_explode:
+            rec.nbi_explode = "+".join(t for t, e in [("mu", mu_explode), ("sigma", sigma_explode)] if e)
+            rec.fail_reason = f"beta_explode:{rec.nbi_explode}"
+            return False
+
+        rec.mu_coef = beta_full
+        rec.sigma_coef = sigma_full
+        rec.n_removed = int(res_full.rx2("n_removed")[0])
+        rec.nbi_chosen = "full"
         rec.route = "C"
         rec.fit_ok = True
         return True
 
-    # ---- Phase 3: Route B (penalized mean-only NB) ---------------------------
+    # ---- Phase 3: Route B (unpenalized mean-only NB) --------------------------
 
     def _train_route_b(self, rec):
+        """False demotes to the final intercept-only fallback."""
         y = self._gene_y(rec.name)
-        res = fit_route_b_gene(y, self.X_hc_scaled, self.alpha_fn, self.ridge_lambda_mu,
+        res = fit_route_b_gene(y, self.X_hc_scaled, self.alpha_fn,
                                self.outlier_z, self.max_outlier_iter, self.max_remove_frac,
                                beta_explode_thr=self.beta_explode_thr, gaic_k=self.gaic_k)
         if not res["success"]:
@@ -420,6 +429,30 @@ class NormativeModelEngineV2:
         rec.beta = res["beta"] if res["chosen"] == "full" else res["beta_null"]
         rec.alpha = res["alpha"]
         rec.b_chosen = res["chosen"]
+        rec.b_source = "route_b_gaic"
+        rec.n_removed = res["n_removed"]
+        rec.route = "B"
+        rec.fit_ok = True
+        return True
+
+    # ---- Final fallback: closed-form intercept-only NB -----------------------
+
+    def _train_intercept_fallback(self, rec):
+        """Last step of the demotion chain, reached only when Route B's full
+        IRLS itself diverges. fit_intercept_only_gene is a closed-form
+        computation (mu=mean(y), dispersion from the trend) that succeeds for
+        any y with a finite positive mean -- i.e. essentially always. The rare
+        pathological failure (non-finite y or invalid trend lookup) is excluded
+        entirely rather than silently defaulted elsewhere, per policy."""
+        y = self._gene_y(rec.name)
+        res = fit_intercept_only_gene(y, self.alpha_fn)
+        if not res["success"]:
+            rec.fail_reason = res["fail_reason"]
+            return False
+        rec.beta = res["beta"]
+        rec.alpha = res["alpha"]
+        rec.b_chosen = "intercept"
+        rec.b_source = "intercept_fallback"
         rec.n_removed = res["n_removed"]
         rec.route = "B"
         rec.fit_ok = True
@@ -462,18 +495,18 @@ class NormativeModelEngineV2:
     # ---- Bulk training with demotion chain -----------------------------------
 
     def train(self, verbose=True, limit=None):
+        """C -> B -> intercept-only, one gene at a time, each step attempted only
+        after the previous one actually failed. Route A candidates (NZ < nz_a_max)
+        never enter this chain -- they go straight to pooled rare fitting."""
         assert self.genes, "Call assign_routes() first."
         if self.alpha_fn is None:
             self.build_dispersion_trend()
 
         all_genes = list(self.genes.keys())[:limit]
         route_c = [g for g in all_genes if self.genes[g].initial_route == "C"]
-        route_b = [g for g in all_genes if self.genes[g].initial_route == "B"]
         route_a = [g for g in all_genes if self.genes[g].initial_route == "A"]
-        print(f"Training: C-candidates={len(route_c)}  B-candidates={len(route_b)}  "
-              f"A-candidates={len(route_a)}")
+        print(f"Training: C-candidates(NBI-first)={len(route_c)}  A-candidates(rare)={len(route_a)}")
 
-        # Phase 2: Route C candidates
         demoted_to_b = []
         for i, g in enumerate(route_c):
             rec = self.genes[g]
@@ -487,37 +520,40 @@ class NormativeModelEngineV2:
                 demoted_to_b.append(g)
             if verbose and (i + 1) % 500 == 0:
                 print(f"  [Route C {i+1:5d}/{len(route_c)}] demoted_so_far={len(demoted_to_b)}")
-        print(f"Phase 2 (Route C): {len(route_c)-len(demoted_to_b)} fitted, "
+        print(f"Step 1 (Route C, NBI): {len(route_c)-len(demoted_to_b)} fitted, "
               f"{len(demoted_to_b)} demoted to Route B")
 
-        # Phase 3: Route B candidates (original + demoted from C)
-        b_pool = route_b + demoted_to_b
-        demoted_to_a = []
-        excluded = []
-        for i, g in enumerate(b_pool):
+        demoted_to_intercept = []
+        for i, g in enumerate(demoted_to_b):
             rec = self.genes[g]
-            rec.attempted = True
             try:
                 ok = self._train_route_b(rec)
             except Exception as exc:
                 ok = False
                 rec.fail_reason = str(exc)
             if not ok:
-                if rec.initial_route == "C":
-                    excluded.append(g)
-                    rec.route = "excluded"
-                else:
-                    demoted_to_a.append(g)
+                demoted_to_intercept.append(g)
             if verbose and (i + 1) % 500 == 0:
-                print(f"  [Route B {i+1:5d}/{len(b_pool)}] "
-                      f"demoted_to_A={len(demoted_to_a)} excluded={len(excluded)}")
-        print(f"Phase 3 (Route B): {len(b_pool)-len(demoted_to_a)-len(excluded)} fitted, "
-              f"{len(demoted_to_a)} demoted to Route A, {len(excluded)} EXCLUDED "
-              f"(were Route C originally)")
+                print(f"  [Route B {i+1:5d}/{len(demoted_to_b)}] "
+                      f"demoted_so_far={len(demoted_to_intercept)}")
+        print(f"Step 2 (Route B, mean-only NB): {len(demoted_to_b)-len(demoted_to_intercept)} fitted, "
+              f"{len(demoted_to_intercept)} demoted to intercept-only fallback")
 
-        # Phase 4: Route A candidates (original + demoted from B)
-        a_pool = route_a + demoted_to_a
-        self.train_rare(a_pool)
+        excluded = []
+        for i, g in enumerate(demoted_to_intercept):
+            rec = self.genes[g]
+            try:
+                ok = self._train_intercept_fallback(rec)
+            except Exception as exc:
+                ok = False
+                rec.fail_reason = str(exc)
+            if not ok:
+                excluded.append(g)
+                rec.route = "excluded"
+        print(f"Step 3 (intercept-only fallback): "
+              f"{len(demoted_to_intercept)-len(excluded)} fitted, {len(excluded)} EXCLUDED")
+
+        self.train_rare(route_a)
 
         n_fitted = sum(1 for r in self.genes.values() if r.fit_ok)
         n_excluded = sum(1 for r in self.genes.values() if r.route == "excluded")
@@ -578,7 +614,8 @@ class NormativeModelEngineV2:
         recs = [r for r in self.genes.values() if r.attempted] if attempted_only else self.genes.values()
         rows = [{"gene": r.name, "initial_route": r.initial_route, "route": r.route,
                  "nz": r.nz, "fit_ok": r.fit_ok, "attempted": r.attempted,
-                 "nbi_chosen": r.nbi_chosen, "nbi_explode": r.nbi_explode, "b_chosen": r.b_chosen,
+                 "nbi_chosen": r.nbi_chosen, "nbi_explode": r.nbi_explode,
+                 "b_chosen": r.b_chosen, "b_source": r.b_source,
                  "n_removed": r.n_removed, "fail_reason": r.fail_reason}
                 for r in recs]
         return pd.DataFrame(rows).set_index("gene")

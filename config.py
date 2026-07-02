@@ -97,12 +97,15 @@ CV_FIG_DIR_V2     = CV_RESULTS_DIR_V2 / "Figures"
 DISPERSION_TREND_PATH = ENGINE_DIR_V2 / "dispersion_trend.json"
 
 MODELING_PARAMS_V2 = {
-    "nz_a_max":          20,     # Route A (rare pooling): nz < nz_a_max
-    "nz_bc_split":       60,     # Route B: nz_a_max <= nz < nz_bc_split; Route C: nz >= nz_bc_split
+    # Route A (rare pooling): nz < nz_a_max. n=22 is the minimum sample size for
+    # which a 10-covariate + intercept mean model is even theoretically estimable
+    # (11 free parameters need >= 11 informative observations; 22 gives a safety
+    # margin of 2x).
+    "nz_a_max":          22,
     "trend_min_nz":      30,     # min HC nonzero samples for a gene to enter dispersion-trend fitting
     "alpha_floor":       1e-2,
     "alpha_cap":         50.0,
-    "ridge_lambda_mu":   0.05,   # L2 penalty on mean-model slope coefficients (Route B), intercept unpenalized
+    "ridge_lambda_sigma": 0.05,  # L2 penalty on Route C's sigma submodel only (gamlss ridgeVec); mu is never penalized
     "outlier_z":         5.0,
     "max_outlier_iter":  1,
     "max_remove_frac":   0.05,

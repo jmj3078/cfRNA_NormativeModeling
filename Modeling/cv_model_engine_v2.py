@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """Stratified 5-fold CV calibration check for the trained NormativeModelEngineV2.
 
-The route (A/B/C) each gene ended up on is taken as FIXED from the full-data
-training (engine_state_v2/training_summary.csv) -- per the approved design,
-route assignment happens once on all HC data, and CV only re-evaluates
-held-out calibration, not route selection. This mirrors cv_gamlss_nb.py's
-W1/mean/std/skew/kurt diagnostics, computed per gene from pooled held-out z.
+The route (A/B/C) AND the specific model within Route B (GAIC full-vs-intercept
+choice, or the final intercept-only fallback -- see b_source in
+training_summary.csv) each gene ended up on are taken as FIXED from the
+full-data training -- route/model selection happens once on all HC data, and CV
+only re-evaluates held-out calibration for that same model, never re-decides the
+chain. This mirrors cv_gamlss_nb.py's W1/mean/std/skew/kurt diagnostics, computed
+per gene from pooled held-out z.
 
 Usage:
     python cv_model_engine_v2.py               # full run
@@ -30,8 +32,8 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
-from model_engine_v2 import (_nb_rqr, _nbi_rqr_from_coeffs, _nbi_rqr_intercept,
-                             _poisson_rqr, _to_r_matrix, _to_r_vec, fit_route_b_gene)
+from model_engine_v2 import (_nb_rqr, _nbi_rqr_from_coeffs, _poisson_rqr,
+                             _to_r_matrix, _to_r_vec, fit_intercept_only_gene, fit_route_b_gene)
 from dispersion_trend import load_trend
 
 MP2 = config.MODELING_PARAMS_V2
@@ -91,20 +93,41 @@ def cv_route_a(y, Xs, folds, mean_hc_full, rare_glm_full, seed):
     return z
 
 
-def cv_route_b(y, Xs, folds, alpha_fn, lam, outlier_z, max_iter, max_remove_frac, seed,
+def cv_route_b(y, Xs, folds, alpha_fn, outlier_z, max_iter, max_remove_frac, seed,
                beta_explode_thr=None, gaic_k=None):
+    """Re-fits Route B (full-vs-intercept GAIC comparison) per fold, falling
+    through to fit_intercept_only_gene if the full IRLS diverges."""
     n = len(y)
     z = np.full(n, np.nan)
     for fi, (tr, te) in enumerate(folds):
-        res = fit_route_b_gene(y[tr], Xs[tr], alpha_fn, lam, outlier_z, max_iter, max_remove_frac,
+        res = fit_route_b_gene(y[tr], Xs[tr], alpha_fn, outlier_z, max_iter, max_remove_frac,
                                beta_explode_thr=beta_explode_thr, gaic_k=gaic_k)
+        Xa_te = np.column_stack([np.ones(len(te)), Xs[te]])
+        if res["success"]:
+            if res["chosen"] == "full":
+                mu = np.clip(np.exp(Xa_te @ res["beta"]), 1e-6, 1e8)
+            else:
+                mu = np.full(len(te), np.exp(res["beta_null"][0])).clip(1e-6, 1e8)
+            z[te] = _nb_rqr(y[te], mu, res["alpha"], seed + fi)
+        else:
+            fb = fit_intercept_only_gene(y[tr], alpha_fn)
+            if fb["success"]:
+                mu = np.full(len(te), np.exp(fb["beta"][0])).clip(1e-6, 1e8)
+                z[te] = _nb_rqr(y[te], mu, fb["alpha"], seed + fi)
+    return z
+
+
+def cv_intercept_fallback(y, alpha_fn, folds, seed):
+    """Re-evaluates genes whose final model IS the intercept-only fallback
+    (b_source == 'intercept_fallback' in training_summary.csv): closed-form,
+    per fold, mirroring fit_intercept_only_gene exactly."""
+    n = len(y)
+    z = np.full(n, np.nan)
+    for fi, (tr, te) in enumerate(folds):
+        res = fit_intercept_only_gene(y[tr], alpha_fn)
         if not res["success"]:
             continue
-        Xa_te = np.column_stack([np.ones(len(te)), Xs[te]])
-        if res["chosen"] == "full":
-            mu = np.clip(np.exp(Xa_te @ res["beta"]), 1e-6, 1e8)
-        else:
-            mu = np.full(len(te), np.exp(res["beta_null"][0])).clip(1e-6, 1e8)
+        mu = np.full(len(te), np.exp(res["beta"][0])).clip(1e-6, 1e8)
         z[te] = _nb_rqr(y[te], mu, res["alpha"], seed + fi)
     return z
 
@@ -167,8 +190,12 @@ def main():
     folds = list(StratifiedKFold(N_SPLITS, shuffle=True, random_state=args.seed)
                 .split(np.zeros(n_hc), strata))
 
+    print(f"Starting CV on {len(summary)} genes  "
+         f"(route counts: {summary['route'].value_counts().to_dict()})")
+
     rows = []
     zdict = {}
+    route_counts = {}
     t0 = time.perf_counter()
     for i, (gene, row) in enumerate(summary.iterrows()):
         j = name2col.get(gene)
@@ -176,24 +203,34 @@ def main():
             continue
         y = Y[:, j]
         route = row["route"]
+        b_source = row.get("b_source", "")
         if route == "A":
             z = cv_route_a(y, Xs, folds, y.mean(), rare_glm_full, args.seed)
+        elif route == "B" and b_source == "intercept_fallback":
+            z = cv_intercept_fallback(y, alpha_fn, folds, args.seed)
         elif route == "B":
-            z = cv_route_b(y, Xs, folds, alpha_fn, engine_cfg["ridge_lambda_mu"], engine_cfg["outlier_z"],
+            z = cv_route_b(y, Xs, folds, alpha_fn, engine_cfg["outlier_z"],
                            engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"], args.seed,
                            beta_explode_thr=engine_cfg["beta_explode_thr"], gaic_k=engine_cfg["gaic_k"])
         elif route == "C":
             z = cv_route_c(y, Xs, folds, r_fit_fn, config.BIAS_COLUMNS, engine_cfg["outlier_z"],
                            engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"],
-                           engine_cfg["ridge_lambda_mu"], args.seed)
+                           engine_cfg["ridge_lambda_sigma"], args.seed)
         else:
             continue
         zdict[gene] = z.astype(np.float32)
         st = z_stats(z)
-        st.update(gene=gene, route=route, nz=int(row["nz"]))
+        st.update(gene=gene, route=route, b_source=b_source, nz=int(row["nz"]))
         rows.append(st)
-        if (i + 1) % 200 == 0:
-            print(f"  [{i+1}/{len(summary)}]  {time.perf_counter()-t0:.1f}s")
+        route_counts[route] = route_counts.get(route, 0) + 1
+
+        if (i + 1) % 50 == 0 or (i + 1) == len(summary):
+            elapsed = time.perf_counter() - t0
+            rate = (i + 1) / elapsed
+            eta = (len(summary) - (i + 1)) / rate if rate > 0 else float("nan")
+            print(f"  [{i+1}/{len(summary)}]  elapsed={elapsed:.1f}s  "
+                 f"rate={rate:.2f} genes/s  eta={eta/60:.1f}min  routes_so_far={route_counts}",
+                 flush=True)
 
     df = pd.DataFrame(rows)
     df.to_csv(out_dir / "cv_stats.csv", index=False)
