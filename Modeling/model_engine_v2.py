@@ -270,6 +270,7 @@ class NormativeModelEngineV2:
         self.is_hc = None
         self.pc_gene_names = []
         self.pc_indices = None
+        self._gene_col = {}
 
         self.genes = {}
         self.alpha_fn = None
@@ -299,6 +300,7 @@ class NormativeModelEngineV2:
         is_pc = (adata.var["GeneType"] == "protein_coding").values
         self.pc_gene_names = adata.var_names[is_pc].tolist()
         self.pc_indices = np.where(is_pc)[0]
+        self._gene_col = {g: self.pc_indices[i] for i, g in enumerate(self.pc_gene_names)}
         print(f"  HC={self.is_hc.sum()}  protein-coding={len(self.pc_gene_names)}")
 
     # ---- Phase 0: dispersion trend -----------------------------------------
@@ -341,8 +343,7 @@ class NormativeModelEngineV2:
             self._r_nbi_null_fn = ro.globalenv["train_nbi_coeffs_null"]
 
     def _gene_y(self, g):
-        idx = self.pc_gene_names.index(g)
-        return self.Y_hc[:, self.pc_indices[idx]]
+        return self.Y_hc[:, self._gene_col[g]]
 
     # ---- Phase 2: Route C (NBI, full vs intercept, GAIC) ---------------------
 
@@ -356,11 +357,15 @@ class NormativeModelEngineV2:
                 ro.IntVector([self.max_outlier_iter]), ro.FloatVector([self.max_remove_frac]),
                 ro.FloatVector([self.ridge_lambda_mu]),
             )
+            full_ok = bool(res_full.rx2("success")[0])
         except Exception as exc:
+            # rpy2-level exception (not a clean gamlss "success=FALSE"): still fall
+            # through to try the intercept-only null model below, same as an R-side
+            # fit failure, instead of demoting immediately.
             rec.fail_reason = f"nbi_full_error:{exc}"
-            return False
+            res_full = None
+            full_ok = False
 
-        full_ok = bool(res_full.rx2("success")[0])
         beta_full = np.array(res_full.rx2("mu_coef")) if full_ok else None
         sigma_full = np.array(res_full.rx2("sigma_coef")) if full_ok else None
         mu_explode = full_ok and float(np.abs(beta_full[1:]).max()) > self.beta_explode_thr
@@ -427,7 +432,7 @@ class NormativeModelEngineV2:
             return
         n_hc = self.X_hc_scaled.shape[0]
         eps = 1.0 / (2 * n_hc)
-        cols = [self.pc_indices[self.pc_gene_names.index(g)] for g in gene_list]
+        cols = [self._gene_col[g] for g in gene_list]
         Y_rare = self.Y_hc[:, cols]
         mean_hc = Y_rare.mean(axis=0)
         for g, m in zip(gene_list, mean_hc):

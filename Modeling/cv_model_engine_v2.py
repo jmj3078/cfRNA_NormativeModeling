@@ -91,11 +91,13 @@ def cv_route_a(y, Xs, folds, mean_hc_full, rare_glm_full, seed):
     return z
 
 
-def cv_route_b(y, Xs, folds, alpha_fn, lam, outlier_z, max_iter, max_remove_frac, seed):
+def cv_route_b(y, Xs, folds, alpha_fn, lam, outlier_z, max_iter, max_remove_frac, seed,
+               beta_explode_thr=None, gaic_k=None):
     n = len(y)
     z = np.full(n, np.nan)
     for fi, (tr, te) in enumerate(folds):
-        res = fit_route_b_gene(y[tr], Xs[tr], alpha_fn, lam, outlier_z, max_iter, max_remove_frac)
+        res = fit_route_b_gene(y[tr], Xs[tr], alpha_fn, lam, outlier_z, max_iter, max_remove_frac,
+                               beta_explode_thr=beta_explode_thr, gaic_k=gaic_k)
         if not res["success"]:
             continue
         Xa_te = np.column_stack([np.ones(len(te)), Xs[te]])
@@ -136,12 +138,19 @@ def main():
     out_dir = config.CV_RESULTS_DIR_V2
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Loading trained engine summary...")
+    print("Loading trained engine summary + config...")
     summary_path = config.ENGINE_DIR_V2 / "training_summary.csv"
     summary = pd.read_csv(summary_path, index_col="gene")
     summary = summary[summary["attempted"] & (summary["route"] != "excluded")]
     if args.limit:
         summary = summary.iloc[:args.limit]
+
+    # Use the parameters the engine actually trained with (config.pkl), NOT the
+    # current config.MODELING_PARAMS_V2 -- config.py may have changed since training,
+    # and CV must re-evaluate under the same settings that produced the routes.
+    with open(config.ENGINE_DIR_V2 / "config.pkl", "rb") as f:
+        engine_cfg = pickle.load(f)
+    print(f"  engine config: {engine_cfg}")
 
     with open(config.ENGINE_DIR_V2 / "rare_glm.pkl", "rb") as f:
         rare_glm_full = pickle.load(f)
@@ -170,12 +179,13 @@ def main():
         if route == "A":
             z = cv_route_a(y, Xs, folds, y.mean(), rare_glm_full, args.seed)
         elif route == "B":
-            z = cv_route_b(y, Xs, folds, alpha_fn, MP2["ridge_lambda_mu"], MP2["outlier_z"],
-                           MP2["max_outlier_iter"], MP2["max_remove_frac"], args.seed)
+            z = cv_route_b(y, Xs, folds, alpha_fn, engine_cfg["ridge_lambda_mu"], engine_cfg["outlier_z"],
+                           engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"], args.seed,
+                           beta_explode_thr=engine_cfg["beta_explode_thr"], gaic_k=engine_cfg["gaic_k"])
         elif route == "C":
-            z = cv_route_c(y, Xs, folds, r_fit_fn, config.BIAS_COLUMNS, MP2["outlier_z"],
-                           MP2["max_outlier_iter"], MP2["max_remove_frac"],
-                           MP2["ridge_lambda_mu"], args.seed)
+            z = cv_route_c(y, Xs, folds, r_fit_fn, config.BIAS_COLUMNS, engine_cfg["outlier_z"],
+                           engine_cfg["max_outlier_iter"], engine_cfg["max_remove_frac"],
+                           engine_cfg["ridge_lambda_mu"], args.seed)
         else:
             continue
         zdict[gene] = z.astype(np.float32)
