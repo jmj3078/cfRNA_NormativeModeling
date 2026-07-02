@@ -1,0 +1,199 @@
+#!/usr/bin/env python
+"""Stratified 5-fold CV calibration check for the trained NormativeModelEngineV2.
+
+The route (A/B/C) each gene ended up on is taken as FIXED from the full-data
+training (engine_state_v2/training_summary.csv) -- per the approved design,
+route assignment happens once on all HC data, and CV only re-evaluates
+held-out calibration, not route selection. This mirrors cv_gamlss_nb.py's
+W1/mean/std/skew/kurt diagnostics, computed per gene from pooled held-out z.
+
+Usage:
+    python cv_model_engine_v2.py               # full run
+    python cv_model_engine_v2.py --limit 300   # smoke test
+"""
+
+import argparse
+import pickle
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import rpy2.robjects as ro
+import scanpy as sc
+from scipy.sparse import issparse
+from scipy.stats import kurtosis, norm, skew
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import StandardScaler
+
+sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import config
+from model_engine_v2 import (_nb_rqr, _nbi_rqr_from_coeffs, _nbi_rqr_intercept,
+                             _poisson_rqr, _to_r_matrix, _to_r_vec, fit_route_b_gene)
+from dispersion_trend import load_trend
+
+MP2 = config.MODELING_PARAMS_V2
+STRATIFY_COL = MP2["stratify_col"]
+N_SPLITS = MP2["n_splits"]
+
+
+def load_hc():
+    adata = sc.read_h5ad(config.H5AD_PATH)
+    m = ((adata.obs["QC_Passed"] == True) & (adata.obs["Phenotype_Processed"].notna()) &
+         (adata.obs["Phenotype_Processed"] != "Unknown") &
+         (adata.obs["broad_protocol_category"] != "Exome-based (EB)"))
+    a = adata[m]
+    is_hc = (a.obs["Phenotype_Processed"].astype(str) == "Healthy Control").values
+    X_raw = a.obs[config.BIAS_COLUMNS].values.astype(np.float64)[is_hc]
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X_raw)
+    Y = a.X.toarray() if issparse(a.X) else np.asarray(a.X)
+    Y = np.round(Y[is_hc]).astype(np.float64)
+    strata = a.obs[STRATIFY_COL].astype(object).fillna("NA").astype(str).values[is_hc]
+    var_names = np.array(a.var_names.tolist())
+    return Xs, Y, var_names, strata
+
+
+def w1_normal(z):
+    v = z[np.isfinite(z)]
+    n = len(v)
+    if n < 8:
+        return np.nan
+    ref = norm.ppf(np.linspace(1 / (2 * n), 1 - 1 / (2 * n), n))
+    return float(np.mean(np.abs(np.sort(v) - ref)))
+
+
+def z_stats(z):
+    v = z[np.isfinite(z)]
+    n = len(v)
+    if n < 2:
+        return dict(w1=np.nan, mean_z=np.nan, std_z=np.nan, skew_z=np.nan, kurt_z=np.nan, n_valid=n)
+    return dict(w1=w1_normal(v), mean_z=float(v.mean()), std_z=float(v.std()),
+               skew_z=float(skew(v)), kurt_z=float(kurtosis(v)), n_valid=n)
+
+
+def cv_route_a(y, Xs, folds, mean_hc_full, rare_glm_full, seed):
+    """Held-out z for a single Route A (rare-pooled) gene, refitting the shared
+    pooled beta per fold is out of scope here -- reuse the full-data pooled GLM
+    (consistent with 'route decided from full data' but scored on held-out y)."""
+    n = len(y)
+    z = np.full(n, np.nan)
+    eps = rare_glm_full["eps"]
+    for fi, (tr, te) in enumerate(folds):
+        Xc = np.column_stack([np.ones(len(te)), Xs[te]])
+        mu = np.clip((mean_hc_full + eps) * np.exp(Xc @ rare_glm_full["beta"]), 1e-12, 1e8)
+        if rare_glm_full["family"] == "poisson":
+            z[te] = _poisson_rqr(y[te], mu, seed + fi)
+        else:
+            z[te] = _nb_rqr(y[te], mu, rare_glm_full["alpha"], seed + fi)
+    return z
+
+
+def cv_route_b(y, Xs, folds, alpha_fn, lam, outlier_z, max_iter, max_remove_frac, seed):
+    n = len(y)
+    z = np.full(n, np.nan)
+    for fi, (tr, te) in enumerate(folds):
+        res = fit_route_b_gene(y[tr], Xs[tr], alpha_fn, lam, outlier_z, max_iter, max_remove_frac)
+        if not res["success"]:
+            continue
+        Xa_te = np.column_stack([np.ones(len(te)), Xs[te]])
+        if res["chosen"] == "full":
+            mu = np.clip(np.exp(Xa_te @ res["beta"]), 1e-6, 1e8)
+        else:
+            mu = np.full(len(te), np.exp(res["beta_null"][0])).clip(1e-6, 1e8)
+        z[te] = _nb_rqr(y[te], mu, res["alpha"], seed + fi)
+    return z
+
+
+def cv_route_c(y, Xs, folds, r_fit_fn, col_names, outlier_z, max_iter, max_remove_frac,
+              lambda_sigma, seed):
+    n = len(y)
+    z = np.full(n, np.nan)
+    for fi, (tr, te) in enumerate(folds):
+        try:
+            res = r_fit_fn(
+                _to_r_vec(y[tr]), _to_r_vec(y[te]),
+                _to_r_matrix(Xs[tr], col_names), _to_r_matrix(Xs[te], col_names),
+                ro.IntVector([seed + fi]), ro.IntVector([50]),
+                ro.FloatVector([outlier_z]), ro.IntVector([max_iter]),
+                ro.FloatVector([max_remove_frac]), ro.FloatVector([lambda_sigma]),
+            )
+            if res.rx2("success")[0]:
+                z[te] = np.array(res.rx2("z"))
+        except Exception:
+            pass
+    return z
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--seed", type=int, default=42)
+    args = ap.parse_args()
+
+    out_dir = config.CV_RESULTS_DIR_V2
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print("Loading trained engine summary...")
+    summary_path = config.ENGINE_DIR_V2 / "training_summary.csv"
+    summary = pd.read_csv(summary_path, index_col="gene")
+    summary = summary[summary["attempted"] & (summary["route"] != "excluded")]
+    if args.limit:
+        summary = summary.iloc[:args.limit]
+
+    with open(config.ENGINE_DIR_V2 / "rare_glm.pkl", "rb") as f:
+        rare_glm_full = pickle.load(f)
+    alpha_fn = load_trend()
+
+    print("Initialising R / gamlss...")
+    ro.r(f'source("{config.R_HELPER}")')
+    r_fit_fn = ro.globalenv["fit_gamlss_gene"]
+
+    print("Loading HC data...")
+    Xs, Y, var_names, strata = load_hc()
+    name2col = {g: i for i, g in enumerate(var_names)}
+    n_hc = Xs.shape[0]
+    folds = list(StratifiedKFold(N_SPLITS, shuffle=True, random_state=args.seed)
+                .split(np.zeros(n_hc), strata))
+
+    rows = []
+    zdict = {}
+    t0 = time.perf_counter()
+    for i, (gene, row) in enumerate(summary.iterrows()):
+        j = name2col.get(gene)
+        if j is None:
+            continue
+        y = Y[:, j]
+        route = row["route"]
+        if route == "A":
+            z = cv_route_a(y, Xs, folds, y.mean(), rare_glm_full, args.seed)
+        elif route == "B":
+            z = cv_route_b(y, Xs, folds, alpha_fn, MP2["ridge_lambda_mu"], MP2["outlier_z"],
+                           MP2["max_outlier_iter"], MP2["max_remove_frac"], args.seed)
+        elif route == "C":
+            z = cv_route_c(y, Xs, folds, r_fit_fn, config.BIAS_COLUMNS, MP2["outlier_z"],
+                           MP2["max_outlier_iter"], MP2["max_remove_frac"],
+                           MP2["ridge_lambda_mu"], args.seed)
+        else:
+            continue
+        zdict[gene] = z.astype(np.float32)
+        st = z_stats(z)
+        st.update(gene=gene, route=route, nz=int(row["nz"]))
+        rows.append(st)
+        if (i + 1) % 200 == 0:
+            print(f"  [{i+1}/{len(summary)}]  {time.perf_counter()-t0:.1f}s")
+
+    df = pd.DataFrame(rows)
+    df.to_csv(out_dir / "cv_stats.csv", index=False)
+    with open(out_dir / "cv_zscores.pkl", "wb") as f:
+        pickle.dump(zdict, f)
+
+    print("\nCalibration by route (median):")
+    print(df.groupby("route")[["w1", "mean_z", "std_z", "skew_z", "kurt_z"]].median().to_string())
+    print(f"\nSaved -> {out_dir}/cv_stats.csv, cv_zscores.pkl")
+
+
+if __name__ == "__main__":
+    main()

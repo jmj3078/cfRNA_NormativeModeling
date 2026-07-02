@@ -392,7 +392,29 @@ train_nbi_coeffs <- function(y_train, X_train,
   if (is.null(fit) || inherits(fit, "error")) return(na_result)
   list(mu_coef    = as.numeric(fit$mu.coefficients),
        sigma_coef = as.numeric(fit$sigma.coefficients),
-       success    = TRUE, msg = "", n_removed = n_removed)
+       success    = TRUE, msg = "", n_removed = n_removed,
+       gaic       = GAIC(fit, k = 2), edf = fit$df.fit)
+}
+
+# ══════════════════════════════════════════════════════════════════
+# Intercept-only NBI (mu ~ 1, sigma ~ 1) — GAIC null model for the
+# Route C full-vs-intercept model selection (Phase 2). No covariates
+# spend degrees of freedom on either submodel.
+# ══════════════════════════════════════════════════════════════════
+
+train_nbi_coeffs_null <- function(y_train, n_cyc = 50) {
+  df_tr <- data.frame(y__ = as.integer(round(y_train)))
+  fit <- tryCatch(
+    gamlss(y__ ~ 1, sigma.formula = ~ 1, family = NBI(), data = df_tr,
+           control = gamlss.control(n.cyc = n_cyc, trace = FALSE)),
+    error = function(e) e
+  )
+  if (inherits(fit, "error"))
+    return(list(mu_coef = NA_real_, sigma_coef = NA_real_,
+               success = FALSE, msg = conditionMessage(fit), gaic = NA_real_, edf = NA_real_))
+  list(mu_coef    = as.numeric(fit$mu.coefficients),
+       sigma_coef = as.numeric(fit$sigma.coefficients),
+       success    = TRUE, msg = "", gaic = GAIC(fit, k = 2), edf = fit$df.fit)
 }
 
 # Train ZINBI on full HC data and return coefficient vectors.

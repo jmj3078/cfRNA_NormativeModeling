@@ -87,3 +87,29 @@ MODELING_PARAMS = {
     "sig_cap_per_theme": 8,
     "emap_sim_thr":    0.50,
 }
+
+# ---------------------------------------------------------------------------
+# Modeling v2 (NZ-gated 4-Phase engine, normative-v2 branch)
+# ---------------------------------------------------------------------------
+ENGINE_DIR_V2     = MODELING_DIR / "engine_state_v2"
+CV_RESULTS_DIR_V2 = MODELING_DIR / "CV_Results_v2"
+CV_FIG_DIR_V2     = CV_RESULTS_DIR_V2 / "Figures"
+DISPERSION_TREND_PATH = ENGINE_DIR_V2 / "dispersion_trend.json"
+
+MODELING_PARAMS_V2 = {
+    "nz_a_max":          20,     # Route A (rare pooling): nz < nz_a_max
+    "nz_bc_split":       60,     # Route B: nz_a_max <= nz < nz_bc_split; Route C: nz >= nz_bc_split
+    "trend_min_nz":      30,     # min HC nonzero samples for a gene to enter dispersion-trend fitting
+    "alpha_floor":       1e-2,
+    "alpha_cap":         50.0,
+    "ridge_lambda_mu":   0.05,   # L2 penalty on mean-model slope coefficients (Route B), intercept unpenalized
+    "outlier_z":         5.0,
+    "max_outlier_iter":  1,
+    "max_remove_frac":   0.05,
+    "beta_explode_thr":  5.0,    # |slope coef| threshold flagging non-identifiable mean fit
+    "gaic_k":            2.0,    # GAIC penalty weight (k=2 == AIC convention, gamlss default)
+    "rare_overdisp_thr": 2.0,
+    "rare_z_cap":        10.0,
+    "n_splits":          5,
+    "stratify_col":      "Batch_ID",
+}
