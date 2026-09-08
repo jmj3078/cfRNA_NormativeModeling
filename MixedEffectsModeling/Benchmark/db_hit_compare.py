@@ -5,6 +5,7 @@ with an Open Targets reference -- so counts (recall) and rates (precision) are d
 comparable. See MixedEffectsModeling/CLAUDE.md and PerSamplePathwayAnalysis for the underlying
 normative sample-level results this reuses.
 """
+import functools
 import pickle
 import re
 
@@ -48,7 +49,10 @@ def load_reference(topn=MARKER_TOPN, score_floor=MARKER_SCORE_FLOOR):
     return out
 
 
+@functools.lru_cache(maxsize=1)
 def ensg_to_symbol():
+    """Memoized -- the backed read still opens a 7.4GB h5ad (~6s a call) and this is hit from a
+    dozen call sites. Callers that reindex must .copy() first (the Series is shared)."""
     return sc.read_h5ad(config.H5AD_PATH, backed="r").var["GeneName"]
 
 
@@ -56,8 +60,11 @@ def deseq2_tag(study, pheno):
     return f"{study.replace(' ', '_')}__{pheno.replace('/', '-').replace(' ', '_')}"
 
 
+@functools.lru_cache(maxsize=None)
 def deseq2_study_results(design):
-    """{(study, phenotype): results_df} for one design, indexed by base ENSG (no version)."""
+    """{(study, phenotype): results_df} for one design, indexed by base ENSG (no version).
+    Memoized -- 18 x ~20k-row CSVs per design, and the q-sweep in group_level_z_test asks for the
+    same design once per q. Callers must treat the returned frames as read-only (shared)."""
     summary = pd.read_csv(DESEQ_DIR / "summary.csv")
     summary = summary[summary.design == design]
     out = {}
@@ -492,12 +499,155 @@ def stouffer_group_z(sm=None, Z=None, gene_names=None, min_n=3):
     return out
 
 
-def group_level_z_test(qs=(0.05, 0.10, 0.15, 0.20), deseq2_design="no_covariate"):
+def extreme_mwu_group_z(sm=None, Z=None, gene_names=None, min_n=3, z_thresh=2.0):
+    """{(phenotype, study): (n_genes,) array} -- alternative to stouffer_group_z, Rutherford 2023
+    eLife design: per-gene extreme-deviation indicator (|Z|>z_thresh) compared between the group's
+    patients and the HC group via Mann-Whitney U, converted to a signed Z-equivalent
+    (norm.isf(p/2), signed by whether the group has a HIGHER extreme-deviation rate than HC) so it
+    is a drop-in replacement for stouffer_group_z's output in group_level_z_test /
+    group_level_pathway_gsea (same downstream BH-FDR / hypergeometric / GSEA pipeline).
+    CAVEAT: Z_hc_shash.npy is HC scored in-sample against its own training fit (see
+    NormativeModelEngineMixed.fit_shash docstring, 'deliberately in-sample') -- not a held-out/LOBO
+    Z, so the HC extreme-rate baseline here is optimistically low. Fine for a relative-ranking
+    comparison against stouffer_group_z; treat absolute significance with that caveat in mind."""
+    from scipy.stats import mannwhitneyu, norm
+    if Z is None:
+        Z = np.load(ZDIR / "Z_disease_shash.npy")
+    if sm is None:
+        sm = pd.read_csv(ZDIR / "sample_meta.csv")
+    sm = sm.copy()
+    sm["study"] = sm["batch"].str.replace(r"_Batch_\d+$", "", regex=True)
+    Z_hc = np.load(ZDIR / "Z_hc_shash.npy")
+    ind_all = np.where(np.isfinite(Z), (np.abs(Z) > z_thresh).astype(float), np.nan)
+    ind_hc = np.where(np.isfinite(Z_hc), (np.abs(Z_hc) > z_thresh).astype(float), np.nan)
+    hc_rate = np.nanmean(ind_hc, axis=0)
+
+    out = {}
+    for (pheno, study), sub in sm[sm.ood_keep].groupby(["phenotype", "study"]):
+        if len(sub) < min_n:
+            continue
+        ind_group = ind_all[sub.index.values]
+        res = mannwhitneyu(ind_group, ind_hc, axis=0, nan_policy="omit", alternative="two-sided")
+        sign = np.sign(np.nanmean(ind_group, axis=0) - hc_rate)
+        out[(pheno, study)] = sign * norm.isf(res.pvalue / 2)
+    return out
+
+
+def wolfers_chi2_group_z(sm=None, Z=None, gene_names=None, min_n=3, z_thresh=2.6):
+    """{(phenotype, study): (n_genes,) array} -- Wolfers et al. 2018 JAMA Psychiatry design
+    (doi:10.1001/jamapsychiatry.2018.2467): binarize deviations at |Z|>2.6 (their P<.005 cut),
+    then test diagnosis-vs-extreme association with a chi-square test on the per-gene 2x2
+    (group x extreme) table. chi-square with 1 df is Z^2, so returning sign*sqrt(chi2) reproduces
+    exactly the same two-sided p downstream and makes this a drop-in for stouffer_group_z.
+    Sign = whether the group's extreme rate exceeds HC's.
+    Two deliberate deviations from the paper, both for cross-method comparability:
+      - Wolfers corrected with Bonferroni-Holm; this pipeline applies its own shared BH-FDR
+        downstream (group_level_z_test) so every method is thresholded identically.
+      - Wolfers' unit was a voxel-proportion per subject; the unit here is one gene, matching
+        DESeq2's per-gene statistic.
+    Shares extreme_mwu_group_z's caveat: Z_hc_shash.npy is in-sample HC (fit_shash docstring)."""
+    if Z is None:
+        Z = np.load(ZDIR / "Z_disease_shash.npy")
+    if sm is None:
+        sm = pd.read_csv(ZDIR / "sample_meta.csv")
+    sm = sm.copy()
+    sm["study"] = sm["batch"].str.replace(r"_Batch_\d+$", "", regex=True)
+    Z_hc = np.load(ZDIR / "Z_hc_shash.npy")
+    ind_all = np.where(np.isfinite(Z), (np.abs(Z) > z_thresh).astype(float), np.nan)
+    ind_hc = np.where(np.isfinite(Z_hc), (np.abs(Z_hc) > z_thresh).astype(float), np.nan)
+    c = np.nansum(ind_hc, axis=0)                    # HC extreme count per gene
+    n2 = np.isfinite(ind_hc).sum(axis=0)             # HC samples scored per gene
+    d = n2 - c
+
+    out = {}
+    for (pheno, study), sub in sm[sm.ood_keep].groupby(["phenotype", "study"]):
+        if len(sub) < min_n:
+            continue
+        ind_group = ind_all[sub.index.values]
+        a = np.nansum(ind_group, axis=0)             # disease extreme count
+        n1 = np.isfinite(ind_group).sum(axis=0)
+        b = n1 - a
+        N = n1 + n2
+        den = n1 * n2 * (a + c) * (b + d)            # 0 when a gene is all-extreme or all-normal
+        chi2 = np.divide(N * (a * d - b * c) ** 2, den, out=np.zeros(len(c)), where=den > 0)
+        rate_g = np.divide(a, n1, out=np.zeros(len(c)), where=n1 > 0)
+        rate_h = np.divide(c, n2, out=np.zeros(len(c)), where=n2 > 0)
+        out[(pheno, study)] = np.sign(rate_g - rate_h) * np.sqrt(chi2)
+    return out
+
+
+def wolfers_prop_group_z(sm=None, Z=None, gene_names=None, min_n=3, z_thresh=2.6):
+    """{(phenotype, study): (n_genes,) array} -- the variant already trialled in
+    7_insilico_perturbation.ipynb (cell 2193089c): same |Z|>2.6 binarization, but each gene's
+    extreme rate is tested with a one-sample proportion z against the GROUP'S OWN pooled
+    background rate p0 (mean extreme rate over all genes x samples in that group), not against a
+    separate HC cohort:  z = (phat - p0) / sqrt(p0(1-p0)/n).
+
+    Differs from wolfers_chi2_group_z in what the null is, and the two answer different questions:
+      - wolfers_chi2: 'is this gene extreme more often in disease than in HC?' (two-sample,
+        diagnosis x extreme -- matches the paper's own 'associations between diagnosis and those
+        scores' chi-square, and is the apples-to-apples analog of DESeq2's two-group test)
+      - wolfers_prop : 'is this gene extreme more often than the average gene in this cohort?'
+        (one-sample, competitive across genes -- needs no HC array, so it is immune to the
+        in-sample Z_hc_shash caveat, and cancels batch-wide drift, but it is a gene-relative null)
+    Kept available rather than merged so 5_group_level_comparison and 7_insilico_perturbation can
+    be reconciled deliberately -- add 'wolfers_prop' to GROUP_METHODS to score it."""
+    if Z is None:
+        Z = np.load(ZDIR / "Z_disease_shash.npy")
+    if sm is None:
+        sm = pd.read_csv(ZDIR / "sample_meta.csv")
+    sm = sm.copy()
+    sm["study"] = sm["batch"].str.replace(r"_Batch_\d+$", "", regex=True)
+
+    out = {}
+    for (pheno, study), sub in sm[sm.ood_keep].groupby(["phenotype", "study"]):
+        if len(sub) < min_n:
+            continue
+        Zc = Z[sub.index.values]
+        ext = np.where(np.isfinite(Zc), (np.abs(Zc) > z_thresh).astype(float), np.nan)
+        n = np.isfinite(ext).sum(axis=0)
+        phat = np.divide(np.nansum(ext, axis=0), n, out=np.full(ext.shape[1], np.nan), where=n > 0)
+        p0 = np.nanmean(ext)
+        out[(pheno, study)] = (phat - p0) / np.sqrt(p0 * (1 - p0) / np.maximum(n, 1) + 1e-12)
+    return out
+
+
+GROUP_STAT_METHODS = {"stouffer": stouffer_group_z, "extreme_mwu": extreme_mwu_group_z,
+                      "wolfers_chi2": wolfers_chi2_group_z, "wolfers_prop": wolfers_prop_group_z}
+# explicit, not derived by string surgery -- a third method broke the old .replace() derivation
+GROUP_STAT_LABELS = {"stouffer": "normative_group_z", "extreme_mwu": "normative_group_mwu",
+                     "wolfers_chi2": "normative_group_chi2", "wolfers_prop": "normative_group_prop"}
+GROUP_STAT_GSEA_LABELS = {"stouffer": "normative_group_gsea", "extreme_mwu": "normative_group_gsea_mwu",
+                          "wolfers_chi2": "normative_group_gsea_chi2",
+                          "wolfers_prop": "normative_group_gsea_prop"}
+_GROUP_STAT_CACHE = {}
+
+
+def group_stat_cached(method):
+    """Memoized per-process group statistic. The normative side is design-independent, so the
+    3-DESeq2-design loops in group_level_z_test / group_level_pathway_gsea would otherwise
+    recompute it 3x -- extreme_mwu's per-gene Mann-Whitney is ~23s a call."""
+    if method not in _GROUP_STAT_CACHE:
+        _GROUP_STAT_CACHE[method] = GROUP_STAT_METHODS[method]()
+    return _GROUP_STAT_CACHE[method]
+
+
+def gsea_cache_key(method, pheno, study):
+    """gsea_cache/ filename stem. 'stouffer' keeps the legacy 'normative__' prefix so the 21
+    already-cached preranks stay valid -- a renamed key silently orphans them and costs a ~30s
+    GSEA rerun each."""
+    tag = "normative" if method == "stouffer" else f"normative_{method}"
+    return f"{tag}__{pheno}__{study}"
+
+
+def group_level_z_test(qs=(0.05, 0.10, 0.15, 0.20), deseq2_design="no_covariate", method="stouffer"):
     """Apples-to-apples group-level comparison (Rutherford 2023 eLife design): the SAME per-gene
     univariate-test -> BH-FDR -> hypergeometric-vs-OT pipeline DESeq2 uses, fed normative Z-scores
-    (combined across patients via Stouffer's Z) instead of raw counts -- isolates whether deviation
-    scores carry more disease signal than raw counts at the SAME statistical unit (one p-value per
-    gene, group-level), avoiding the K=1-union across-patient min-p problem of normative_union."""
+    (combined across patients via `method` -- 'stouffer' (sum(Z)/sqrt(n)) or 'extreme_mwu'
+    (|Z|>2 indicator vs HC, Mann-Whitney U) -- see GROUP_STAT_METHODS) instead of raw counts --
+    isolates whether deviation scores carry more disease signal than raw counts at the SAME
+    statistical unit (one p-value per gene, group-level), avoiding the K=1-union across-patient
+    min-p problem of normative_union."""
     from scipy.stats import hypergeom, norm
     from statsmodels.stats.multitest import multipletests
     sym_of = ensg_to_symbol()
@@ -507,7 +657,7 @@ def group_level_z_test(qs=(0.05, 0.10, 0.15, 0.20), deseq2_design="no_covariate"
     ref = load_reference()
     N_genes = len(gene_names)
     Z = np.load(ZDIR / "Z_disease_shash.npy")
-    group_z = stouffer_group_z(sm, Z, gene_names)
+    group_z = group_stat_cached(method)
 
     rows = []
     for q in qs:
@@ -527,7 +677,7 @@ def group_level_z_test(qs=(0.05, 0.10, 0.15, 0.20), deseq2_design="no_covariate"
                 continue
             K, n, x = len(dref), len(sig), len(sig & dref)
             pval = hypergeom.sf(x - 1, N_genes, K, n) if n > 0 else np.nan
-            rows.append(dict(method="normative_group_z", q=q, phenotype=pheno, n_sig=n, overlap=x, ref_size=K, pval=pval))
+            rows.append(dict(method=GROUP_STAT_LABELS[method], q=q, phenotype=pheno, n_sig=n, overlap=x, ref_size=K, pval=pval))
 
         ds = deseq2_gene_sets(deseq2_design, sym_of, alpha=q)
         for pheno, sig in ds.items():
@@ -756,12 +906,12 @@ def _cached_gsea(cache_key, rnk, terms, M, universe_syms, **kw):
     return res2d
 
 
-def group_level_pathway_gsea(save=True, deseq2_design="no_covariate", gsea_qs=(0.05, 0.25)):
-    """Pathway-level apples-to-apples: preranked GSEA on group Stouffer Z (normative) vs DESeq2
-    Wald stat, same library, same algorithm. Reports hit-rate vs the Open Targets reference
-    pathway set (`reference_pathways`, hypergeometric ORA on the DB gene list itself) at GSEA's own
-    q<0.05 confirmatory / q<0.25 discovery tiers (Subramanian 2005 convention, see
-    FDR_THRESHOLD_RATIONALE.md)."""
+def group_level_pathway_gsea(save=True, deseq2_design="no_covariate", gsea_qs=(0.05, 0.25), method="stouffer"):
+    """Pathway-level apples-to-apples: preranked GSEA on group normative Z (`method` -- 'stouffer' or
+    'extreme_mwu', see GROUP_STAT_METHODS) vs DESeq2 Wald stat, same library, same algorithm.
+    Reports hit-rate vs the Open Targets reference pathway set (`reference_pathways`, hypergeometric
+    ORA on the DB gene list itself) at GSEA's own q<0.05 confirmatory / q<0.25 discovery tiers
+    (Subramanian 2005 convention, see 논문화/중간결과/Benchmark/FDR_THRESHOLD_RATIONALE.md)."""
     universe_syms, sym2idx, col2sym = load_symbol_vocab(None)
     terms, M = load_pathway_library()
     N = len(universe_syms)
@@ -771,23 +921,24 @@ def group_level_pathway_gsea(save=True, deseq2_design="no_covariate", gsea_qs=(0
     sm = pd.read_csv(ZDIR / "sample_meta.csv")
     gene_names = pickle.load(open(ZDIR / "gene_names.pkl", "rb"))
     Z = np.load(ZDIR / "Z_disease_shash.npy")
-    group_z = stouffer_group_z(sm, Z, gene_names)
+    group_z = group_stat_cached(method)
 
     rows = []
     norm_by_q = {}
     for (pheno, study), gz in group_z.items():
         Zu, Fm = collapse_to_symbols(gz[None, :], col2sym, N)
         rnk = np.where(Fm[0] > 0, Zu[0], np.nan)
-        res2d = _cached_gsea(f"normative__{pheno}__{study}", rnk, terms, M, universe_syms)
+        res2d = _cached_gsea(gsea_cache_key(method, pheno, study), rnk, terms, M, universe_syms)
         for q in gsea_qs:
             sig = set(res2d.loc[res2d["FDR q-val"] < q, "Term"])
             norm_by_q.setdefault((pheno, q), set()).update(sig)  # union across studies
 
+    label_base = GROUP_STAT_GSEA_LABELS[method]
     for (pheno, q), sig in norm_by_q.items():
-        label = "normative_group_gsea" if q == 0.05 else f"normative_group_gsea_q{q:g}".replace(".", "")
+        label = label_base if q == 0.05 else f"{label_base}_q{q:g}".replace(".", "")
         rows.append(db_hit_row(pheno, label, sig, ref_path))
 
-    sym_of = ensg_to_symbol()
+    sym_of = ensg_to_symbol().copy()  # .copy() -- ensg_to_symbol is lru_cached, never reindex in place
     sym_of.index = sym_of.index.str.split(".").str[0]
     summary = pd.read_csv(DESEQ_DIR / "summary.csv")
     summary = summary[summary.design == deseq2_design]
@@ -815,5 +966,6 @@ def group_level_pathway_gsea(save=True, deseq2_design="no_covariate", gsea_qs=(0
 
     rates = pd.DataFrame(rows)
     if save:
-        rates.to_csv(HERE / "pathway_gsea_db_hit_rates.csv", index=False)
+        tag = "" if method == "stouffer" else f"_{method}"
+        rates.to_csv(HERE / f"pathway_gsea_db_hit_rates{tag}.csv", index=False)
     return rates
