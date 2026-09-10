@@ -27,5 +27,4 @@ _external/
 #others
 /논문화/
 /특허/
-MixedEffectsModeling/5_2_group_z_aggregation_for_unseen_batches_benchmarking.ipynb
-MixedEffectsModeling/Perturbation_Results
+_temp_*
