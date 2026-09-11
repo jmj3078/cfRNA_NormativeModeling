@@ -28,7 +28,7 @@ GSEA_DIR = HERE / "gsea_cache"
 ZDIR = config.ROOT / "MixedEffectsModeling" / "Z_scores_mixed"
 DESIGN_LABELS = {"no_covariate": "deseq2_no_cov", "covariate": "deseq2_cov",
                  "ruvg_k1": "deseq2_ruvg_k1", "ruvg_k2": "deseq2_ruvg_k2", "ruvg_k3": "deseq2_ruvg_k3"}
-# same reference definition as 3_disease_scoring.ipynb cell 10 (marker panel): top-N by OT score,
+# same reference definition as 4_disease_scoring.ipynb cell 10 (marker panel): top-N by OT score,
 # floored -- keeps reference size comparable across phenotypes instead of scaling with literature
 # volume (an unfloored/unranked reference balloons to ~80% of the genome for well-studied cancers)
 MARKER_TOPN = 300
@@ -114,7 +114,7 @@ def model_route_mask(gene_names):
 
 def normative_gene_hits(sample_meta, gene_names, sym_of, q=0.05, Z=None, exclude_pool=False):
     """{phenotype: [per-patient significant-symbol-set, ...]}, computed directly from
-    Z_disease_shash.npy (SHASH-calibrated, same array PerSamplePathwayAnalysis/3_disease_scoring.ipynb
+    Z_disease_shash.npy (SHASH-calibrated, same array PerSamplePathwayAnalysis/4_disease_scoring.ipynb
     score significance from) for every phenotype with OOD-kept samples -- NOT sourced from
     PerSamplePathwayAnalysis's sig.pkl, which only covers the ~9 phenotypes that batch script scoped in
     (missing HIV, ME/CFS, MM, MGUS, Liver Cirrhosis, HIV+TB, CAD_HF+/-, Other Cancer, ICI-*).
@@ -171,7 +171,7 @@ def gene_venn_sets(design_b="covariate"):
 
 def gene_venn_sets_4way(design_c="ruvg_k2"):
     """{phenotype: {deseq2_no_cov, deseq2_covariate, deseq2_<design_c>, normative}} symbol sets --
-    same 4 methods as 5_group_level_comparison.ipynb's DESEQ2_DESIGNS + normative_union, for
+    same 4 methods as 6_group_level_comparison.ipynb's DESEQ2_DESIGNS + normative_union, for
     checking whether normative overlaps DESeq2(no_cov) more than the covariate-adjusted designs
     (a sign covariate adjustment isn't actually being absorbed in the normative Z)."""
     sym_of = ensg_to_symbol()
@@ -590,7 +590,7 @@ def wolfers_prop_group_z(sm=None, Z=None, gene_names=None, min_n=3, z_thresh=2.6
       - wolfers_prop : 'is this gene extreme more often than the average gene in this cohort?'
         (one-sample, competitive across genes -- needs no HC array, so it is immune to the
         in-sample Z_hc_shash caveat, and cancels batch-wide drift, but it is a gene-relative null)
-    Kept available rather than merged so 5_group_level_comparison and 7_insilico_perturbation can
+    Kept available rather than merged so 6_group_level_comparison and 7_insilico_perturbation can
     be reconciled deliberately -- add 'wolfers_prop' to GROUP_METHODS to score it."""
     if Z is None:
         Z = np.load(ZDIR / "Z_disease_shash.npy")

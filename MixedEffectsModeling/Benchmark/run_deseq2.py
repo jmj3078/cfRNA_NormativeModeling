@@ -1,4 +1,4 @@
-"""Study-wise DESeq2 benchmark matching 3_disease_scoring.ipynb's sample set.
+"""Study-wise DESeq2 benchmark matching 4_disease_scoring.ipynb's sample set.
 
 For every study (Author) that has training HC, each disease phenotype in that study is
 tested against that study's HC, twice: without covariates and with the same bias

@@ -290,7 +290,7 @@ def compute_ood(data=None, out_dir=config.LOBO_MIXED_DIR, percentile=95, n_out_t
     (>=n_out_thr covariates individually outside HC's p1-p99) -- a quadratic
     distance alone dilutes several mildly-extreme covariates across the
     normal ones and misses samples a per-axis count catches (see
-    core/ood_filter.py:RangeFilter, tested 2026-07-31 against 3_disease_scoring.ipynb).
+    core/ood_filter.py:RangeFilter, tested 2026-07-31 against 4_disease_scoring.ipynb).
     Writes ood_mask.npy (True=inlier) + ood_distance.npy per batch, same
     convention as the v1 engine's compute_lobo_ood.py."""
     data = data or load_full_data()

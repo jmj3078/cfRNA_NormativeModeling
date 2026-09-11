@@ -32,6 +32,7 @@ DISEASE_SCORING_DIR     = _HERE / "DiseaseScoring"
 DISEASE_SCORING_FIG_DIR = DISEASE_SCORING_DIR / "Figures"
 OUTRIDER_COMPARISON_DIR = _HERE / "OutriderComparison" / "insample_comparison"
 OUTRIDER_HELD_OUT_DIR   = _HERE / "OutriderComparison" / "held_out_comparison"
+PERTURBATION_DIR        = _HERE / "PerturbationResults"
 GLMM_HELPERS_R = _HERE / "core" / "glmm_helpers.R"
 PCIS_NULL_R    = _HERE / "core" / "pcis_null.R"
 GLMM_FIT_R     = _HERE / "core" / "glmm_fit.R"
@@ -99,7 +100,7 @@ PATHWAY_CONV_PARAMS = {
     # story -- GO's fine-grained hierarchy mostly re-slices signal KEGG/Reactome already carry.
     "gene_sets": ["KEGG_2021_Human", "Reactome_2022"],
     "min_pathway_size": 5,
-    "n_null_perm": 800,  # used only by the legacy permutation-null path in 4_gene_pathway_reoccurence.ipynb
+    "n_null_perm": 800,  # used only by the legacy permutation-null path in 5_gene_pathway_reoccurence.ipynb
     # per-sample gene-level cutoff feeding the pathway hypergeometric/Fisher ORA test. Method
     # comparison (_scratch_pathway_methods/, 2026-08) benchmarked HC-population-null mean-Z,
     # CAMERA-style PAGE, singscore, and this |Z|-threshold + Fisher ORA against a negative
@@ -116,7 +117,7 @@ PATHWAY_CONV_PARAMS = {
     # kept at the nominal 0.05 default for the pipeline's own path_sig/path_sig_up/path_sig_down --
     # p_path/p_up/p_down (pre-BH hypergeometric p-values) are cached in sig.pkl/sig_directional.pkl
     # regardless of q, so a q-sweep for reoccurrence analysis is done by re-thresholding those cached
-    # p-values in the notebook (4_gene_pathway_reoccurence.ipynb sec. 1), not by rerunning the engine.
+    # p-values in the notebook (5_gene_pathway_reoccurence.ipynb sec. 1), not by rerunning the engine.
     "fdr_q": 0.05,
     "seed": 42,
     # Blood/cfRNA transcriptomics has a literature-recognized confound here, not just an in-house
