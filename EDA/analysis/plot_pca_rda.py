@@ -241,22 +241,40 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     frac = comp.div(total, axis=0)
     fold = (total - comp[phenotype_var]) / comp[phenotype_var]
 
-    cols = ["#4E79A7"] + [PALETTE[1:][i % (len(PALETTE) - 1)] for i in range(len(order))]
+    pheno_color = "#E63946"
+    tech_cmap = plt.get_cmap("Pastel1" if len(order) <= 9 else "Pastel2")
+    tech_cols = [tech_cmap(i % tech_cmap.N) for i in range(len(order))]
+    cols = [pheno_color] + tech_cols
     y = np.arange(len(df))[::-1]
     corrected = df.index.str.contains(rank_on) if rank_on else np.ones(len(df), bool)
 
-    fs = 19
-    lw = 1.8
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 0.62 * len(df) * 2 + 5.5))
+    fs = 22
+    lw = 2.0
+    stem, ext = (os.path.splitext(save_path) if save_path else (None, ".png"))
+    ext = ext or ".png"
+
+    w_ax, h_ax = 10.5, 0.85 * len(df) + 2.6
+    margin_l, margin_r, margin_t, margin_b = 2.8, 0.6, 0.8, 1.1
+    legend_h = 2.0
+    fig_w = margin_l + w_ax + margin_r
+    fig1_h = margin_t + h_ax + margin_b + legend_h
+    fig2_h = margin_t + h_ax + margin_b
+
+    fig1 = plt.figure(figsize=(fig_w, fig1_h))
+    ax1 = fig1.add_axes([margin_l / fig_w, (margin_b + legend_h) / fig1_h,
+                          w_ax / fig_w, h_ax / fig1_h])
+
+    for yi in y[::2]:
+        ax1.axhspan(yi - 0.5, yi + 0.5, color="#000000", alpha=0.06, zorder=0)
 
     left = np.zeros(len(df))
     for col, c in zip(comp.columns, cols):
-        ax1.barh(y, frac[col].values, left=left, color=c, edgecolor="white",
-                 linewidth=0.6, height=0.72, label=col.replace(phenotype_var, "Phenotype"))
+        ax1.barh(y, frac[col].values, left=left, color=c, edgecolor="#4A4A4A",
+                 linewidth=1.8, height=0.72, label=col.replace(phenotype_var, "Phenotype"))
         left += frac[col].values
     for yi, p in enumerate(frac[phenotype_var].values):
         ax1.text(p + 0.015, y[yi], f"{p * 100:.1f}%", va="center", fontsize=fs - 2,
-                 fontweight="bold", color="#4E79A7",
+                 fontweight="bold", color=pheno_color,
                  bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.85))
     ax1.set_yticks(y)
     ax1.set_yticklabels(df.index, fontsize=fs)
@@ -269,9 +287,17 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     ax1.grid(axis="x", linestyle="--", alpha=0.4)
     for spine in ax1.spines.values():
         spine.set_linewidth(lw)
+    ax1.legend(loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.32), frameon=False, fontsize=fs - 2)
 
-    ax2.barh(y, fold.values, color=["#4E79A7" if c else "#BAB0AC" for c in corrected],
-             edgecolor="black", linewidth=0.6, height=0.72)
+    _save(fig1, f"{stem}_composition{ext}" if stem else None)
+    plt.show()
+
+    fig2 = plt.figure(figsize=(fig_w, fig2_h))
+    ax2 = fig2.add_axes([margin_l / fig_w, margin_b / fig2_h, w_ax / fig_w, h_ax / fig2_h])
+    for yi in y[::2]:
+        ax2.axhspan(yi - 0.5, yi + 0.5, color="#000000", alpha=0.06, zorder=0)
+    ax2.barh(y, fold.values, color=[pheno_color if c else "#BAB0AC" for c in corrected],
+             edgecolor="black", linewidth=1.8, height=0.72)
     for yi, v in enumerate(fold.values):
         ax2.text(v * 1.06, y[yi], f"{v:.0f}×", va="center", fontsize=fs - 2)
     ax2.set_xscale("log")
@@ -288,9 +314,7 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     for spine in ax2.spines.values():
         spine.set_linewidth(lw)
 
-    fig.legend(loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.08), frameon=False, fontsize=fs - 1)
-    plt.tight_layout()
-    _save(fig, save_path)
+    _save(fig2, f"{stem}_dominance{ext}" if stem else None)
     plt.show()
     return pd.DataFrame({"pheno_unique_R2": comp[phenotype_var], "total_unique_R2": total,
                          "pheno_share": frac[phenotype_var], "fold_technical": fold})
