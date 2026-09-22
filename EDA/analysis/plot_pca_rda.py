@@ -245,42 +245,50 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     y = np.arange(len(df))[::-1]
     corrected = df.index.str.contains(rank_on) if rank_on else np.ones(len(df), bool)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 0.44 * len(df) + 3.4),
-                                   gridspec_kw={"width_ratios": [1.6, 1]})
+    fs = 19
+    lw = 1.8
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 0.62 * len(df) * 2 + 5.5))
 
     left = np.zeros(len(df))
     for col, c in zip(comp.columns, cols):
         ax1.barh(y, frac[col].values, left=left, color=c, edgecolor="white",
-                 linewidth=0.4, height=0.72, label=col.replace(phenotype_var, "Phenotype"))
+                 linewidth=0.6, height=0.72, label=col.replace(phenotype_var, "Phenotype"))
         left += frac[col].values
-    for yi, (p, t) in enumerate(zip(frac[phenotype_var].values, total.values)):
-        ax1.text(p + 0.015, y[yi], f"{p * 100:.1f}%", va="center", fontsize=9,
+    for yi, p in enumerate(frac[phenotype_var].values):
+        ax1.text(p + 0.015, y[yi], f"{p * 100:.1f}%", va="center", fontsize=fs - 2,
                  fontweight="bold", color="#4E79A7",
                  bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.85))
-        ax1.text(1.015, y[yi], f"ΣR²={t * 100:.1f}%", va="center", fontsize=8, color="#7A7A7A")
     ax1.set_yticks(y)
-    ax1.set_yticklabels(df.index)
+    ax1.set_yticklabels(df.index, fontsize=fs)
     for tick, c in zip(ax1.get_yticklabels(), corrected):
         tick.set_color("#1F1F1F" if c else "#7A7A7A")
     ax1.set_xlim(0, 1)
-    ax1.set_xlabel("Share of total unique R² (partial RDA)")
-    ax1.set_title("Phenotype vs technical covariates")
+    ax1.set_xlabel("Share of total unique R² (partial RDA)", fontsize=fs)
+    ax1.set_title("Phenotype vs technical covariates", fontsize=fs + 1)
+    ax1.tick_params(axis="x", labelsize=fs - 1)
     ax1.grid(axis="x", linestyle="--", alpha=0.4)
+    for spine in ax1.spines.values():
+        spine.set_linewidth(lw)
 
     ax2.barh(y, fold.values, color=["#4E79A7" if c else "#BAB0AC" for c in corrected],
-             edgecolor="black", linewidth=0.4, height=0.72)
+             edgecolor="black", linewidth=0.6, height=0.72)
     for yi, v in enumerate(fold.values):
-        ax2.text(v * 1.06, y[yi], f"{v:.0f}×", va="center", fontsize=9)
+        ax2.text(v * 1.06, y[yi], f"{v:.0f}×", va="center", fontsize=fs - 2)
     ax2.set_xscale("log")
     ax2.set_xlim(1, fold.max() * 3)
-    ax2.axvline(1, color="black", linewidth=0.8)
+    ax2.axvline(1, color="black", linewidth=lw)
     ax2.set_yticks(y)
-    ax2.set_yticklabels([])
-    ax2.set_xlabel("Technical / phenotype unique R²  (log scale)")
-    ax2.set_title("Technical variance dominance")
+    ax2.set_yticklabels(df.index, fontsize=fs)
+    for tick, c in zip(ax2.get_yticklabels(), corrected):
+        tick.set_color("#1F1F1F" if c else "#7A7A7A")
+    ax2.set_xlabel("Technical / phenotype unique R²  (log scale)", fontsize=fs)
+    ax2.set_title("Technical variance dominance", fontsize=fs + 1)
+    ax2.tick_params(axis="x", labelsize=fs - 1)
     ax2.grid(axis="x", linestyle="--", alpha=0.4)
+    for spine in ax2.spines.values():
+        spine.set_linewidth(lw)
 
-    fig.legend(loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.2), frameon=False)
+    fig.legend(loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.08), frameon=False, fontsize=fs - 1)
     plt.tight_layout()
     _save(fig, save_path)
     plt.show()
