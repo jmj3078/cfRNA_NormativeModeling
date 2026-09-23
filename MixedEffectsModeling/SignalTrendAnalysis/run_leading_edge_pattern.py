@@ -9,6 +9,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import MixedEffectsModeling.config as config
+from MixedEffectsModeling.PerSamplePathwayAnalysis.pathway_convergence import gene_z_path
 from MixedEffectsModeling.SignalTrendAnalysis.sankey_helpers import match_pathway_index
 
 PCDIR = config.PATHWAY_CONV_DIR
@@ -72,7 +73,7 @@ if __name__ == "__main__":
         d = pickle.load(open(pdir / "sig.pkl", "rb"))
         universe_syms = d["universe_syms"]
         sym2idx = {s: i for i, s in enumerate(universe_syms)}
-        Zu, Fm = pickle.load(open(pdir / "universe.pkl", "rb"))
+        Zu, Fm = pickle.load(open(gene_z_path(slug), "rb"))
         n_pat = Zu.shape[0]
 
         for term in terms:
