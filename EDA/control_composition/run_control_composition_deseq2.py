@@ -33,7 +33,10 @@ import MixedEffectsModeling.config as mconfig
 from run_control_composition import (RUVG_K, SEED, build_cache, enumerate_groups, load_W, log,
                                      pair_metrics, cohens_d, bias_axes, append_row)
 
-DESIGNS = {"no_covariate": "~condition", "ruvg_k2": "~W_1+W_2+condition"}
+DESIGNS = {"no_covariate": "~condition",
+           "ruvg_k1": "~W_1+condition",
+           "ruvg_k2": "~W_1+W_2+condition",
+           "ruvg_k3": "~W_1+W_2+W_3+condition"}
 MIN_COUNT_SUM = 10
 N_CPUS = 16
 
@@ -68,11 +71,12 @@ def fit_one(counts, cond_df, design):
     return out.values
 
 
-def process_group(data, counts, g):
+def process_group(data, counts, g, layers=None):
+    layers = list(DESIGNS) if layers is None else list(layers)
     samples = data["obs"]["sample"].values
     axes = bias_axes(data["obs"])
     n_case = len(g["case"])
-    stats = {name: [] for name in DESIGNS}
+    stats = {name: [] for name in layers}
     ds = []
     for t, ctrl in enumerate(g["strata"]):
         sid = f"{g['tag']}__T{t}"
@@ -83,15 +87,16 @@ def process_group(data, counts, g):
 
         stat_dir = config.CTRL_COMP_DESEQ2_DIR / g["tag"]
         stat_dir.mkdir(parents=True, exist_ok=True)
-        for name, design in DESIGNS.items():
+        for name in layers:
             out_path = stat_dir / f"T{t}_{name}.csv.gz"
             if out_path.exists():
                 s = pd.read_csv(out_path, index_col=0)["stat"].values
             else:
                 cond_df = pd.DataFrame({"condition": condition}, index=sub_counts.index)
-                if name == "ruvg_k2":
-                    cond_df["W_1"], cond_df["W_2"] = W[:, 0], W[:, 1]
-                s = fit_one(sub_counts, cond_df, design)
+                if name.startswith("ruvg_k"):
+                    for i in range(int(name.rsplit("_k", 1)[1])):
+                        cond_df[f"W_{i + 1}"] = W[:, i]
+                s = fit_one(sub_counts, cond_df, DESIGNS[name])
                 pd.DataFrame({"stat": s}, index=data["genes"]).to_csv(out_path)
             stats[name].append(s)
         if g["split"] == "tertile":
@@ -99,7 +104,7 @@ def process_group(data, counts, g):
             ds.append(cohens_d(v[g["case"]], v[ctrl]))
 
     out_path = RESULT_CSV if g["split"] == "tertile" else NULL_CSV
-    for name in DESIGNS:
+    for name in layers:
         acc = [pair_metrics(np.asarray(stats[name][i]), np.asarray(stats[name][j]))
                for i in range(3) for j in range(i + 1, 3)]
         row = pd.DataFrame(acc).mean().to_dict()
@@ -147,13 +152,16 @@ def main():
     done = set()
     for path in (RESULT_CSV, NULL_CSV):
         if path.exists():
-            done |= set(pd.read_csv(path, usecols=["tag"])["tag"].unique())
-    todo = [g for g in groups if g["tag"] not in done]
-    log(f"deseq2: {len(todo)} groups to run ({len(done)} already done)")
+            d = pd.read_csv(path, usecols=["tag", "layer"])
+            done |= set(zip(d["tag"], d["layer"]))
+    todo = [(g, [n for n in DESIGNS if (g["tag"], n) not in done]) for g in groups]
+    todo = [(g, miss) for g, miss in todo if miss]
+    log(f"deseq2: {len(todo)} groups to run, "
+        f"{sum(len(m) for _, m in todo)} (group, design) fits missing")
 
     t0 = time.time()
-    for i, g in enumerate(todo, 1):
-        process_group(data, counts, g)
+    for i, (g, miss) in enumerate(todo, 1):
+        process_group(data, counts, g, miss)
         if i % 5 == 0 or i == len(todo):
             rate = (time.time() - t0) / i
             log(f"deseq2: {i}/{len(todo)} groups ({rate:.1f}s/group, "

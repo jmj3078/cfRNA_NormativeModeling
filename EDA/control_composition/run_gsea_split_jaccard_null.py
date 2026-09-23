@@ -28,7 +28,7 @@ import config
 from MixedEffectsModeling.Cohort_Grouped_Z.pathway_convergence import (
     ensg_to_symbol, gsea_prerank, load_pathway_library, load_symbol_vocab)
 
-DESIGNS = ["no_covariate", "ruvg_k2"]
+DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
 DISEASE = "Pancreatic Cancer"
 OUT_CSV = config.CTRL_COMP_DIR / "gsea_split_jaccard" / "summary_null.csv"
 
