@@ -9,14 +9,14 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import MixedEffectsModeling.config as config
-from MixedEffectsModeling.PerSamplePathwayAnalysis.pathway_convergence import gene_z_path
+from MixedEffectsModeling.Cohort_Grouped_Z.pathway_convergence import gene_z_path
 from MixedEffectsModeling.SignalTrendAnalysis.sankey_helpers import match_pathway_index
 
 PCDIR = config.PATHWAY_CONV_DIR
 CURDIR = config.SIGNAL_TREND_CUR_DIR
 GSEA_CACHE = config.ROOT / "MixedEffectsModeling" / "Benchmark" / "gsea_cache"
 
-# curation-file basename -> PerSamplePathwayAnalysis/<slug>/ folder name (differ for multi-study phenotypes)
+# curation-file basename -> Cohort_Grouped_Z/<slug>_gene_z.pkl stem (differ for multi-study phenotypes)
 SLUG_MAP = {
     "Tuberculosis": "Tuberculosis",
     "Pancreatitis": "Pancreatitis",

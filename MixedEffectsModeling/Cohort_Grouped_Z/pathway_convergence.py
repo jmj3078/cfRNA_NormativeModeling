@@ -87,6 +87,23 @@ def load_pathway_library():
     return terms, M
 
 
+def ensg_to_symbol():
+    """The backed read still opens a 7.4GB h5ad (~6s a call). Callers that reindex must .copy()
+    first -- the Series is shared."""
+    return sc.read_h5ad(config.H5AD_PATH, backed="r").var["GeneName"]
+
+
+def gsea_prerank(rnk, terms, M, universe_syms, n_perm=1000, seed=42, min_size=5, max_size=1000,
+                 threads=8):
+    """Preranked GSEA on a gene-symbol -> score ranking, using the same housekeeping-filtered
+    KEGG+Reactome library as load_pathway_library. Returns gseapy's res2d."""
+    gene_sets = {t: [universe_syms[j] for j in np.where(M[ti])[0]] for ti, t in enumerate(terms)}
+    rnk_s = pd.Series(rnk, index=universe_syms).dropna().sort_values(ascending=False)
+    res = gp.prerank(rnk=rnk_s, gene_sets=gene_sets, min_size=min_size, max_size=max_size,
+                     permutation_num=n_perm, seed=seed, outdir=None, no_plot=True, threads=threads)
+    return res.res2d
+
+
 def gene_sig_at_q(Zu, Fm, q):
     p_all = 2 * norm.sf(np.abs(Zu))
     sig = np.zeros_like(Fm, dtype=bool)
