@@ -23,8 +23,16 @@ def slugify(phenotype):
     return phenotype.strip().replace(" ", "_").replace("/", "-")
 
 
-def gene_z_path(label):
-    return PCDIR / f"{slugify(label)}_gene_z.pkl"
+# Derived from the CURRENT engine output on every call, deliberately not cached. The previous
+# <cohort>_gene_z.pkl caches were written 2026-08-06 and silently went stale when the engine was
+# retrained on 2026-08-14: same shape, corr 0.997, but up to 5.4 apart on individual genes.
+def cohort_gene_z(phenotype):
+    Z = np.load(config.ZSCORES_MIXED_DIR / "Z_disease_shash.npy")
+    meta = pd.read_csv(config.ZSCORES_MIXED_DIR / "sample_meta.csv")
+    universe_syms, sym2idx, col2sym = load_symbol_vocab(None)
+    mask = ((meta["phenotype"] == phenotype) & meta["ood_keep"]).values
+    Zu, Fm = collapse_to_symbols(Z[mask], col2sym, len(universe_syms))
+    return Zu, Fm, meta.loc[mask, "sample"].values
 
 
 # ENSG -> gene-symbol vocabulary is phenotype-independent (fixed by the H5AD var table), cached once
