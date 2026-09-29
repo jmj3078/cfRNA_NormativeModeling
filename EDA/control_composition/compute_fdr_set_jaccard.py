@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 import config
 
-STAT_DIR = config.CTRL_COMP_DIR / "deseq2_stats"
+STAT_DIR = config.CTRL_COMP_DESEQ2_DIR
 OUT_CSV = config.CTRL_COMP_DIR / "gene_fdr_set_jaccard.csv"
 DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
 N_GENES = 18892

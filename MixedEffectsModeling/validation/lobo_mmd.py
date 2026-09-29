@@ -4,10 +4,12 @@ import pickle
 import sys
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.patches import Patch
 from scipy.spatial.distance import cdist, pdist, squareform
-from scipy.stats import mannwhitneyu
+from scipy.stats import gaussian_kde, mannwhitneyu
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
@@ -17,11 +19,6 @@ LOBO_DIR = config.LOBO_MIXED_DIR
 # Batches below this held-out-HC count give an unstable noise floor -- see
 # memory project_lobo_validation_design.md (same convention as the v1 engine).
 MIN_N_HC = 25
-
-
-def _cache_path(shash, ood_filter):
-    suffix = ("_shash" if shash else "") + ("_ood" if ood_filter else "")
-    return LOBO_DIR / f"mmd_summary{suffix}.csv"
 
 
 def _raw_cache_path(shash, ood_filter):
@@ -177,16 +174,6 @@ def mmd_summary(min_n_hc=MIN_N_HC, n_perm=1000, max_n_per_group=150, seed=42, sh
     return (df, raw) if return_raw else df
 
 
-def mmd_summary_cached(force=False, csv_path=None, shash=False, ood_filter=False, **kwargs):
-    csv_path = csv_path or _cache_path(shash, ood_filter)
-    if not force and os.path.isfile(csv_path):
-        return pd.read_csv(csv_path)
-    df = mmd_summary(shash=shash, ood_filter=ood_filter, **kwargs)
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(csv_path, index=False)
-    return df
-
-
 def mmd_raw_cached(force=False, pkl_path=None, shash=False, ood_filter=False, **kwargs):
     """Per-batch raw distributions behind mmd_summary's means: d_hc/d_dis (kernel-embedding
     distance per sample) and mmd2_null (the permutation draws behind perm_p) -- for plotting
@@ -200,3 +187,71 @@ def mmd_raw_cached(force=False, pkl_path=None, shash=False, ood_filter=False, **
     with open(pkl_path, "wb") as f:
         pickle.dump(raw, f)
     return raw
+
+
+def p_to_asterisk(p):
+    return "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+
+
+def short_batch_label(batch):
+    name, _, num = batch.replace(" et al.", "").partition("_Batch_")
+    return f"{name}_{num}" if num else name
+
+
+def plot_mmd_direction(df, raw, out_path, p_col="p_direction", sort_col="mmd2", row_h=1.4):
+    """Per-batch kernel-embedding distance from the HC reference: held-out HC vs disease.
+    Shared by 0_outrider_comparison / 2_lobo_validation and
+    OutriderComparison/held_out_comparison/make_figures.py."""
+    d = df.sort_values(sort_col, ascending=False).reset_index(drop=True)
+    fig, axes = plt.subplots(len(d), 1, figsize=(7, row_h * len(d)), sharex=True)
+    if len(d) == 1:
+        axes = [axes]
+
+    color_hc, color_sig, color_ns = "#A4AFB8", "#00C78B", "#D64545"
+    for ax, (_, row) in zip(axes, d.iterrows()):
+        r = raw[row["batch"]]
+        d_hc, d_dis = np.asarray(r["d_hc"]), np.asarray(r["d_dis"])
+
+        x_min, x_max = min(d_hc.min(), d_dis.min()), max(d_hc.max(), d_dis.max())
+        x_margin = (x_max - x_min) * 0.2
+        x_grid = np.linspace(x_min - x_margin, x_max + x_margin, 300)
+        kde_hc, kde_dis = gaussian_kde(d_hc)(x_grid), gaussian_kde(d_dis)(x_grid)
+
+        mean_hc, mean_dis = d_hc.mean(), d_dis.mean()
+        p_val = row.get(p_col, 1.0)
+        color_dis = color_sig if p_val < 0.05 else color_ns
+
+        ax.plot(x_grid, kde_hc, color=color_hc, lw=1.5)
+        ax.fill_between(x_grid, kde_hc, color=color_hc, alpha=0.35)
+        ax.plot(x_grid, kde_dis, color=color_dis, lw=1.5)
+        ax.fill_between(x_grid, kde_dis, color=color_dis, alpha=0.35)
+
+        max_y = max(kde_hc.max(), kde_dis.max())
+        ax.axvline(mean_hc, color=color_hc, linestyle="--", lw=1.5, zorder=3)
+        ax.axvline(mean_dis, color=color_dis, linestyle="--", lw=1.5, zorder=3)
+
+        y_bar = max_y * 1.15
+        ax.annotate("", xy=(mean_hc, y_bar), xytext=(mean_dis, y_bar),
+                    arrowprops=dict(arrowstyle="<->", color="black", lw=1.2))
+
+        delta = mean_dis - mean_hc
+        ax.text((mean_hc + mean_dis) / 2, y_bar + max_y * 0.08,
+                f"delta={delta:+.3f} ({p_to_asterisk(p_val) or 'n.s.'})",
+                ha="center", va="bottom", fontweight="bold",
+                color=color_ns if delta < 0 else "black")
+
+        ax.set_ylabel(short_batch_label(row["batch"]), rotation=0, ha="right", va="center")
+        ax.set_ylim(0, max_y * 1.55)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.grid(True, axis="x", linestyle=":", alpha=0.4)
+
+    axes[-1].set_xlabel("Kernel embedding distance from HC reference")
+    axes[0].legend(handles=[
+        Patch(facecolor=color_hc, edgecolor=color_hc, alpha=0.5, label="Held-out HC"),
+        Patch(facecolor=color_sig, edgecolor=color_sig, alpha=0.5, label="Disease (sig.)"),
+        Patch(facecolor=color_ns, edgecolor=color_ns, alpha=0.5, label="Disease (n.s.)"),
+    ], loc="upper right", frameon=False)
+    plt.tight_layout()
+    fig.savefig(out_path, bbox_inches="tight", dpi=300)
+    return fig

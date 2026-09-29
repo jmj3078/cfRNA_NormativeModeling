@@ -1,29 +1,20 @@
+"""PPC p-values + calibration stats for an OUTRIDER comparison directory.
+
+Run:  python compute_ppc_full_stats.py [insample_comparison|held_out_comparison]
+"""
 import pickle
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr, spearmanr
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from MixedEffectsModeling.validation.ppc_simulate import ppc_moment_pvalues
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import MixedEffectsModeling.config as config
+from MixedEffectsModeling.validation.ppc_simulate import calib_stats, ppc_moment_pvalues
 
-DIR = Path(__file__).parent
+DIR = Path(__file__).parent / sys.argv[1] if len(sys.argv) > 1 else config.OUTRIDER_COMPARISON_DIR
 N_REPS = 200
-
-
-def calib_stats(o, p, logscale):
-    o, p = np.asarray(o, float), np.asarray(p, float)
-    m = np.isfinite(o) & np.isfinite(p)
-    o, p = o[m], p[m]
-    if logscale:
-        o, p = np.log10(o + 1), np.log10(p + 1)
-    r, _ = pearsonr(o, p)
-    rho, _ = spearmanr(o, p)
-    rmse = np.sqrt(np.mean((p - o) ** 2))
-    mae = np.mean(np.abs(p - o))
-    return dict(pearson_r=r, r2=r ** 2, spearman_rho=rho, rmse=rmse, mae=mae, n=len(o))
 
 
 def gene_level_calib_table(cal_csv):
@@ -47,7 +38,7 @@ def pvalue_summary(y_mu_alpha_tau2_iter, n_genes, seed0=2000):
 
 
 def our_engine_iter():
-    d = pickle.load(open(DIR.parent.parent / "CV_Results_mixed" / "cv_ppc.pkl", "rb"))
+    d = pickle.load(open(config.CV_MIXED_DIR / "cv_ppc.pkl", "rb"))
     for g, v in d.items():
         yield g, np.asarray(v["y"], float), np.asarray(v["mu"], float), np.asarray(v["alpha"], float), np.asarray(v["tau2"], float)
 
@@ -96,7 +87,7 @@ if __name__ == "__main__":
     else:
         print(f"already cached -> {out_outr}")
 
-    eng_calib = gene_level_calib_table(DIR.parent.parent / "CV_Results_mixed" / "cv_calibration_moments.csv")
+    eng_calib = gene_level_calib_table(config.CV_MIXED_DIR / "cv_calibration_moments.csv")
     outr_calib = gene_level_calib_table(DIR / "outrider_cv_calibration_moments.csv")
     print("\nour engine calib_stats (full 19858g):", eng_calib)
     print("\nOUTRIDER calib_stats (12305g):", outr_calib)
@@ -110,7 +101,7 @@ if __name__ == "__main__":
 
     # our-engine calib_stats restricted to the same 12305-gene subset OUTRIDER covers, for a
     # like-for-like comparison alongside the full-19858 number.
-    eng_cal_full = pd.read_csv(DIR.parent.parent / "CV_Results_mixed" / "cv_calibration_moments.csv")
+    eng_cal_full = pd.read_csv(config.CV_MIXED_DIR / "cv_calibration_moments.csv")
     outr_genes = pd.read_csv(DIR / "outrider_cv_calibration_moments.csv")["gene"]
     eng_cal_sub = eng_cal_full[eng_cal_full["gene"].isin(outr_genes)]
     sub_path = DIR / "our_engine_cv_calibration_moments_12305subset.csv"

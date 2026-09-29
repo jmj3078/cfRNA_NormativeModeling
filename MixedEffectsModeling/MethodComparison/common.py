@@ -10,9 +10,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.calibration import bh_fdr_reject
 
-HERE = Path(__file__).resolve().parent
-CACHE = HERE / "cache"
-FIG_DIR = HERE / "Figures"
+CACHE = config.METHOD_COMP_CACHE_DIR
+
+ARMS = ["engine", "autoencoder", "pca", "outsingle", "peer"]
+LABELS = {"engine": "Normative engine", "autoencoder": "OUTRIDER (AE)", "pca": "PCA",
+          "outsingle": "OutSingle", "peer": "PEER"}
+COLORS = {"engine": "#000000", "autoencoder": "#1B9E77", "pca": "#7570B3",
+          "outsingle": "#D95F02", "peer": "#E7298A"}
+Q_MARKERS = {0.05: "o", 0.10: "s", 0.20: "^", 0.25: "D"}
+# only the normative engine is solid: the baselines read as one dashed family against it
+STYLES = {"engine": "-", "autoencoder": (0, (5, 2)), "pca": (0, (3, 1.5)),
+          "outsingle": (0, (1.5, 1.5)), "peer": (0, (6, 1.5, 1.5, 1.5))}
+SPLIT_TITLE = {"cv": "5-fold CV", "lobo": "leave-one-batch-out"}
 
 ROOT_SEED = 20260914
 LOG2FCS = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]

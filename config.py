@@ -60,6 +60,19 @@ BIAS_COLUMNS = [
     "(NP80/NG80)",
 ]
 
+EDA_BIAS_METRICS = [
+    "log(Total Reads)", "Spliced Reads (%)", "gDNA Contamination (Intron/Exon)",
+    "rRNA Fraction", "Platelet Score", "GC Bias", "Gene Length Bias",
+    "RNA Degradation (3' Bias)", "NG80", "NP80", "(NP80/NG80)",
+]
+
+EDA_COMBINED_METRICS = [
+    "log(Total Reads)", "Spliced Reads (%)", "gDNA Contamination (Intron/Exon)",
+    "rRNA Fraction", "RNA Degradation (3' Bias)", "Platelet Score",
+    "GC Bias", "Gene Length Bias", "NG80", "NP80", "(NP80/NG80)",
+    "Sample Volume (mL)", "Total Centrifugation Force (g)",
+]
+
 # Used by EDA/control_composition/run_control_composition.py's MahalanobisFilter.
 MODELING_PARAMS = {"ood_percentile": 95}
 
@@ -70,26 +83,17 @@ _MEM = ROOT / "MixedEffectsModeling"
 # bin/ on PATH (e.g. nohup without `conda activate`); fall back to the
 # running interpreter's own env, which ships Rscript alongside python.
 RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent / "Rscript")
-GAMLSS_R_HELPER = ROOT / "Modeling" / "gamlss.r"
 
 
 ENGINE_MIXED_DIR        = _MEM / "engine_state_mixed"
 CV_MIXED_DIR            = _MEM / "CV_Results_mixed"
-CV_MIXED_FIG_DIR        = CV_MIXED_DIR / "Figures"
 LOBO_MIXED_DIR          = _MEM / "LOBO_Results_mixed"
 ZSCORES_MIXED_DIR       = _MEM / "Z_scores_mixed"
 THRESHOLD_SWEEP_DIR     = _MEM / "Threshold_Sweep"
-THRESHOLD_SWEEP_FIG_DIR = THRESHOLD_SWEEP_DIR / "Figures"
 PCIS_CAL_DIR            = _MEM / "PCIS_Calibration"
 PCIS_CAL_FIG_DIR        = PCIS_CAL_DIR / "Figures"
 PATHWAY_CONV_DIR        = _MEM / "Cohort_Grouped_Z"
-PATHWAY_CONV_FIG_DIR    = PATHWAY_CONV_DIR / "Figures"
-SIGNAL_TREND_DIR        = _MEM / "SignalTrendAnalysis"
-SIGNAL_TREND_CUR_DIR    = SIGNAL_TREND_DIR / "PathwayCuration"
-SIGNAL_TREND_FIG_DIR    = SIGNAL_TREND_DIR / "Figures"
-BENCHMARK_DIR           = _MEM / "Benchmark"
-DISEASE_SCORING_DIR     = _MEM / "DiseaseScoring"
-DISEASE_SCORING_FIG_DIR = DISEASE_SCORING_DIR / "Figures"
+DISEASE_SCORING_FIG_DIR = _MEM / "DiseaseScoring" / "Figures"
 DISEASE_REF_DIR         = _MEM / "Benchmark" / "disease_reference"
 GROUP_VS_INDIV_DIR      = _MEM / "GroupVsIndividual"
 GROUP_VS_INDIV_FIG_DIR  = GROUP_VS_INDIV_DIR / "Figures"
@@ -100,8 +104,6 @@ DETECTION_LIMIT_DIR     = _MEM / "DetectionLimitResults"
 METHOD_COMP_DIR         = _MEM / "MethodComparison"
 METHOD_COMP_CACHE_DIR   = METHOD_COMP_DIR / "cache"
 METHOD_COMP_FIG_DIR     = METHOD_COMP_DIR / "Figures"
-GLMM_HELPERS_R = _MEM / "core" / "glmm_helpers.R"
-PCIS_NULL_R    = _MEM / "core" / "pcis_null.R"
 GLMM_FIT_R     = _MEM / "core" / "glmm_fit.R"
 GLMM_FIT_POOL_R = _MEM / "core" / "glmm_fit_pool.R"
 DISPERSION_TREND_PATH = ENGINE_MIXED_DIR / "dispersion_trend.json"
@@ -155,7 +157,6 @@ PATHWAY_CONV_PARAMS = {
     # story -- GO's fine-grained hierarchy mostly re-slices signal KEGG/Reactome already carry.
     "gene_sets": ["KEGG_2021_Human", "Reactome_2022"],
     "min_pathway_size": 5,
-    "n_null_perm": 800,  # used only by the legacy permutation-null path in 5_gene_pathway_reoccurence.ipynb
     # per-sample gene-level cutoff feeding the pathway hypergeometric/Fisher ORA test. Method
     # comparison (_scratch_pathway_methods/, 2026-08) benchmarked HC-population-null mean-Z,
     # CAMERA-style PAGE, singscore, and this |Z|-threshold + Fisher ORA against a negative
@@ -193,9 +194,6 @@ PATHWAY_CONV_PARAMS = {
     # ribosome-composition check does not catch (feedback_gsea_interpretation).
     "ribo_reference_term": "Ribosome",
     "ribo_frac_max": 0.15,
-    "max_pathway_size_select": 300,
-    "top_k_pathways": 6,
-    "redundancy_jaccard_max": 0.5,
     "exclude_keywords": [
         "oxidative phosphorylation", "electron transport", "respiratory chain",
         "alzheimer", "parkinson", "huntington", "prion disease", "amyotrophic lateral sclerosis",

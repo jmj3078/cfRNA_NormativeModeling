@@ -21,23 +21,15 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+import MixedEffectsModeling.config as config
 from viz_style import apply_style
 
-from common import CACHE, Q_LEVELS
+from common import (ARMS, CACHE, COLORS, LABELS, Q_LEVELS, Q_MARKERS, SPLIT_TITLE,
+                    STYLES)
 from sweep import MATRIX_DIR, SPLITS, fold_spec
 
 apply_style()
 
-ARMS = ["engine", "autoencoder", "pca", "outsingle", "peer"]
-LABELS = {"engine": "Normative engine", "autoencoder": "OUTRIDER (AE)", "pca": "PCA",
-          "outsingle": "OutSingle", "peer": "PEER"}
-COLORS = {"engine": "#000000", "autoencoder": "#1B9E77", "pca": "#7570B3",
-          "outsingle": "#D95F02", "peer": "#E7298A"}
-Q_MARKERS = {0.05: "o", 0.10: "s", 0.20: "^", 0.25: "D"}
-# only the normative engine is solid: the baselines read as one dashed family against it
-STYLES = {"engine": "-", "autoencoder": (0, (5, 2)), "pca": (0, (3, 1.5)),
-          "outsingle": (0, (1.5, 1.5)), "peer": (0, (6, 1.5, 1.5, 1.5))}
-SPLIT_TITLE = {"cv": "5-fold CV", "lobo": "leave-one-batch-out"}
 LOG2FCS_SHOWN = [2.0, 3.0, 4.0, 5.0]
 RECALL_GRID = np.linspace(0.0, 1.0, 201)
 # BH levels swept to trace the realized operating curve; the reported q values are
@@ -183,7 +175,7 @@ def plot(d):
                  "\nline = per-fold median, ribbon = fold IQR, markers = BH level",
                  fontsize=8)
     fig.tight_layout()
-    out = CACHE.parent / "Figures" / "pr_grid.png"
+    out = config.METHOD_COMP_FIG_DIR / "pr_grid.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=300, bbox_inches="tight")
     print(f"wrote {out}", flush=True)
@@ -259,7 +251,7 @@ def null_headline(q=0.05):
     ax.set_title("What each method does when nothing is wrong\n"
                  f"log2FC = 0, no signal injected; {n_genes:,} genes scored per sample", fontsize=8)
     fig.tight_layout()
-    out = CACHE.parent / "Figures" / "null_falsecalls.png"
+    out = config.METHOD_COMP_FIG_DIR / "null_falsecalls.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=300, bbox_inches="tight")
     print(f"wrote {out}", flush=True)
@@ -305,7 +297,7 @@ def null_panel():
                  "\ndashed = the line a correctly calibrated test follows; above it = too many"
                  " false positives", fontsize=8)
     fig.tight_layout()
-    out = CACHE.parent / "Figures" / "null_rejection.png"
+    out = config.METHOD_COMP_FIG_DIR / "null_rejection.png"
     fig.savefig(out, dpi=300, bbox_inches="tight")
     print(f"wrote {out}", flush=True)
 

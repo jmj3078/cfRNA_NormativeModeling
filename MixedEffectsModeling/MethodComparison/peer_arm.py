@@ -16,7 +16,6 @@ ARD factor analysis rather than SVD + optimal hard threshold.
 The PEER fit runs in peer_env via fit_peer.R (R 3.4.1); everything else is numpy here.
 """
 import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np

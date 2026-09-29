@@ -2,38 +2,18 @@ import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr
 
 parent_dir = str(Path(__file__).resolve().parents[3])
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 from viz_style import apply_style
 
+from MixedEffectsModeling.validation.ppc_simulate import binned_medians, calib_stats
+
 apply_style()
 
 DIR = Path(__file__).parent
-
-
-def calib_stats_(o, p, logscale):
-    o, p = np.asarray(o, float), np.asarray(p, float)
-    m = np.isfinite(o) & np.isfinite(p)
-    o, p = o[m], p[m]
-    if logscale:
-        o, p = np.log10(o + 1), np.log10(p + 1)
-    r, _ = pearsonr(o, p)
-    return r, r ** 2, np.sqrt(np.mean((p - o) ** 2)), len(o)
-
-
-def binned_(o, p, nb_=20):
-    o, p = np.asarray(o, float), np.asarray(p, float)
-    m = np.isfinite(o) & np.isfinite(p) & (o > 0)
-    o, p = o[m], p[m]
-    q = np.unique(np.quantile(o, np.linspace(0, 1, nb_ + 1)))
-    idx = np.clip(np.digitize(o, q[1:-1]), 0, len(q) - 2)
-    return (np.array([np.median(o[idx == k]) for k in range(len(q) - 1)]),
-            np.array([np.median(p[idx == k]) for k in range(len(q) - 1)]))
 
 
 if __name__ == "__main__":
@@ -50,7 +30,7 @@ if __name__ == "__main__":
         for col, (eng_label, cal, color) in enumerate(engines):
             ax = axes[row, col]
             ax.scatter(cal[oc], cal[pc], s=6, alpha=0.15, color=color)
-            bx, by = binned_(cal[oc], cal[pc])
+            bx, by = binned_medians(cal[oc], cal[pc])
             ax.plot(bx, by, '-', color='black', linewidth=2)
 
             if logsc:
@@ -61,11 +41,11 @@ if __name__ == "__main__":
             else:
                 ax.plot([0, 1], [0, 1], 'k--', linewidth=1, alpha=0.7)
 
-            r, r2, rmse, n = calib_stats_(cal[oc], cal[pc], logsc)
+            cs = calib_stats(cal[oc], cal[pc], logsc)
             ax.set_title(f"{title_str} -- {eng_label}", fontweight='bold', pad=8)
             ax.set_xlabel(f'Observed {title_str.lower()}')
             ax.set_ylabel(f'PPC replicate {title_str.lower()}')
-            stats_text = f"r = {r:.3f}\nR2 = {r2:.3f}\nRMSE = {rmse:.3f}\nn = {n}"
+            stats_text = ("r = {pearson_r:.3f}\nR2 = {r2:.3f}\nRMSE = {rmse:.3f}\nn = {n}".format(**cs))
             ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10, verticalalignment='top',
                     bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.85, edgecolor='#cccccc'))
             ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)

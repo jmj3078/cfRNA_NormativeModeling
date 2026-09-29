@@ -2,9 +2,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy.stats import pearsonr, spearmanr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from MixedEffectsModeling.core.marginal_rqr import nb_marginal_mean_var
 
 _TAU2_EPS = 1e-12
 
@@ -39,11 +39,23 @@ def ppc_moment_pvalues(y, mu, alpha, tau2, n_reps=500, seed=0):
     }
 
 
-def predictive_moments(mu, alpha, tau2):
-    # Proper held-out total predictive mean/variance for a gene:
-    # total var = mean(Var[Y|x]) + Var(E[Y|x]), the second term being the covariate-driven
-    # across-sample mean spread the per-sample marginal variance omits.
-    m_i, v_i = nb_marginal_mean_var(np.asarray(mu, dtype=np.float64),
-                                    np.asarray(alpha, dtype=np.float64),
-                                    np.asarray(tau2, dtype=np.float64))
-    return float(m_i.mean()), float(v_i.mean() + m_i.var())
+def calib_stats(o, p, logscale):
+    o, p = np.asarray(o, float), np.asarray(p, float)
+    m = np.isfinite(o) & np.isfinite(p)
+    o, p = o[m], p[m]
+    if logscale:
+        o, p = np.log10(o + 1), np.log10(p + 1)
+    r, _ = pearsonr(o, p)
+    rho, _ = spearmanr(o, p)
+    return dict(pearson_r=r, r2=r ** 2, spearman_rho=rho,
+                rmse=float(np.sqrt(np.mean((p - o) ** 2))), mae=float(np.mean(np.abs(p - o))), n=len(o))
+
+
+def binned_medians(o, p, nb=20):
+    o, p = np.asarray(o, float), np.asarray(p, float)
+    m = np.isfinite(o) & np.isfinite(p) & (o > 0)
+    o, p = o[m], p[m]
+    q = np.unique(np.quantile(o, np.linspace(0, 1, nb + 1)))
+    idx = np.clip(np.digitize(o, q[1:-1]), 0, len(q) - 2)
+    return (np.array([np.median(o[idx == k]) for k in range(len(q) - 1)]),
+            np.array([np.median(p[idx == k]) for k in range(len(q) - 1)]))

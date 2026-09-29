@@ -15,8 +15,6 @@ import config
 from analysis.plot_utils import _save
 
 DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
-DESIGN_LABEL = {"no_covariate": "DESeq2 Default", "ruvg_k1": "DESeq2 + RUVg (k=1)",
-                "ruvg_k2": "DESeq2 + RUVg (k=2)", "ruvg_k3": "DESeq2 + RUVg (k=3)"}
 DESIGN_SHORT = {"no_covariate": "none", "ruvg_k1": "k=1", "ruvg_k2": "k=2", "ruvg_k3": "k=3"}
 DESIGN_C = {"no_covariate": "#A2A2A2", "ruvg_k1": "#489ACA", "ruvg_k2": "#009E73",
             "ruvg_k3": "#CC79A7"}

@@ -13,6 +13,21 @@ from sklearn.preprocessing import LabelEncoder
 
 from analysis.plot_utils import PALETTE, _build_classifiers, _save
 
+COVARIATE_LABELS = {
+    "instrument": "Sequencer Model",
+    "rna_extraction_kit_short_name": "RNA Extraction Kit",
+    "plasma_tubes_short_name": "Plasma Tube Type",
+    "library_prep_kit_short_name": "Library Prep Kit",
+    "Centrifuge_Protocol": "Centrifuge Protocol",
+    "broad_protocol_category": "Broad Protocol Category",
+    "cdna_library_type": "cDNA Library Type",
+    "dnase": "DNase Treatment",
+    "UMI": "UMI",
+    "librarylayout": "Library Layout",
+    "library_selection": "Library Selection",
+}
+
+
 try:
     from skbio import DistanceMatrix
     from skbio.stats.distance import permanova
@@ -200,24 +215,11 @@ def check_discrete_covariate_batch_effects(
     return pd.DataFrame(all_records), pd.DataFrame(meta_records)
 
 
-def plot_covariate_auc_heatmap(df_auc, df_meta=None, save_path=None):
+def plot_covariate_auc_heatmap(df_auc, save_path=None):
     """Mean AUC heatmap (discrete covariates × classifiers)."""
-    label_map = {
-        "instrument": "Sequencer Model",
-        "rna_extraction_kit_short_name": "RNA Extraction Kit",
-        "plasma_tubes_short_name": "Plasma Tube Type",
-        "library_prep_kit_short_name": "Library Prep Kit",
-        "Centrifuge_Protocol": "Centrifuge Protocol",
-        "broad_protocol_category": "Broad Protocol Category",
-        "cdna_library_type": "cDNA Library Type",
-        "dnase": "DNase Treatment",
-        "UMI": "UMI",
-        "librarylayout": "Library Layout",
-        "library_selection": "Library Selection",
-    }
     pivot = (df_auc.groupby(["Covariate", "Model"])["AUC"]
              .mean().unstack().fillna(np.nan))
-    pivot.index = [label_map.get(c, c) for c in pivot.index]
+    pivot.index = [COVARIATE_LABELS.get(c, c) for c in pivot.index]
     pivot["_best"] = pivot.max(axis=1)
     pivot = pivot.sort_values("_best", ascending=False).drop(columns="_best")
 
@@ -245,19 +247,6 @@ def plot_covariate_auc_heatmap(df_auc, df_meta=None, save_path=None):
 
 def plot_covariate_auc_violins(df_auc, n_cols=4, save_path=None):
     """Box+strip grid: one subplot per discrete covariate, models on x-axis."""
-    label_map = {
-        "instrument": "Sequencer Model",
-        "rna_extraction_kit_short_name": "RNA Extraction Kit",
-        "plasma_tubes_short_name": "Plasma Tube Type",
-        "library_prep_kit_short_name": "Library Prep Kit",
-        "Centrifuge_Protocol": "Centrifuge Protocol",
-        "broad_protocol_category": "Broad Protocol Category",
-        "cdna_library_type": "cDNA Library Type",
-        "dnase": "DNase Treatment",
-        "UMI": "UMI",
-        "librarylayout": "Library Layout",
-        "library_selection": "Library Selection",
-    }
     covariates = df_auc["Covariate"].unique()
     n_rows = math.ceil(len(covariates) / n_cols)
     my_pal = {"LogReg": "#A8D8EA", "SVM": "#AA96DA", "RF": "#FCBAD3", "GBM": "#FFFFD2"}
@@ -275,7 +264,7 @@ def plot_covariate_auc_violins(df_auc, n_cols=4, save_path=None):
                       color="black", alpha=0.3, jitter=True, size=3, ax=ax)
         ax.axhline(0.5, color="gray", linestyle="--", alpha=0.6, linewidth=1)
         ax.axhline(0.7, color="red", linestyle=":", linewidth=1.5)
-        ax.set_title(label_map.get(covar, covar), fontweight="bold", fontsize=10)
+        ax.set_title(COVARIATE_LABELS.get(covar, covar), fontweight="bold", fontsize=10)
         ax.set_ylim(0, 1.1)
         ax.set_xlabel("")
         ax.grid(alpha=0.2)

@@ -16,7 +16,6 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.dispersion_trend import load_trend
-from MixedEffectsModeling.core.eb_shrinkage import squeeze_log_theta
 from MixedEffectsModeling.core.marginal_rqr import _poisson_rqr, marginal_nb_rqr
 from MixedEffectsModeling.core.ood_filter import MahalanobisFilter, RangeFilter
 from MixedEffectsModeling.core.shash import fit_and_correct, shash_transform_to_z

@@ -5,39 +5,20 @@ import gseapy as gp
 import numpy as np
 import pandas as pd
 import scanpy as sc
-from scipy.stats import norm
 
 import MixedEffectsModeling.config as config
-from MixedEffectsModeling.core.calibration import bh_fdr_reject
 
 # Per-sample pathway ORA (run_phenotype/run_phenotype_directional/run_reoccurrence_detail and the
 # Jaccard reoccurrence statistics) was retired 2026-09-23 -- see
 # _legacy/PerSamplePathwayAnalysis_ORA/README.md. What remains here is the gene-level substrate
-# (symbol collapse, pathway library, per-sample BH) that the surviving analyses still use.
+# (symbol vocabulary, pathway library, preranked GSEA) that the surviving analyses still use.
 
 PP = config.PATHWAY_CONV_PARAMS
 PCDIR = config.PATHWAY_CONV_DIR
 
 
-def slugify(phenotype):
-    return phenotype.strip().replace(" ", "_").replace("/", "-")
-
-
-# Derived from the CURRENT engine output on every call, deliberately not cached. The previous
-# <cohort>_gene_z.pkl caches were written 2026-08-06 and silently went stale when the engine was
-# retrained on 2026-08-14: same shape, corr 0.997, but up to 5.4 apart on individual genes.
-def cohort_gene_z(phenotype):
-    Z = np.load(config.ZSCORES_MIXED_DIR / "Z_disease_shash.npy")
-    meta = pd.read_csv(config.ZSCORES_MIXED_DIR / "sample_meta.csv")
-    universe_syms, sym2idx, col2sym = load_symbol_vocab(None)
-    mask = ((meta["phenotype"] == phenotype) & meta["ood_keep"]).values
-    Zu, Fm = collapse_to_symbols(Z[mask], col2sym, len(universe_syms))
-    return Zu, Fm, meta.loc[mask, "sample"].values
-
-
 # ENSG -> gene-symbol vocabulary is phenotype-independent (fixed by the H5AD var table), cached once
-# and reused across phenotypes. Zu/Fm (the collapsed Z matrix) is NOT -- it depends on which patients
-# are in the cohort, so it's computed fresh per phenotype in collapse_to_symbols below.
+# and reused across phenotypes.
 def load_symbol_vocab(gene_names):
     path = PCDIR / "symbol_vocab.pkl"
     if path.exists():
@@ -49,20 +30,6 @@ def load_symbol_vocab(gene_names):
     col2sym = np.array([sym2idx.get(s, -1) if pd.notna(s) else -1 for s in syms_all])
     pickle.dump((universe_syms, sym2idx, col2sym), open(path, "wb"))
     return universe_syms, sym2idx, col2sym
-
-
-def collapse_to_symbols(Zc, col2sym, N):
-    n_pat = Zc.shape[0]
-    keep_cols = col2sym >= 0
-    Zc_v, sym_idx_v = Zc[:, keep_cols], col2sym[keep_cols]
-    sum_mat, finite_cnt = np.zeros((n_pat, N)), np.zeros((n_pat, N))
-    for i in range(n_pat):
-        np.add.at(sum_mat[i], sym_idx_v, np.nan_to_num(Zc_v[i], nan=0.0))
-        np.add.at(finite_cnt[i], sym_idx_v, np.isfinite(Zc_v[i]).astype(float))
-    Zu_raw = np.divide(sum_mat, finite_cnt, out=np.full_like(sum_mat, np.nan), where=finite_cnt > 0)
-    Zu = np.nan_to_num(Zu_raw, nan=0.0)
-    Fm = np.isfinite(Zu_raw).astype(float)
-    return Zu, Fm
 
 
 # pathway gene-set membership (KEGG+Reactome, housekeeping-excluded) is also phenotype-independent
@@ -112,15 +79,3 @@ def gsea_prerank(rnk, terms, M, universe_syms, n_perm=1000, seed=42, min_size=5,
     return res.res2d
 
 
-def gene_sig_at_q(Zu, Fm, q):
-    p_all = 2 * norm.sf(np.abs(Zu))
-    sig = np.zeros_like(Fm, dtype=bool)
-    for i in range(Zu.shape[0]):
-        present = Fm[i] > 0
-        if present.any():
-            sig[i, present] = bh_fdr_reject(p_all[i, present], q=q)
-    return sig
-
-
-def q_tag(q):
-    return "" if q == PP["fdr_q"] else f"_q{q:g}".replace(".", "")

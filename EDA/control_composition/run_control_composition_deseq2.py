@@ -30,8 +30,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
 import MixedEffectsModeling.config as mconfig
-from run_control_composition import (RUVG_K, SEED, build_cache, enumerate_groups, load_W, log,
-                                     pair_metrics, cohens_d, bias_axes, append_row)
+from run_control_composition import (SEED, append_row, bias_axes, build_cache, cohens_d,
+                                     enumerate_groups, load_W, log, pair_metrics)
 
 DESIGNS = {"no_covariate": "~condition",
            "ruvg_k1": "~W_1+condition",
@@ -113,18 +113,6 @@ def process_group(data, counts, g, layers=None):
                    n_ctrl=float(np.mean([len(s) for s in g["strata"]])),
                    delta_d=float(max(ds) - min(ds)) if ds else np.nan)
         append_row(out_path, row)
-
-
-def _fit(counts, cond_df, design):
-    keep = counts.columns[counts.sum(axis=0) >= MIN_COUNT_SUM]
-    inference = DefaultInference(n_cpus=N_CPUS)
-    dds = DeseqDataSet(counts=counts[keep], metadata=cond_df, design=design, inference=inference, quiet=True)
-    dds.deseq2()
-    stat = DeseqStats(dds, contrast=["condition", "disease", "HC"], inference=inference, quiet=True)
-    stat.summary()
-    out = pd.Series(0.0, index=counts.columns)
-    out.loc[stat.results_df.index] = stat.results_df["stat"].fillna(0.0).values
-    return out.values
 
 
 def main():

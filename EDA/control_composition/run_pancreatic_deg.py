@@ -55,7 +55,7 @@ RUVG_K_MAX = 3
 MIN_COUNT_SUM = 10
 N_CPUS = 12
 
-OUT_DIR = config.CTRL_COMP_DIR / "pancreatic_deg"
+OUT_DIR = config.PANCREATIC_DEG_DIR
 CACHE = OUT_DIR / "pool_cache.pkl"
 W_DIR = OUT_DIR / "ruvg_W"
 SUMMARY_CSV = OUT_DIR / "summary.csv"
