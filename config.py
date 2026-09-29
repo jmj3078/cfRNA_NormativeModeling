@@ -146,52 +146,8 @@ FIT_PARAMS = {
     "cores": 12,
 }
 
-# Gene- vs pathway-level deviation convergence (4_gene_enrichment.ipynb): patient-level BH-sig
-# genes are heterogeneous, but does the same deviation converge onto shared pathways? Mirrors
-# Wolfers 2018 JAMA Psych / Segal 2023 Nat Neurosci deviation-overlap design (see
-# EDA/normative_modeling_literature.md).
 PATHWAY_CONV_PARAMS = {
-    # GO_Biological_Process tried and dropped: checked its top-scoring (recur*eff) terms for
-    # Tuberculosis and 24/25 were near-duplicates (Jaccard>=0.3) of an existing KEGG/Reactome term
-    # or too generic (mRNA splicing, transcription regulation, glycolysis, mitosis) to be a disease
-    # story -- GO's fine-grained hierarchy mostly re-slices signal KEGG/Reactome already carry.
     "gene_sets": ["KEGG_2021_Human", "Reactome_2022"],
-    "min_pathway_size": 5,
-    # per-sample gene-level cutoff feeding the pathway hypergeometric/Fisher ORA test. Method
-    # comparison (_scratch_pathway_methods/, 2026-08) benchmarked HC-population-null mean-Z,
-    # CAMERA-style PAGE, singscore, and this |Z|-threshold + Fisher ORA against a negative
-    # control (held-out HC samples scored as if they were patients, true null): singscore was
-    # badly anti-conservative (up to 14.5% of pathways "significant" in healthy controls),
-    # HC-population-null was badly batch-confounded (r=0.67 between hit count and |global
-    # sample-mean Z|, driven by 2 specific batches), CAMERA was underpowered even in real disease
-    # samples. Fisher ORA was the only one clean on the negative control (median 0 across all
-    # thresholds tested) while still detecting signal in disease samples -- adopted as the
-    # pipeline default. z_thresh=1.96 (nominal two-sided p<0.05) empirically beat looser (1.64,
-    # dilutes the enrichment ratio with background noise genes) and stricter (2.33/2.58, too few
-    # genes left for hypergeometric power) alternatives in a 4-point sweep on Tuberculosis.
-    "z_thresh": 1.96,
-    # kept at the nominal 0.05 default for the pipeline's own path_sig/path_sig_up/path_sig_down --
-    # p_path/p_up/p_down (pre-BH hypergeometric p-values) are cached in sig.pkl/sig_directional.pkl
-    # regardless of q, so a q-sweep for reoccurrence analysis is done by re-thresholding those cached
-    # p-values in the notebook (5_gene_pathway_reoccurence.ipynb sec. 1), not by rerunning the engine.
-    "fdr_q": 0.05,
-    "seed": 42,
-    # Blood/cfRNA transcriptomics has a literature-recognized confound here, not just an in-house
-    # observation: Chaussabel et al. 2008 Immunity (PMID 18631455) modular blood-transcriptomics
-    # framework identifies a coordinately-expressed "protein synthesis / ribosomal protein" module
-    # that dominates variance in whole-blood/PBMC data and reflects generic translational activity or
-    # cell-composition shift, not disease-specific biology -- reused for the same purpose in
-    # Rinchai/Chaussabel 2020 (PMID 32736569), Vegh/Chaussabel 2019 (PMID 31253760). Goeman & Buhlmann
-    # 2007 (PMID 17303618) gives the general mechanism: gene sets sharing a highly co-regulated block
-    # are vulnerable to spurious enrichment regardless of the set's nominal biology. Name-based keyword
-    # match alone misses pathways that carry this module by gene COMPOSITION but not by NAME (Influenza
-    # Infection, SLIT/ROBO signaling, Cellular Response To Starvation all came out >45% ribosomal-protein
-    # genes empirically here) -- so exclusion is composition-based: any pathway sharing > ribo_frac_max
-    # of its genes with the reference KEGG "Ribosome" set (as an operational proxy for the Chaussabel
-    # module) is dropped. The KEGG-Ribosome proxy and the 0.15 cutoff are our own operational choices,
-    # not literature-derived -- Chaussabel's framework flags the module qualitatively, no numeric cutoff.
-    # Keyword list stays as a fast belt-and-suspenders for OXPHOS/neurodegeneration, which the
-    # ribosome-composition check does not catch (feedback_gsea_interpretation).
     "ribo_reference_term": "Ribosome",
     "ribo_frac_max": 0.15,
     "exclude_keywords": [

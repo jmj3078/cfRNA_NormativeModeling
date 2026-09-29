@@ -10,9 +10,9 @@
 #
 # Usage: Rscript fit_latent.R [cv|lobo] [fold]      (no fold = all folds of that split)
 suppressPackageStartupMessages({ library(data.table); library(jsonlite) })
-source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/_temp_method_comparison/frozen_latent.R")
+source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/MethodComparison/frozen_latent.R")
 
-BASE <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/_temp_method_comparison"
+BASE <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/MethodComparison"
 IN_DIR <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/insample_comparison"
 OUT_DIR <- file.path(BASE, "cache", "latent_fits")
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)

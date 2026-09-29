@@ -3,7 +3,7 @@
 # Also confirms controlForConfounders(implementation="pca") runs at all once `iterations`
 # is withheld.
 suppressPackageStartupMessages({ library(OUTRIDER) })
-source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/_temp_method_comparison/frozen_latent.R")
+source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/MethodComparison/frozen_latent.R")
 
 set.seed(42)
 ods0 <- makeExampleOutriderDataSet(dataset = "Kremer")
