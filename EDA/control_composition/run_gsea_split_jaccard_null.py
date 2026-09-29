@@ -25,8 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
-from MixedEffectsModeling.Cohort_Grouped_Z.pathway_convergence import (
-    ensg_to_symbol, gsea_prerank, load_pathway_library, load_symbol_vocab)
+from pathway_lib import ensg_to_symbol, gsea_prerank, load_pathway_library, load_symbol_vocab
 
 DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
 DISEASE = "Pancreatic Cancer"
@@ -56,7 +55,7 @@ def main():
 
     universe_syms, sym2idx, col2sym = load_symbol_vocab(None)
     terms, M = load_pathway_library()
-    log(f"library: {len(terms)} terms (housekeeping-excluded, matches pathway_convergence)")
+    log(f"library: {len(terms)} terms (housekeeping-excluded, matches pathway_lib)")
 
     sym_of = ensg_to_symbol()
     sym_of.index = sym_of.index.str.split(".").str[0]

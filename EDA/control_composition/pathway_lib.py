@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 
-import MixedEffectsModeling.config as config
+import config
 
 # Per-sample pathway ORA (run_phenotype/run_phenotype_directional/run_reoccurrence_detail and the
 # Jaccard reoccurrence statistics) was retired 2026-09-23 -- see
@@ -23,7 +23,7 @@ PP = {
         "alzheimer", "parkinson", "huntington", "prion disease", "amyotrophic lateral sclerosis",
     ],
 }
-PCDIR = config.PATHWAY_CONV_DIR
+PCDIR = config.CTRL_COMP_DIR
 
 
 # ENSG -> gene-symbol vocabulary is phenotype-independent (fixed by the H5AD var table), cached once
