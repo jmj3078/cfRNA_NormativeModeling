@@ -148,6 +148,7 @@ FIT_PARAMS = {
 
 PATHWAY_CONV_PARAMS = {
     "gene_sets": ["KEGG_2021_Human", "Reactome_2022"],
+    "min_pathway_size": 5,
     "ribo_reference_term": "Ribosome",
     "ribo_frac_max": 0.15,
     "exclude_keywords": [
