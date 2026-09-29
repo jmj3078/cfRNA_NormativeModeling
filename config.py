@@ -44,6 +44,9 @@ CTRL_COMP_STAT_DIR = CTRL_COMP_DIR / "tstats"
 CTRL_COMP_FIG_DIR = CTRL_COMP_DIR / "Figures"
 CTRL_COMP_DESEQ2_DIR = CTRL_COMP_DIR / "deseq2_stats"
 
+EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
+EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"
+
 BIAS_COLUMNS = [
     "log(Total Reads)",
     "Spliced Reads (%)",
