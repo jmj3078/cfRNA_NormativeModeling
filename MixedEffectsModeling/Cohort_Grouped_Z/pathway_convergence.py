@@ -13,7 +13,16 @@ import MixedEffectsModeling.config as config
 # _legacy/PerSamplePathwayAnalysis_ORA/README.md. What remains here is the gene-level substrate
 # (symbol vocabulary, pathway library, preranked GSEA) that the surviving analyses still use.
 
-PP = config.PATHWAY_CONV_PARAMS
+PP = {
+    "gene_sets": ["KEGG_2021_Human", "Reactome_2022"],
+    "min_pathway_size": 5,
+    "ribo_reference_term": "Ribosome",
+    "ribo_frac_max": 0.15,
+    "exclude_keywords": [
+        "oxidative phosphorylation", "electron transport", "respiratory chain",
+        "alzheimer", "parkinson", "huntington", "prion disease", "amyotrophic lateral sclerosis",
+    ],
+}
 PCDIR = config.PATHWAY_CONV_DIR
 
 

@@ -145,14 +145,3 @@ FIT_PARAMS = {
     "chunk_size": 200,
     "cores": 12,
 }
-
-PATHWAY_CONV_PARAMS = {
-    "gene_sets": ["KEGG_2021_Human", "Reactome_2022"],
-    "min_pathway_size": 5,
-    "ribo_reference_term": "Ribosome",
-    "ribo_frac_max": 0.15,
-    "exclude_keywords": [
-        "oxidative phosphorylation", "electron transport", "respiratory chain",
-        "alzheimer", "parkinson", "huntington", "prion disease", "amyotrophic lateral sclerosis",
-    ],
-}
