@@ -17,6 +17,7 @@ from analysis.plot_utils import _save
 DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
 DESIGN_LABEL = {"no_covariate": "DESeq2 Default", "ruvg_k1": "DESeq2 + RUVg (k=1)",
                 "ruvg_k2": "DESeq2 + RUVg (k=2)", "ruvg_k3": "DESeq2 + RUVg (k=3)"}
+DESIGN_SHORT = {"no_covariate": "none", "ruvg_k1": "k=1", "ruvg_k2": "k=2", "ruvg_k3": "k=3"}
 DESIGN_C = {"no_covariate": "#A2A2A2", "ruvg_k1": "#489ACA", "ruvg_k2": "#009E73",
             "ruvg_k3": "#CC79A7"}
 PICK = "ruvg_k2"
@@ -132,11 +133,11 @@ def plot_direction(D, save_path=None):
                 color="0.35")
     ax.axhline(0.5, color="k", lw=0.9, ls=":")
     ax.set_xticks(range(len(curves)),
-                  [f"{l}\n{len(v)}" for l, v in zip(["none", "k=1", "k=2", "k=3"], curves)])
+                  [f"{DESIGN_SHORT[l]}\n{len(v)}" for l, v in zip(labels, curves)])
     ax.set_xlabel("RUVg factors, and the genes each design calls")
     ax.set_ylim(-0.12, 1.14)
     ax.set_ylabel("patients on the group side")
-    ax.text(len(curves) - 0.55, 0.5, va="bottom", ha="right", fontsize=10,
+    ax.text(-0.45, 0.5, "0.5 = no shared direction", va="bottom", ha="left", fontsize=10,
             color="0.35")
 
     for a, l in zip(axes, "ab"):

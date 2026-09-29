@@ -46,7 +46,13 @@ def jaccard(a, b):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-null", type=int, default=10)
+    ap.add_argument("--draws", default=None, help="comma-separated draw indices (shard); default 0..n_null-1")
+    ap.add_argument("--designs", default=None, help="comma-separated designs; default all four")
+    ap.add_argument("--out", default=None, help="output CSV (shard); merged into summary_null.csv later")
     args = ap.parse_args()
+    draws = [int(d) for d in args.draws.split(",")] if args.draws else list(range(args.n_null))
+    designs = args.designs.split(",") if args.designs else DESIGNS
+    out_csv = Path(args.out) if args.out else OUT_CSV
 
     universe_syms, sym2idx, col2sym = load_symbol_vocab(None)
     terms, M = load_pathway_library()
@@ -56,19 +62,19 @@ def main():
     sym_of.index = sym_of.index.str.split(".").str[0]
 
     rows = []
-    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
     done = set()
     if OUT_CSV.exists():
         prev = pd.read_csv(OUT_CSV)
         done = set(prev["tag"] + "/" + prev["method"])
 
-    for draw in range(args.n_null):
+    for draw in draws:
         tag = f"{DISEASE.replace(' ', '_')}__null_{draw:04d}"
         stat_dir = config.CTRL_COMP_DESEQ2_DIR / tag
         if not stat_dir.exists():
             log(f"skip {tag}: no cached DESeq2 stats")
             continue
-        for design in DESIGNS:
+        for design in designs:
             key = f"{tag}/deseq2__{design}"
             if key in done:
                 continue
@@ -90,8 +96,8 @@ def main():
                       jacc_T0T1=jaccs[0], jacc_T0T2=jaccs[1], jacc_T1T2=jaccs[2],
                       jacc_mean=float(np.mean(jaccs)))
             rows.append(row)
-            pd.DataFrame(rows).to_csv(OUT_CSV, index=False, mode="a" if OUT_CSV.exists() else "w",
-                                      header=not OUT_CSV.exists())
+            pd.DataFrame(rows).to_csv(out_csv, index=False, mode="a" if out_csv.exists() else "w",
+                                      header=not out_csv.exists())
             rows = []
             log(f"{tag}/deseq2__{design}: n_sig={n_sig[0]},{n_sig[1]},{n_sig[2]} "
                 f"jacc_mean={row['jacc_mean']:.3f}  ({time.time()-t0:.0f}s)")
