@@ -146,11 +146,11 @@ def plot_direction(D, save_path=None):
                                   frac_below_06=[(v < 0.6).mean() for v in curves]))
 
 
-def plot_top_degs(D, n_show=20, thr=3.0, save_path=None):
+def plot_top_degs(D, n_show=20, thr=3.0, save_path=None, design=PICK):
     """Broken axis: the bulk keeps a linear panel, the outliers get a log panel of their own,
     each coloured by the patient carrying it."""
-    G = de_genes(D, PICK)
-    pa = D["padj"][("PancreaticNeoplasm", PICK)].combine_first(D["padj"][("PDAC", PICK)])
+    G = de_genes(D, design)
+    pa = D["padj"][("PancreaticNeoplasm", design)].combine_first(D["padj"][("PDAC", design)])
     top = list(pa.reindex(G).sort_values().index[:n_show])
 
     with h5py.File(config.H5AD_PATH, "r") as h:
@@ -161,7 +161,7 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None):
                            index=dec(h["var/_index"][()]))
     sym = [sym_of.get(g, g.split(".")[0]) for g in top]
     sym = [x if len(x) <= 10 else f"{x[:4]}..{x[-4:]}" for x in sym]
-    Zp, Zh = standardized(D, PICK, top)
+    Zp, Zh = standardized(D, design, top)
 
     ext = Zp > thr
     lead = np.abs(Zp).argmax(axis=0)
@@ -193,7 +193,7 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None):
 
     top_ax.set_yscale("log")
     top_ax.set_ylim(thr, float(Zp.max()) * 2.6)
-    top_ax.set_ylabel("outliers")
+    top_ax.set_ylabel("outliers (>3 SD)")
     top_ax.spines["bottom"].set_visible(False)
     top_ax.tick_params(axis="x", length=0)
     top_ax.text(0.0, 1.12, f"{int(ext.sum())} patient values above {thr:g} SD, one colour per "
@@ -218,7 +218,7 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None):
     ax.spines["top"].set_visible(False)
     ax.set_xticks(range(len(top)), sym, rotation=90)
     ax.set_xlabel(f"top {len(top)} group DE genes (sorted by $p_{{adj}}$), "
-                  f"patients (red) vs healthy (grey)")
+                  f"patients (red) vs healthy (grey), RUVg {DESIGN_SHORT[design]}")
     ax.set_ylabel("HC-standardized TMM-log2")
 
     for a, y in [(top_ax, 0), (ax, 1)]:
