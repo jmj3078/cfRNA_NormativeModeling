@@ -63,11 +63,18 @@ disp_se <- function(fit, ncoef) {
 #    (10x). tau2 -> 0 sends the penalty to infinity, so p_eff -> p automatically.
 #
 # PCIS has no F reference distribution (see point 1 above), so the cut is a
-# fixed constant read off an empirical null (see PCIS_Calibration/README.md):
-# 19,158 genes x 693 observations regenerated from each gene's own fitted
-# (beta, gamma, tau^2) and refit under the same stage/prior. cut=2.28 targets
-# a population-level per-observation false-alarm rate of 1e-4, just above the
-# point where null-driven removals cross below the observed real removal rate.
+# fixed constant read off an empirical null: genes regenerated from their own
+# fitted (beta, gamma, tau^2) and refit under the same stage/prior. The target
+# is a population-level per-observation false-alarm rate of 1e-4 -- not a
+# principled level, but the first one just above the point where null-driven
+# removals cross below the observed real removal rate.
+#
+# The null's leverage comes from model.matrix(~0+factor(batch)), so the cut is
+# tied to the batch design and must be recalibrated whenever Batch_ID changes.
+# 2026-07-28: 19,158 genes x 693 obs -> 2.28 (deployed 2.25).
+# 2026-09-30: 1,912 genes x 679 obs, 25 batches -> 3.62. The whole move is the
+# design (Moore_1 71 -> 48/7/16); a composition-matched control on the old null
+# still gave 2.29.
 # Observations are dropped rather than replaced by a trimmed mean, which would
 # fabricate counts and bias dispersion downward. Returns indices ordered by
 # decreasing influence.

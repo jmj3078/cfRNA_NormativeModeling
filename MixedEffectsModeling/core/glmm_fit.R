@@ -37,7 +37,7 @@ colnames(X) <- safe_names
 # Fallback defaults, identical to config.FIT_PARAMS. They exist only so the
 # script still runs standalone without --fit-params; config.py is the source.
 FP <- list(beta_explode_thr = 3.0, tau2_max = 9.0, disp_intercept_max = 10.0,
-           pcis_cut = 2.28, max_outlier_frac = 0.05)
+           pcis_cut = 3.62, max_outlier_frac = 0.05)
 if (nzchar(opt$`fit-params`) && file.exists(opt$`fit-params`)) {
   loaded <- fromJSON(opt$`fit-params`)
   for (k in names(FP)) if (!is.null(loaded[[k]])) FP[[k]] <- loaded[[k]]
