@@ -50,6 +50,7 @@ CTRL_COMP_N_SPLITS = 2
 
 EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
 EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"
+PANCREATIC_DEG_DIR = EDA_GROUP_CONTRAST_DIR / "pancreatic_deg"
 
 BIAS_COLUMNS = [
     "log(Total Reads)",
@@ -99,7 +100,6 @@ DISEASE_SCORING_FIG_DIR = _MEM / "DiseaseScoring" / "Figures"
 DISEASE_REF_DIR         = _MEM / "Benchmark" / "disease_reference"
 GROUP_VS_INDIV_DIR      = _MEM / "GroupVsIndividual"
 GROUP_VS_INDIV_FIG_DIR  = GROUP_VS_INDIV_DIR / "Figures"
-PANCREATIC_DEG_DIR      = CTRL_COMP_DIR / "pancreatic_deg"
 OUTRIDER_COMPARISON_DIR = _MEM / "OutriderComparison" / "insample_comparison"
 OUTRIDER_HELD_OUT_DIR   = _MEM / "OutriderComparison" / "held_out_comparison"
 DETECTION_LIMIT_DIR     = _MEM / "DetectionLimitResults"

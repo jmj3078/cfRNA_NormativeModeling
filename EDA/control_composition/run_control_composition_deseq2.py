@@ -112,6 +112,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-null", type=int, default=30)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--disease", default=None, help="restrict to one phenotype (default: all)")
     args = ap.parse_args()
 
     config.CTRL_COMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -126,7 +127,8 @@ def main():
     # Generate that same full sequence and only pick the first --n-null draws per disease,
     # so tags always resolve to the W files already cached under those tags.
     groups_full = enumerate_groups(data, n_null=200, seed=SEED)
-    groups = [g for g in groups_full if g["draw"] < args.n_null]
+    groups = [g for g in groups_full if g["draw"] < args.n_null
+              and (args.disease is None or g["disease"] == args.disease)]
     log(f"deseq2: {len(groups)} comparison groups ({len(DESIGNS)} designs each)")
 
     done = set()

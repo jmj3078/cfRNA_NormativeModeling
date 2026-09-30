@@ -1,18 +1,23 @@
 """Reference DEG runs for the Moore et al. Batch_1 pancreatic cohort.
 
 Five case definitions (PDAC, IPMN, Islet Cell Tumor, Pancreatitis, and the three neoplasms
-pooled as one "Pancreatic Cancer" group) against two HC definitions -- Moore Batch_1's own
-71 controls, and the full non-Exome HC pool the normative engine trains on -- under four
+pooled as one "Pancreatic Cancer" group) against Moore Batch_1's own controls, under four
 DESeq2 designs (plain, plus RUVg with k=1,2,3 in the GLM design).
 
-The two HC scopes are the point of running both: the difference between them is itself a
-control-composition axis, and it is the axis the normative model handles by construction
-(its reference is the full HC pool conditioned on covariates, never a matched subset).
+BATCH resolves to the CEDAR cohort alone (153 samples) since the 2026-09-30 Batch_ID
+redefinition; before it, that name pooled CEDAR with the two BCC batches. Moore et al.
+fitted on CEDAR and validated on BCC, so keeping them apart is what the source study did.
+Islet Cell Tumor falls to n=3 in CEDAR and is not interpretable at that size.
 
-RUVg W is fitted once per (hc_scope, case) sample set with k=3 and sliced for k=1,2, so the
+A second HC scope (the full non-Exome HC pool) was dropped: a group contrast against
+unmatched controls is not what any paper reports, so it was not a comparator this notebook
+needed. The "moore_b1__" prefix on every subset id is kept for continuity with the stored
+outputs and with 10_group_contrast_limits.ipynb.
+
+RUVg W is fitted once per case sample set with k=3 and sliced for k=1,2, so the
 three RUVg designs are nested rather than independently refitted.
 
-Run:  python EDA/control_composition/run_pancreatic_deg.py [--scope both] [--force]
+Run:  python EDA/control_composition/run_pancreatic_deg.py [--force]
 """
 import argparse
 import pickle
@@ -46,7 +51,7 @@ CASES = {
     "Pancreatitis": ["Pancreatitis"],
     "PancreaticNeoplasm": ["PDAC", "IPMN", "Islet Cell Tumor"],
 }
-HC_SCOPES = ["moore_b1", "full_hc"]
+SCOPE = "moore_b1"
 DESIGNS = {"no_covariate": "~condition",
            "ruvg_k1": "~W_1+condition",
            "ruvg_k2": "~W_1+W_2+condition",
@@ -119,12 +124,11 @@ def build_pool():
     return data
 
 
-def subset_index(data, case, scope):
+def subset_index(data, case):
     obs = data["obs"]
-    case_mask = obs["stage"].isin(CASES[case]).values & (obs["batch"] == BATCH).values
-    hc_mask = (obs["phenotype"] == "Healthy Control").values
-    if scope == "moore_b1":
-        hc_mask &= (obs["batch"] == BATCH).values
+    in_batch = (obs["batch"] == BATCH).values
+    case_mask = obs["stage"].isin(CASES[case]).values & in_batch
+    hc_mask = (obs["phenotype"] == "Healthy Control").values & in_batch
     return np.where(case_mask)[0], np.where(hc_mask)[0]
 
 
@@ -159,9 +163,9 @@ def fit_deseq2(counts, cond_df, design):
     return stat.results_df
 
 
-def run_one(data, scope, case, force=False):
-    case_idx, hc_idx = subset_index(data, case, scope)
-    sid = f"{scope}__{case}"
+def run_one(data, case, force=False):
+    case_idx, hc_idx = subset_index(data, case)
+    sid = f"{SCOPE}__{case}"
     samples = np.concatenate([data["obs"]["sample"].values[case_idx],
                               data["obs"]["sample"].values[hc_idx]])
     condition = np.array(["case"] * len(case_idx) + ["HC"] * len(hc_idx))
@@ -187,7 +191,7 @@ def run_one(data, scope, case, force=False):
             res.to_csv(out_path)
             log(f"{sid}/{name}: {time.time() - t0:.0f}s")
         padj = res["padj"].fillna(1.0)
-        rows.append(dict(hc_scope=scope, case=case, design=name,
+        rows.append(dict(hc_scope=SCOPE, case=case, design=name,
                          n_case=len(case_idx), n_hc=len(hc_idx),
                          n_sig_q05=int((padj < 0.05).sum()), n_sig_q10=int((padj < 0.10).sum()),
                          n_up=int(((padj < 0.05) & (res["log2FoldChange"] > 0)).sum()),
@@ -197,18 +201,15 @@ def run_one(data, scope, case, force=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--scope", default="both", choices=HC_SCOPES + ["both"])
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
-    scopes = HC_SCOPES if args.scope == "both" else [args.scope]
     data = build_pool()
 
     rows = []
-    for scope in scopes:
-        for case in CASES:
-            rows += run_one(data, scope, case, force=args.force)
-            pd.DataFrame(rows).to_csv(SUMMARY_CSV, index=False)
+    for case in CASES:
+        rows += run_one(data, case, force=args.force)
+        pd.DataFrame(rows).to_csv(SUMMARY_CSV, index=False)
     log(f"done -> {SUMMARY_CSV}")
     print(pd.DataFrame(rows).to_string(index=False))
 
