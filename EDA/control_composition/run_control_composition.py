@@ -1,6 +1,6 @@
 """Control-composition sensitivity of group-wise biomarker selection (Moore et al. Batch_1).
 
-Case group fixed (one phenotype per run); the HC pool split config.CTRL_COMP_N_SPLITS ways at
+Case group fixed (one phenotype per run); the HC pool split config.ctrl_comp_n_splits(scope) ways at
 random with no sample shared between strata, each stratum giving its own marker list. Agreement between those lists is the estimand: how much of a "biomarker" set is decided
 by which healthy controls happened to be drawn.
 
@@ -167,7 +167,7 @@ def enumerate_groups(data, n_null, seed=SEED):
     split rather than a control-composition contrast. Random splits only from here on."""
     obs = data["obs"]
     hc_idx = np.where(obs["phenotype"].values == "Healthy Control")[0]
-    n, k = len(hc_idx), config.CTRL_COMP_N_SPLITS
+    n, k = len(hc_idx), config.ctrl_comp_n_splits(SCOPE)
     cuts = [n * t // k for t in range(k + 1)]
     rng = np.random.default_rng(seed)
     groups = []

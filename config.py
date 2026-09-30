@@ -43,11 +43,6 @@ CTRL_COMP_STAT_DIR = CTRL_COMP_DIR / "tstats"
 CTRL_COMP_FIG_DIR = CTRL_COMP_DIR / "Figures"
 CTRL_COMP_DESEQ2_DIR = CTRL_COMP_DIR / "deseq2_stats"
 
-# Number of disjoint control strata per random split. 2 keeps the strata as large as
-# possible (n/2 each) while still sharing no sample, which an overlapping subsample design
-# would not: drawing 30 of 48 twice forces >=12 shared controls and inflates agreement.
-CTRL_COMP_N_SPLITS = 2
-
 # Sample scopes for the control-composition experiment. "b1" is the single pre-analytical
 # condition (CEDAR, 2x150); "b123" pools it with the two BCC batches, which is what the old
 # Batch_ID definition called "Moore et al._Batch_1" before 2026-09-30. Each scope writes to
@@ -57,6 +52,16 @@ CTRL_COMP_SCOPES = {
     "b123": ["Moore et al._Batch_1", "Moore et al._Batch_2", "Moore et al._Batch_3"],
 }
 CTRL_COMP_DEFAULT_SCOPE = "b1"
+
+# Disjoint control strata per random split, per scope. Strata never share a sample, so an
+# overlapping subsample design is not on the table: drawing 30 of 48 twice forces >=12 shared
+# controls and inflates agreement. b1 uses 2 (HC 48 -> 24 each, the largest disjoint arms
+# available); b123 stays at 3 because its results predate the change and were not refitted.
+CTRL_COMP_N_SPLITS = {"b1": 2, "b123": 3}
+
+
+def ctrl_comp_n_splits(scope=None):
+    return CTRL_COMP_N_SPLITS[scope or CTRL_COMP_DEFAULT_SCOPE]
 
 EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
 EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"

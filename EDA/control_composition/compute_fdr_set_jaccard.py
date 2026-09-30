@@ -42,7 +42,7 @@ def bh_reject(p, q=0.05):
 
 def sig_sets(tag, design, q=0.05, scope=None):
     out = []
-    for t in range(config.CTRL_COMP_N_SPLITS):
+    for t in range(config.ctrl_comp_n_splits(scope)):
         f = stat_dir(scope) / tag / f"T{t}_{design}.csv.gz"
         if not f.exists():
             return None

@@ -84,7 +84,7 @@ def main():
                 continue
             t0 = time.time()
             n_sig, sig_terms = [], []
-            for t in range(config.CTRL_COMP_N_SPLITS):
+            for t in range(config.ctrl_comp_n_splits(args.scope)):
                 stat = pd.read_csv(stat_dir / f"T{t}_{design}.csv.gz", index_col=0)["stat"]
                 stat.index = stat.index.str.split(".").str[0]
                 syms = sym_of.reindex(stat.index)
