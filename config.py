@@ -116,6 +116,12 @@ STRATIFY_COL = "Batch_ID"
 NZ_A_MAX = 31
 MIN_HC_BATCH_SIZE = 5
 
+# Held-out batch selection for LOBO-based evaluation (build_lobo_folds.py,
+# 3_detection_limit.ipynb). Derived from the fitted HC pool instead of a hardcoded
+# batch list, so a change to the Batch_ID definition propagates automatically.
+LOBO_MIN_TEST_HC = 25       # held-out HC needed for a batch to be scoreable
+LOBO_REQUIRE_DISEASE = True # tier A: batch must also carry disease samples
+
 SPIKE_PARAMS = {
     "beta_explode_thr": 3.0,
     "seed": 42,
