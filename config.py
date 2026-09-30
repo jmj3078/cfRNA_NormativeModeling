@@ -60,7 +60,12 @@ CTRL_COMP_DEFAULT_SCOPE = "b1"
 
 EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
 EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"
+# Two DEG runs of the same Moore pancreatic cohort, kept side by side rather than one
+# superseding the other: "pancreatic_deg" is CEDAR alone (Batch_1, 153 samples, what Moore
+# et al. fitted on), "pancreatic_deg_pooled" is the older CEDAR+BCC pool (Batch_1+2+3) from
+# before the 2026-09-30 Batch_ID redefinition.
 PANCREATIC_DEG_DIR = EDA_GROUP_CONTRAST_DIR / "pancreatic_deg"
+PANCREATIC_DEG_POOLED_DIR = EDA_GROUP_CONTRAST_DIR / "pancreatic_deg_pooled"
 
 BIAS_COLUMNS = [
     "log(Total Reads)",

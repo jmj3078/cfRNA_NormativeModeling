@@ -19,6 +19,7 @@ DESIGN_SHORT = {"no_covariate": "none", "ruvg_k1": "k=1", "ruvg_k2": "k=2", "ruv
 DESIGN_C = {"no_covariate": "#A2A2A2", "ruvg_k1": "#489ACA", "ruvg_k2": "#009E73",
             "ruvg_k3": "#CC79A7"}
 PICK = "ruvg_k2"
+COHORTS = {"cedar": config.PANCREATIC_DEG_DIR, "pooled": config.PANCREATIC_DEG_POOLED_DIR}
 CASE_PHENOTYPE = "Pancreatic Cancer"
 HC_PHENOTYPE = "Healthy Control"
 SUBSET = "moore_b1__PancreaticNeoplasm"
@@ -31,25 +32,29 @@ def residualize(Y, W):
     return Y - W @ np.linalg.lstsq(W, Y, rcond=None)[0]
 
 
-def load():
-    cache = pickle.load(open(config.CTRL_COMP_DIR / "moore_b1_cache.pkl", "rb"))
-    W = pd.read_csv(config.PANCREATIC_DEG_DIR / "ruvg_W" / f"{SUBSET}.csv", index_col=0)
+def load(cohort="cedar"):
+    """cohort picks which of the two DEG runs to read (see config.PANCREATIC_DEG_*):
+    "cedar" is Moore Batch_1 alone, "pooled" is the older Batch_1+2+3 run kept alongside it.
+    Sample membership comes from that run's own RUVg W, so the two give different cohorts."""
+    deg_dir = COHORTS[cohort]
+    cache = pickle.load(open(deg_dir / "pool_cache.pkl", "rb"))
+    W = pd.read_csv(deg_dir / "ruvg_W" / f"{SUBSET}.csv", index_col=0)
     obs = cache["obs"]
     keep = np.isin(obs["sample"].values, W.index.values)
     pheno = obs.loc[keep, "phenotype"].values
-    tmm = cache["layers"]["TMM_log2"][keep]
+    tmm = cache["tmm"][keep]
     W_m = W.loc[obs.loc[keep, "sample"].values].values
     genes = np.array(cache["genes"])
 
     deg, padj, lfc = {}, {}, {}
-    for f in sorted(config.PANCREATIC_DEG_DIR.glob("moore_b1__*/*.csv.gz")):
+    for f in sorted(deg_dir.glob("moore_b1__*/*.csv.gz")):
         r = pd.read_csv(f, index_col=0)
         key = (f.parent.name.split("__")[1], f.name.split(".")[0])
         deg[key] = set(r.index[r["padj"].fillna(1.0) < DESEQ2_PADJ]) & set(genes)
         padj[key] = r["padj"]
         lfc[key] = r["log2FoldChange"]
 
-    return dict(genes=genes, pos={g: i for i, g in enumerate(genes)},
+    return dict(cohort=cohort, genes=genes, pos={g: i for i, g in enumerate(genes)},
                 X={d: (tmm if d == "no_covariate" else residualize(tmm, W_m[:, :int(d[-1])]))
                    for d in DESIGNS},
                 is_case=pheno == CASE_PHENOTYPE, is_hc=pheno == HC_PHENOTYPE,
