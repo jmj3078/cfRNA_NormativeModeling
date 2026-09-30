@@ -33,6 +33,26 @@ def _decode_cat(grp):
     return out
 
 
+def safe_dir(batch):
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", batch)
+
+
+def selected_batches(lobo_dir=config.LOBO_MIXED_DIR):
+    """Batches scoreable for held-out evaluation: >= config.LOBO_MIN_TEST_HC held-out HC
+    and, when config.LOBO_REQUIRE_DISEASE, disease samples of their own. Read from each
+    fit's own meta.json so the selection cannot drift from what was actually fitted, and
+    so a Batch_ID redefinition propagates instead of leaving a stale hardcoded list."""
+    out = []
+    for path in sorted(lobo_dir.glob("*/meta.json")):
+        m = json.loads(path.read_text())
+        if sum(m["test_is_hc"]) < config.LOBO_MIN_TEST_HC:
+            continue
+        if config.LOBO_REQUIRE_DISEASE and m["n_dis"] == 0:
+            continue
+        out.append(dict(m, batch_dir=path.parent.name))
+    return out
+
+
 def load_full_data(h5ad_path=config.H5AD_PATH):
     """Same QC filters as NormativeModelEngineMixed.load_hc_data, but keeps every
     phenotype (not just HC) so held-out disease samples can be scored too.
@@ -263,7 +283,7 @@ def run_one_batch(batch_id, data, summary, alpha_fn, disp_prior_path, tmp, limit
 
 
 def save_batch_result(res, tier, n_dis, out_dir):
-    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", res["batch_id"])
+    safe = safe_dir(res["batch_id"])
     bdir = out_dir / safe
     bdir.mkdir(parents=True, exist_ok=True)
     np.save(bdir / "Z_test.npy", res["Z"])
@@ -353,7 +373,7 @@ def main():
     Path(tmp).mkdir(exist_ok=True)
     for _, brow in todo.iterrows():
         b, tier, n_dis = brow["batch"], brow["tier"], int(brow["n_dis"])
-        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", b)
+        safe = safe_dir(b)
         if (args.out_dir / safe / "meta.json").exists() and (args.out_dir / safe / "Z_test_shash.npy").exists():
             print(f"[skip, already done] {b}")
             continue

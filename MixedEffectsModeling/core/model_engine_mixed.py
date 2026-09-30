@@ -84,6 +84,7 @@ class NormativeModelEngineMixed:
         self.Y_hc = None
         self.scaler = None
         self.batch = None
+        self.names = None
         self.pc_gene_names = []
         self._gene_col = {}
         self.genes = {}
@@ -114,6 +115,7 @@ class NormativeModelEngineMixed:
         self.scaler = StandardScaler()
         self.X_hc_scaled = self.scaler.fit_transform(X_raw)
         self.batch = batch_hc[keep]
+        self.names = adata.obs_names.values[is_hc][keep]
         Y_raw = adata.X.toarray() if issparse(adata.X) else np.asarray(adata.X)
         self.Y_hc = np.round(Y_raw[is_hc][keep]).astype(np.float64)
         is_pc = (adata.var["GeneType"] == "protein_coding").values

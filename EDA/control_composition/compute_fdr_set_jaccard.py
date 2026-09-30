@@ -63,17 +63,15 @@ def pair_stats(sets):
 
 def compute():
     rows = []
-    for tag in sorted(p.name for p in STAT_DIR.iterdir() if p.is_dir()):
+    for tag in sorted(p.name for p in STAT_DIR.iterdir() if p.is_dir() and "__null_" in p.name):
         disease = "Pancreatic Cancer" if tag.startswith("Pancreatic_Cancer") else "Pancreatitis"
-        kind = "random" if "__null_" in tag else "tertile"
-        axis = tag.split("__", 1)[1]
         for design in DESIGNS:
             s = sig_sets(tag, design)
             if s is None:
                 continue
             j_obs, j_exp = pair_stats(s)
             sizes = list(map(len, s))
-            rows.append(dict(tag=tag, disease=disease, kind=kind, axis=axis, design=design,
+            rows.append(dict(tag=tag, disease=disease, design=design,
                              jaccard_fdr=j_obs, jaccard_exp=j_exp,
                              enrichment=j_obs / j_exp if j_exp and j_exp > 0 else np.nan,
                              n_sig_min=min(sizes), n_sig_med=int(np.median(sizes)),
@@ -92,7 +90,7 @@ def load(force=False):
 if __name__ == "__main__":
     df = load(force="--force" in sys.argv)
     pd.set_option("display.width", 200)
-    print(df.groupby(["disease", "design", "kind"]).agg(
+    print(df.groupby(["disease", "design"]).agg(
         n=("jaccard_fdr", "size"), J_obs=("jaccard_fdr", "mean"),
         J_exp=("jaccard_exp", "mean"), enrichment=("enrichment", "median"),
         nsig_min=("n_sig_min", "mean"), nsig_med=("n_sig_med", "mean"),

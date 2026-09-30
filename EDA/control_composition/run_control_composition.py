@@ -1,8 +1,12 @@
 """Control-composition sensitivity of group-wise biomarker selection (Moore et al. Batch_1).
 
-Case group fixed; HC split into tertiles of a technical-bias axis, each stratum giving its
-own marker list. Agreement between lists is compared against a size-matched random split of
-the same HC pool -- the null that separates "control composition" from "small n".
+Case group fixed; the HC pool split three ways at random, each stratum giving its own marker
+list. Agreement between those lists is the estimand: how much of a "biomarker" set is decided
+by which healthy controls happened to be drawn.
+
+Bias-axis (tertile) stratified splits were removed on 2026-09-30 -- within Moore's old
+Batch_1 the bias axes tracked the hidden pre-analytical sub-batches (Cramer's V 0.35-0.58 on
+8 of 10 axes), so a tertile split was partly a batch split. Random splits only.
 
 RUVg factors are re-estimated inside every single comparison (case + that one stratum),
 because the stored RUVg_Platelet_* / Proposed_Full_* layers were fitted on the full cohort
@@ -10,7 +14,7 @@ and carry information no single-comparison pipeline could have had. Per-sample s
 (CPM/TPM/TMM) are unaffected and are read from the stored layers.
 
 Run:  python EDA/control_composition/run_control_composition.py [--n-null 200] [--force]
-Every comparison writes its own W / expression matrix / t-statistic file as it finishes,
+Every comparison writes its own W / t-statistic file as it finishes,
 so the run is resumable and inspectable while still going.
 """
 import argparse
@@ -50,7 +54,6 @@ SEED = 42
 
 CACHE = config.CTRL_COMP_DIR / "moore_b1_cache.pkl"
 SUBSET_CSV = config.CTRL_COMP_DIR / "subsets.csv"
-RESULT_CSV = config.CTRL_COMP_DIR / "jaccard_results.csv"
 NULL_CSV = config.CTRL_COMP_DIR / "null_distribution.csv"
 LOG_PATH = config.CTRL_COMP_DIR / "progress.log"
 
@@ -120,51 +123,28 @@ def platelet_mask(gene_names):
 
 
 # --------------------------------------------------------------------------- splits
-def bias_axes(obs):
-    """10 raw bias columns plus PC1 of the standardized set (composite technical axis)."""
-    X = obs[config.BIAS_COLUMNS].values
-    Z = (X - X.mean(0)) / X.std(0)
-    u, s, vt = np.linalg.svd(Z - Z.mean(0), full_matrices=False)
-    pc1 = u[:, 0] * s[0]
-    if np.corrcoef(pc1, Z[:, 0])[0, 1] < 0:
-        pc1 = -pc1
-    axes = {c: X[:, i] for i, c in enumerate(config.BIAS_COLUMNS)}
-    axes["PC1_bias"] = pc1
-    return axes
-
-
-def tertiles(values):
-    r = rankdata(values, method="ordinal") - 1
-    n = len(values)
-    edges = [0, n // 3, 2 * n // 3, n]
-    return [np.where((r >= edges[i]) & (r < edges[i + 1]))[0] for i in range(3)]
-
-
 def slug(s):
     return "".join(c if c.isalnum() else "_" for c in s).strip("_")
 
 
 def enumerate_groups(data, n_null, seed=SEED):
     """Every comparison group this analysis runs. One group = one case cohort split three
-    ways; the three (case vs stratum) comparisons inside it are what get compared."""
+    ways at random; the three (case vs stratum) comparisons inside it are what get compared.
+
+    Bias-axis (tertile) stratified splits were removed: within Moore's old Batch_1 the bias
+    axes tracked the hidden pre-analytical sub-batches, so a tertile split was partly a batch
+    split rather than a control-composition contrast. Random splits only from here on."""
     obs = data["obs"]
-    axes = bias_axes(obs)
     hc_idx = np.where(obs["phenotype"].values == "Healthy Control")[0]
+    n = len(hc_idx)
+    cuts = [0, n // 3, 2 * n // 3, n]
     rng = np.random.default_rng(seed)
     groups = []
     for disease in DISEASES:
         case_idx = np.where(obs["phenotype"].values == disease)[0]
-        sizes = None
-        for axis, values in axes.items():
-            strata = tertiles(values[hc_idx])
-            sizes = [len(s) for s in strata]
-            groups.append(dict(disease=disease, split="tertile", axis=axis, draw=-1,
-                               tag=f"{slug(disease)}__{slug(axis)}",
-                               case=case_idx, strata=[hc_idx[s] for s in strata]))
-        cuts = np.cumsum([0] + sizes)
         for b in range(n_null):
             perm = rng.permutation(hc_idx)
-            groups.append(dict(disease=disease, split="random", axis="-", draw=b,
+            groups.append(dict(disease=disease, split="random", draw=b,
                                tag=f"{slug(disease)}__null_{b:04d}",
                                case=case_idx, strata=[perm[cuts[t]:cuts[t + 1]] for t in range(3)]))
     return groups
@@ -248,11 +228,6 @@ def welch_t(A, B):
     return np.divide(ma - mb, se, out=np.zeros_like(ma), where=se > 0)
 
 
-def cohens_d(a, b):
-    sp = np.sqrt(((len(a) - 1) * a.var(ddof=1) + (len(b) - 1) * b.var(ddof=1)) / (len(a) + len(b) - 2))
-    return float((a.mean() - b.mean()) / sp) if sp > 0 else 0.0
-
-
 def comparison_layers(data, case_idx, ctrl_idx, W):
     idx = np.concatenate([case_idx, ctrl_idx])
     out = {name: data["layers"][name][idx] for name in STATIC_LAYERS}
@@ -281,12 +256,11 @@ def append_row(path, row):
 
 
 # --------------------------------------------------------------------------- driver
-def process_group(data, g, save_expr):
-    """One comparison group -> per-stratum expression matrices + t-statistics on disk,
-    plus one metrics row averaged over the three pairwise list comparisons."""
+def process_group(data, g):
+    """One comparison group -> per-stratum t-statistics on disk, plus one metrics row
+    averaged over the three pairwise list comparisons."""
     samples = data["obs"]["sample"].values
-    axes = bias_axes(data["obs"])
-    stats, ds = [], []
+    stats = []
     for t, ctrl in enumerate(g["strata"]):
         sid = f"{g['tag']}__T{t}"
         idx = np.concatenate([g["case"], ctrl])
@@ -300,40 +274,26 @@ def process_group(data, g, save_expr):
         stat_dir.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(tt, index=data["genes"]).assign(GeneName=data["gene_names"]).to_csv(
             stat_dir / f"T{t}_welch_t.csv.gz")
-        if save_expr:
-            expr_dir = config.CTRL_COMP_EXPR_DIR / g["tag"] / f"T{t}"
-            expr_dir.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(expr_dir / "ruvg_matrices.npz",
-                                samples=samples[idx], genes=data["genes"], n_case=n_case,
-                                **{name: mats[name].astype(np.float32) for name in DYNAMIC_LAYERS})
-        if g["split"] == "tertile":
-            v = axes[g["axis"]]
-            ds.append(cohens_d(v[g["case"]], v[ctrl]))
 
-    out_path = RESULT_CSV if g["split"] == "tertile" else NULL_CSV
     for layer in STATIC_LAYERS + DYNAMIC_LAYERS:
         acc = [pair_metrics(stats[i][layer], stats[j][layer])
                for i in range(3) for j in range(i + 1, 3)]
         row = pd.DataFrame(acc).mean().to_dict()
-        row.update(disease=g["disease"], split=g["split"], axis=g["axis"], draw=g["draw"],
+        row.update(disease=g["disease"], split=g["split"], draw=g["draw"],
                    tag=g["tag"], layer=layer, n_case=len(g["case"]),
-                   n_ctrl=float(np.mean([len(s) for s in g["strata"]])),
-                   delta_d=float(max(ds) - min(ds)) if ds else np.nan)
-        append_row(out_path, row)
+                   n_ctrl=float(np.mean([len(s) for s in g["strata"]])))
+        append_row(NULL_CSV, row)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-null", type=int, default=200)
     ap.add_argument("--force", action="store_true")
-    ap.add_argument("--no-expr", action="store_true",
-                    help="skip writing RUVg expression matrices (~2.3 GB for the tertile splits)")
     args = ap.parse_args()
 
     config.CTRL_COMP_DIR.mkdir(parents=True, exist_ok=True)
     if args.force:
-        for p in (RESULT_CSV, NULL_CSV):
-            p.unlink(missing_ok=True)
+        NULL_CSV.unlink(missing_ok=True)
 
     data = build_cache()
     groups = enumerate_groups(data, n_null=args.n_null)
@@ -345,15 +305,14 @@ def main():
     verify_residualize(data)
 
     done = set()
-    for path in (RESULT_CSV, NULL_CSV):
-        if path.exists():
-            done |= set(pd.read_csv(path, usecols=["tag"])["tag"].unique())
+    if NULL_CSV.exists():
+        done = set(pd.read_csv(NULL_CSV, usecols=["tag"])["tag"].unique())
     todo = [g for g in groups if g["tag"] not in done]
     log(f"metrics: {len(todo)} groups to run ({len(done)} already done)")
 
     t0 = time.time()
     for i, g in enumerate(todo, 1):
-        process_group(data, g, save_expr=not args.no_expr and g["split"] == "tertile")
+        process_group(data, g)
         if i % 20 == 0 or i == len(todo):
             rate = (time.time() - t0) / i
             log(f"metrics: {i}/{len(todo)} groups ({rate:.1f}s/group, "

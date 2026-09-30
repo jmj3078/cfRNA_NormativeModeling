@@ -308,6 +308,13 @@ def main():
     n_hc = e2.X_hc_scaled.shape[0]
     folds = list(StratifiedKFold(MP["n_splits"], shuffle=True, random_state=42).split(np.zeros(n_hc), e2.batch))
 
+    # The OUTRIDER/PCA/PEER arms have to split on exactly these folds, so dump them here
+    # rather than let each arm re-derive a split that is only incidentally the same.
+    config.OUTRIDER_COMPARISON_DIR.mkdir(parents=True, exist_ok=True)
+    (config.OUTRIDER_COMPARISON_DIR / "cv_folds.json").write_text(json.dumps(
+        {str(i): dict(train=e2.names[tr].tolist(), test=e2.names[te].tolist())
+         for i, (tr, te) in enumerate(folds)}, indent=1))
+
     tmp = "/tmp/cv_glmm_v2"
     Path(tmp).mkdir(exist_ok=True)
     cache_dir = out_dir / "fold_params"

@@ -30,8 +30,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
 import MixedEffectsModeling.config as mconfig
-from run_control_composition import (SEED, append_row, bias_axes, build_cache, cohens_d,
-                                     enumerate_groups, load_W, log, pair_metrics)
+from run_control_composition import (SEED, append_row, build_cache, enumerate_groups,
+                                     load_W, log, pair_metrics)
 
 DESIGNS = {"no_covariate": "~condition",
            "ruvg_k1": "~W_1+condition",
@@ -41,7 +41,6 @@ MIN_COUNT_SUM = 10
 N_CPUS = 16
 
 RAW_CACHE = config.CTRL_COMP_DIR / "moore_b1_raw_counts.pkl"
-RESULT_CSV = config.CTRL_COMP_DIR / "deseq2_jaccard_results.csv"
 NULL_CSV = config.CTRL_COMP_DIR / "deseq2_null_distribution.csv"
 
 
@@ -74,10 +73,8 @@ def fit_one(counts, cond_df, design):
 def process_group(data, counts, g, layers=None):
     layers = list(DESIGNS) if layers is None else list(layers)
     samples = data["obs"]["sample"].values
-    axes = bias_axes(data["obs"])
     n_case = len(g["case"])
     stats = {name: [] for name in layers}
-    ds = []
     for t, ctrl in enumerate(g["strata"]):
         sid = f"{g['tag']}__T{t}"
         idx = np.concatenate([g["case"], ctrl])
@@ -99,20 +96,15 @@ def process_group(data, counts, g, layers=None):
                 s = fit_one(sub_counts, cond_df, DESIGNS[name])
                 pd.DataFrame({"stat": s}, index=data["genes"]).to_csv(out_path)
             stats[name].append(s)
-        if g["split"] == "tertile":
-            v = axes[g["axis"]]
-            ds.append(cohens_d(v[g["case"]], v[ctrl]))
 
-    out_path = RESULT_CSV if g["split"] == "tertile" else NULL_CSV
     for name in layers:
         acc = [pair_metrics(np.asarray(stats[name][i]), np.asarray(stats[name][j]))
                for i in range(3) for j in range(i + 1, 3)]
         row = pd.DataFrame(acc).mean().to_dict()
-        row.update(disease=g["disease"], split=g["split"], axis=g["axis"], draw=g["draw"],
+        row.update(disease=g["disease"], split=g["split"], draw=g["draw"],
                    tag=g["tag"], layer=name, n_case=n_case,
-                   n_ctrl=float(np.mean([len(s) for s in g["strata"]])),
-                   delta_d=float(max(ds) - min(ds)) if ds else np.nan)
-        append_row(out_path, row)
+                   n_ctrl=float(np.mean([len(s) for s in g["strata"]])))
+        append_row(NULL_CSV, row)
 
 
 def main():
@@ -123,8 +115,7 @@ def main():
 
     config.CTRL_COMP_DIR.mkdir(parents=True, exist_ok=True)
     if args.force:
-        for p in (RESULT_CSV, NULL_CSV):
-            p.unlink(missing_ok=True)
+        NULL_CSV.unlink(missing_ok=True)
 
     data = build_cache()
     counts = load_raw_counts(data)
@@ -134,14 +125,13 @@ def main():
     # Generate that same full sequence and only pick the first --n-null draws per disease,
     # so tags always resolve to the W files already cached under those tags.
     groups_full = enumerate_groups(data, n_null=200, seed=SEED)
-    groups = [g for g in groups_full if g["split"] == "tertile" or g["draw"] < args.n_null]
+    groups = [g for g in groups_full if g["draw"] < args.n_null]
     log(f"deseq2: {len(groups)} comparison groups ({len(DESIGNS)} designs each)")
 
     done = set()
-    for path in (RESULT_CSV, NULL_CSV):
-        if path.exists():
-            d = pd.read_csv(path, usecols=["tag", "layer"])
-            done |= set(zip(d["tag"], d["layer"]))
+    if NULL_CSV.exists():
+        d = pd.read_csv(NULL_CSV, usecols=["tag", "layer"])
+        done = set(zip(d["tag"], d["layer"]))
     todo = [(g, [n for n in DESIGNS if (g["tag"], n) not in done]) for g in groups]
     todo = [(g, miss) for g, miss in todo if miss]
     log(f"deseq2: {len(todo)} groups to run, "

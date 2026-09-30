@@ -1,14 +1,15 @@
-"""Null-split GSEA reproducibility arm -- missing counterpart to gsea_split_jaccard's tertile
-run (that script/log is uncommitted; only its output summary.csv survived). Answers a direct
-question raised during review: does the pathway-level Jaccard bar used to call the tertile splits
-"reproducible" ALSO get cleared by a genuinely random (null) HC split, which carries no real
-control-composition signal? If so, the tertile "reproducibility" claim is not distinguishing real
-effect from a generically loose threshold.
+"""Pathway-level reproducibility of random (null) control splits.
 
-Reuses cached DESeq2 stat files (T0/T1/T2_{design}.csv.gz) from run_control_composition_deseq2.py's
-null draws (Pancreatic_Cancer__null_0000..0029) -- no refitting, GSEA only. Same prerank machinery
-(gsea_prerank, housekeeping-excluded KEGG+Reactome library) as MixedEffectsModeling's own
-group_level_pathway_gsea, for direct comparability.
+For each random HC split of Moore et al. Batch_1, runs prerank GSEA on the cached DESeq2
+stat files (T0/T1/T2_{design}.csv.gz from run_control_composition_deseq2.py) and reports how
+much the FDR<0.05 pathway sets agree across the three strata. No refitting, GSEA only.
+
+Same prerank machinery (gsea_prerank, housekeeping-excluded KEGG+Reactome library) as
+MixedEffectsModeling's own group_level_pathway_gsea, for direct comparability.
+
+The bias-axis (tertile) stratified counterpart was dropped on 2026-09-30: the bias axes
+tracked hidden pre-analytical sub-batches inside the old Batch_1, so a tertile split was
+partly a batch split.
 
 Run: python EDA/control_composition/run_gsea_split_jaccard_null.py [--n-null 10]
 """
