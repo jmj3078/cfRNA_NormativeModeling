@@ -153,18 +153,6 @@ def plot_direction(D, save_path=None):
 
 
 def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc"):
-    """Broken axis: the bulk keeps a linear panel, the outliers get a log panel of their own,
-    each coloured by the patient carrying it.
-
-    thr is both the outlier cut and the axis break, so the two panels partition the values
-    with nothing falling between them. 1.96 is the 95% HC interval -- the loosest cut that
-    still means something.
-
-    rank picks which of the design's DE genes to draw. "lfc" takes the most over-expressed
-    in disease, which puts the up-shifted genes side by side and reads left to right as one
-    direction; "padj" takes the most significant, which is what a paper would report;
-    "outliers" takes the ones carrying the most patient values above thr -- that last one
-    ranks on the quantity the panel then displays, so the caption says so."""
     G = de_genes(D, design)
     pa = D["padj"][("PancreaticNeoplasm", design)].combine_first(D["padj"][("PDAC", design)])
     order = pa.reindex(G).sort_values()
@@ -215,8 +203,7 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc
             x, y = k + jit[j], Zp[pi, k]
             top_ax.plot([x, k + 0.30], [y, 10 ** slots[j]], "-", lw=0.5, color="0.7", zorder=1)
             top_ax.text(k + 0.33, 10 ** slots[j], f"P{pi}", va="center", ha="left", fontsize=7.5,
-                        color="0.15", zorder=4,
-                        fontweight="bold" if pi == lead[k] else "normal")
+                        color="0.15", zorder=4)
             top_ax.plot(x, y, "o", ms=7 if pi == lead[k] else 5, color=pat_col[pi], mec="k",
                         mew=0.8 if pi == lead[k] else 0.35, zorder=3)
 
