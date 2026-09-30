@@ -37,7 +37,7 @@ def bh_reject(p, q=0.05):
 
 def sig_sets(tag, design, q=0.05):
     out = []
-    for t in range(3):
+    for t in range(config.CTRL_COMP_N_SPLITS):
         f = STAT_DIR / tag / f"T{t}_{design}.csv.gz"
         if not f.exists():
             return None

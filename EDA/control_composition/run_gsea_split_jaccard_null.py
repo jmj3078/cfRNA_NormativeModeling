@@ -80,7 +80,7 @@ def main():
                 continue
             t0 = time.time()
             n_sig, sig_terms = [], []
-            for t in range(3):
+            for t in range(config.CTRL_COMP_N_SPLITS):
                 stat = pd.read_csv(stat_dir / f"T{t}_{design}.csv.gz", index_col=0)["stat"]
                 stat.index = stat.index.str.split(".").str[0]
                 syms = sym_of.reindex(stat.index)
@@ -90,16 +90,17 @@ def main():
                 sig = set(res2d.loc[res2d["FDR q-val"] < 0.05, "Term"])
                 n_sig.append(len(sig))
                 sig_terms.append(sig)
-            jaccs = [jaccard(sig_terms[i], sig_terms[j]) for i, j in combinations(range(3), 2)]
+            pairs = list(combinations(range(len(sig_terms)), 2))
+            jaccs = [jaccard(sig_terms[i], sig_terms[j]) for i, j in pairs]
             row = dict(tag=tag, axis="null", method=f"deseq2__{design}",
-                      n_sig_T0=n_sig[0], n_sig_T1=n_sig[1], n_sig_T2=n_sig[2],
-                      jacc_T0T1=jaccs[0], jacc_T0T2=jaccs[1], jacc_T1T2=jaccs[2],
-                      jacc_mean=float(np.mean(jaccs)))
+                       **{f"n_sig_T{t}": n for t, n in enumerate(n_sig)},
+                       **{f"jacc_T{i}T{j}": v for (i, j), v in zip(pairs, jaccs)},
+                       jacc_mean=float(np.mean(jaccs)))
             rows.append(row)
             pd.DataFrame(rows).to_csv(out_csv, index=False, mode="a" if out_csv.exists() else "w",
                                       header=not out_csv.exists())
             rows = []
-            log(f"{tag}/deseq2__{design}: n_sig={n_sig[0]},{n_sig[1]},{n_sig[2]} "
+            log(f"{tag}/deseq2__{design}: n_sig={','.join(map(str, n_sig))} "
                 f"jacc_mean={row['jacc_mean']:.3f}  ({time.time()-t0:.0f}s)")
     log("done")
 

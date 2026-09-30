@@ -39,10 +39,14 @@ EDA_VIF_DIR       = EDA_RESULTS_DIR / "VIF"
 
 CTRL_COMP_DIR     = EDA_RESULTS_DIR / "Control_Composition"
 CTRL_COMP_W_DIR   = CTRL_COMP_DIR / "ruvg_W"
-CTRL_COMP_EXPR_DIR = CTRL_COMP_DIR / "expr"
 CTRL_COMP_STAT_DIR = CTRL_COMP_DIR / "tstats"
 CTRL_COMP_FIG_DIR = CTRL_COMP_DIR / "Figures"
 CTRL_COMP_DESEQ2_DIR = CTRL_COMP_DIR / "deseq2_stats"
+
+# Number of disjoint control strata per random split. 2 keeps the strata as large as
+# possible (n/2 each) while still sharing no sample, which an overlapping subsample design
+# would not: drawing 30 of 48 twice forces >=12 shared controls and inflates agreement.
+CTRL_COMP_N_SPLITS = 2
 
 EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
 EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"

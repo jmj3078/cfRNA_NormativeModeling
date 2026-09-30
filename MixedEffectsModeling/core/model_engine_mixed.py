@@ -199,6 +199,12 @@ class NormativeModelEngineMixed:
         self.trend_path = trend_path
         self.alpha_fn = load_trend(trend_path)
 
+        # The calib fits predate the trend, so glmm_fit.R leaves trend_alpha NA. Fill it from
+        # the trend just built: pcis_null.R reads this file as its RES and drops every gene
+        # whose trend_alpha is not finite.
+        calib["trend_alpha"] = [self.alpha_fn(m) for m in mean_hc]
+        calib.to_csv(calib_path, index=False)
+
         self.disp_prior = estimate_slope_prior(calib_path)
         save_disp_prior(self.disp_prior, disp_prior_path)
 

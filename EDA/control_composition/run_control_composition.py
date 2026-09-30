@@ -1,7 +1,7 @@
 """Control-composition sensitivity of group-wise biomarker selection (Moore et al. Batch_1).
 
-Case group fixed; the HC pool split three ways at random, each stratum giving its own marker
-list. Agreement between those lists is the estimand: how much of a "biomarker" set is decided
+Case group fixed (one phenotype per run); the HC pool split config.CTRL_COMP_N_SPLITS ways at
+random with no sample shared between strata, each stratum giving its own marker list. Agreement between those lists is the estimand: how much of a "biomarker" set is decided
 by which healthy controls happened to be drawn.
 
 Bias-axis (tertile) stratified splits were removed on 2026-09-30 -- within Moore's old
@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -136,8 +137,8 @@ def enumerate_groups(data, n_null, seed=SEED):
     split rather than a control-composition contrast. Random splits only from here on."""
     obs = data["obs"]
     hc_idx = np.where(obs["phenotype"].values == "Healthy Control")[0]
-    n = len(hc_idx)
-    cuts = [0, n // 3, 2 * n // 3, n]
+    n, k = len(hc_idx), config.CTRL_COMP_N_SPLITS
+    cuts = [n * t // k for t in range(k + 1)]
     rng = np.random.default_rng(seed)
     groups = []
     for disease in DISEASES:
@@ -146,7 +147,7 @@ def enumerate_groups(data, n_null, seed=SEED):
             perm = rng.permutation(hc_idx)
             groups.append(dict(disease=disease, split="random", draw=b,
                                tag=f"{slug(disease)}__null_{b:04d}",
-                               case=case_idx, strata=[perm[cuts[t]:cuts[t + 1]] for t in range(3)]))
+                               case=case_idx, strata=[perm[cuts[t]:cuts[t + 1]] for t in range(k)]))
     return groups
 
 
@@ -277,7 +278,7 @@ def process_group(data, g):
 
     for layer in STATIC_LAYERS + DYNAMIC_LAYERS:
         acc = [pair_metrics(stats[i][layer], stats[j][layer])
-               for i in range(3) for j in range(i + 1, 3)]
+               for i, j in combinations(range(len(stats)), 2)]
         row = pd.DataFrame(acc).mean().to_dict()
         row.update(disease=g["disease"], split=g["split"], draw=g["draw"],
                    tag=g["tag"], layer=layer, n_case=len(g["case"]),

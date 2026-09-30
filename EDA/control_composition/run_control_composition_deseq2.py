@@ -15,6 +15,7 @@ Run:  python EDA/control_composition/run_control_composition_deseq2.py [--n-null
 import argparse
 import sys
 import time
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -99,7 +100,7 @@ def process_group(data, counts, g, layers=None):
 
     for name in layers:
         acc = [pair_metrics(np.asarray(stats[name][i]), np.asarray(stats[name][j]))
-               for i in range(3) for j in range(i + 1, 3)]
+               for i, j in combinations(range(len(stats[name])), 2)]
         row = pd.DataFrame(acc).mean().to_dict()
         row.update(disease=g["disease"], split=g["split"], draw=g["draw"],
                    tag=g["tag"], layer=name, n_case=n_case,
