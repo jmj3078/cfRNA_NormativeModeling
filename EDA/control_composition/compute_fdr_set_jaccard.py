@@ -18,8 +18,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 import config
 
-STAT_DIR = config.CTRL_COMP_DESEQ2_DIR
-OUT_CSV = config.CTRL_COMP_DIR / "gene_fdr_set_jaccard.csv"
+def stat_dir(scope=None):
+    return config.CTRL_COMP_DESEQ2_DIR / (scope or config.CTRL_COMP_DEFAULT_SCOPE)
+
+
+def out_csv(scope=None):
+    scope = scope or config.CTRL_COMP_DEFAULT_SCOPE
+    return config.CTRL_COMP_DIR / f"gene_fdr_set_jaccard_{scope}.csv"
 DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
 N_GENES = 18892
 
@@ -35,10 +40,10 @@ def bh_reject(p, q=0.05):
     return r
 
 
-def sig_sets(tag, design, q=0.05):
+def sig_sets(tag, design, q=0.05, scope=None):
     out = []
     for t in range(config.CTRL_COMP_N_SPLITS):
-        f = STAT_DIR / tag / f"T{t}_{design}.csv.gz"
+        f = stat_dir(scope) / tag / f"T{t}_{design}.csv.gz"
         if not f.exists():
             return None
         s = pd.read_csv(f, index_col=0)["stat"].dropna()
@@ -61,12 +66,13 @@ def pair_stats(sets):
     return float(np.mean(obs)), float(np.mean(exp))
 
 
-def compute():
+def compute(scope=None):
     rows = []
-    for tag in sorted(p.name for p in STAT_DIR.iterdir() if p.is_dir() and "__null_" in p.name):
+    for tag in sorted(p.name for p in stat_dir(scope).iterdir()
+                      if p.is_dir() and "__null_" in p.name):
         disease = "Pancreatic Cancer" if tag.startswith("Pancreatic_Cancer") else "Pancreatitis"
         for design in DESIGNS:
-            s = sig_sets(tag, design)
+            s = sig_sets(tag, design, scope=scope)
             if s is None:
                 continue
             j_obs, j_exp = pair_stats(s)
@@ -79,16 +85,17 @@ def compute():
     return pd.DataFrame(rows)
 
 
-def load(force=False):
-    if OUT_CSV.exists() and not force:
-        return pd.read_csv(OUT_CSV)
-    df = compute()
-    df.to_csv(OUT_CSV, index=False)
+def load(force=False, scope=None):
+    if out_csv(scope).exists() and not force:
+        return pd.read_csv(out_csv(scope))
+    df = compute(scope)
+    df.to_csv(out_csv(scope), index=False)
     return df
 
 
 if __name__ == "__main__":
-    df = load(force="--force" in sys.argv)
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    df = load(force="--force" in sys.argv, scope=args[0] if args else None)
     pd.set_option("display.width", 200)
     print(df.groupby(["disease", "design"]).agg(
         n=("jaccard_fdr", "size"), J_obs=("jaccard_fdr", "mean"),

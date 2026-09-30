@@ -43,7 +43,6 @@ RUVG_BATCH_R = HERE / "ruvg_batch.R"
 RSCRIPT = Path.home() / "miniconda3/envs/ruvseq_env/bin/Rscript"
 MARKER_TSV = ROOT / "Data" / "PalangoDB_CellTypeMarkers.tsv"
 
-BATCH = "Moore et al._Batch_1"
 DISEASES = ["Pancreatic Cancer", "Pancreatitis"]
 STATIC_LAYERS = ["CPM_log1p", "TPM_log2", "TMM_log2"]
 RUVG_K = [1, 2, 3]
@@ -53,10 +52,41 @@ K_GRID = [25, 50, 100, 200, 500]
 MIN_COUNT_SUM = 10
 SEED = 42
 
-CACHE = config.CTRL_COMP_DIR / "moore_b1_cache.pkl"
-SUBSET_CSV = config.CTRL_COMP_DIR / "subsets.csv"
-NULL_CSV = config.CTRL_COMP_DIR / "null_distribution.csv"
 LOG_PATH = config.CTRL_COMP_DIR / "progress.log"
+
+SCOPE = config.CTRL_COMP_DEFAULT_SCOPE
+
+
+def set_scope(scope):
+    """Select which Moore batches make up the cohort. Every output path below keys off this,
+    so two scopes never collide and either can be rebuilt without touching the other."""
+    global SCOPE
+    assert scope in config.CTRL_COMP_SCOPES, f"unknown scope {scope}"
+    SCOPE = scope
+
+
+def batches():
+    return config.CTRL_COMP_SCOPES[SCOPE]
+
+
+def cache_path():
+    return config.CTRL_COMP_DIR / f"moore_{SCOPE}_cache.pkl"
+
+
+def subset_csv():
+    return config.CTRL_COMP_DIR / f"subsets_{SCOPE}.csv"
+
+
+def null_csv():
+    return config.CTRL_COMP_DIR / f"null_distribution_{SCOPE}.csv"
+
+
+def w_dir():
+    return config.CTRL_COMP_W_DIR / SCOPE
+
+
+def stat_dir():
+    return config.CTRL_COMP_STAT_DIR / SCOPE
 
 
 def log(msg):
@@ -68,10 +98,10 @@ def log(msg):
 
 # --------------------------------------------------------------------------- data
 def build_cache():
-    if CACHE.exists():
-        with open(CACHE, "rb") as f:
+    if cache_path().exists():
+        with open(cache_path(), "rb") as f:
             return pickle.load(f)
-    log("building Moore Batch_1 cache from h5ad")
+    log(f"building {SCOPE} cache from h5ad: {', '.join(batches())}")
     adata = sc.read_h5ad(mconfig.H5AD_PATH)
     adata = adata[adata.obs["QC_Passed"] == True]
     adata = adata[adata.obs["Phenotype_Processed"].notna()]
@@ -90,7 +120,7 @@ def build_cache():
     rng_f = RangeFilter(n_out_thr=2).fit(X_all[train_hc])
     inlier = ood.mask(X_all) & rng_f.mask(X_all)
 
-    keep = (batch == BATCH) & inlier & np.isin(pheno, ["Healthy Control"] + DISEASES)
+    keep = np.isin(batch, batches()) & inlier & np.isin(pheno, ["Healthy Control"] + DISEASES)
     sub = adata[keep]
     raw = sub.layers["Raw"]
     raw = raw.toarray() if issparse(raw) else np.asarray(raw)
@@ -108,7 +138,7 @@ def build_cache():
     data = dict(obs=obs, layers=layers, genes=sub.var_names[gene_ok].astype(str).values,
                 gene_names=gene_names, is_platelet=platelet_mask(gene_names))
     config.CTRL_COMP_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CACHE, "wb") as f:
+    with open(cache_path(), "wb") as f:
         pickle.dump(data, f)
     log(f"cache: {len(obs)} samples x {gene_ok.sum()} genes, "
         f"{data['is_platelet'].sum()} platelet control genes")
@@ -168,8 +198,8 @@ def run_ruvg(data, tbl, k=max(RUVG_K)):
     Rscript launch does not scale to the null -- but R writes each W file as it finishes,
     so the stage is resumable. TMM is a per-sample scaling and is not refitted; only the
     RUV factors are."""
-    config.CTRL_COMP_W_DIR.mkdir(parents=True, exist_ok=True)
-    done = {p.stem for p in config.CTRL_COMP_W_DIR.glob("*.csv")}
+    w_dir().mkdir(parents=True, exist_ok=True)
+    done = {p.stem for p in w_dir().glob("*.csv")}
     todo = tbl[~tbl["subset_id"].isin(done)]
     if todo.empty:
         log(f"ruvg: all {tbl['subset_id'].nunique()} subsets already present")
@@ -183,11 +213,11 @@ def run_ruvg(data, tbl, k=max(RUVG_K)):
         Path(ctrl_path).write_text("\n".join(data["genes"][data["is_platelet"]]))
         todo.to_csv(sub_path, index=False)
         subprocess.run([str(RSCRIPT), str(RUVG_BATCH_R), tmm_path, ctrl_path, sub_path,
-                        str(k), str(config.CTRL_COMP_W_DIR)], check=True)
+                        str(k), str(w_dir())], check=True)
 
 
 def load_W(subset_id, samples):
-    w = pd.read_csv(config.CTRL_COMP_W_DIR / f"{subset_id}.csv").set_index("sample")
+    w = pd.read_csv(w_dir() / f"{subset_id}.csv").set_index("sample")
     return w.loc[samples, [f"W_{i}" for i in RUVG_K]].values
 
 
@@ -202,15 +232,15 @@ def residualize(Y, W, intercept):
 def verify_residualize(data):
     """Self-check: the python residualization must reproduce RUVSeq's normalizedCounts on
     the subset ruvg_batch.R dumped. Fails loudly rather than silently diverging."""
-    check = config.CTRL_COMP_W_DIR / "_check_normalizedCounts.csv.gz"
+    check = w_dir() / "_check_normalizedCounts.csv.gz"
     if not check.exists():
         log("verify: no R reference dump found, skipped")
         return
     ref = pd.read_csv(check, index_col=0)
     samples = data["obs"]["sample"].values
-    sid = sorted(p.stem for p in config.CTRL_COMP_W_DIR.glob("*.csv") if not p.stem.startswith("_"))
+    sid = sorted(p.stem for p in w_dir().glob("*.csv") if not p.stem.startswith("_"))
     for s in sid:
-        w = pd.read_csv(config.CTRL_COMP_W_DIR / f"{s}.csv")
+        w = pd.read_csv(w_dir() / f"{s}.csv")
         if set(w["sample"]) == set(ref.columns):
             idx = np.array([np.where(samples == c)[0][0] for c in ref.columns])
             W = w.set_index("sample").loc[ref.columns, [f"W_{i}" for i in RUVG_K]].values
@@ -271,7 +301,7 @@ def process_group(data, g):
         tt = {name: welch_t(M[:n_case], M[n_case:]) for name, M in mats.items()}
         stats.append(tt)
 
-        stat_dir = config.CTRL_COMP_STAT_DIR / g["tag"]
+        stat_dir = stat_dir() / g["tag"]
         stat_dir.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(tt, index=data["genes"]).assign(GeneName=data["gene_names"]).to_csv(
             stat_dir / f"T{t}_welch_t.csv.gz")
@@ -283,31 +313,34 @@ def process_group(data, g):
         row.update(disease=g["disease"], split=g["split"], draw=g["draw"],
                    tag=g["tag"], layer=layer, n_case=len(g["case"]),
                    n_ctrl=float(np.mean([len(s) for s in g["strata"]])))
-        append_row(NULL_CSV, row)
+        append_row(null_csv(), row)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-null", type=int, default=200)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--scope", default=config.CTRL_COMP_DEFAULT_SCOPE,
+                    choices=sorted(config.CTRL_COMP_SCOPES))
     args = ap.parse_args()
+    set_scope(args.scope)
 
     config.CTRL_COMP_DIR.mkdir(parents=True, exist_ok=True)
     if args.force:
-        NULL_CSV.unlink(missing_ok=True)
+        null_csv().unlink(missing_ok=True)
 
     data = build_cache()
     groups = enumerate_groups(data, n_null=args.n_null)
     tbl = subset_table(data, groups)
-    tbl.to_csv(SUBSET_CSV, index=False)
+    tbl.to_csv(subset_csv(), index=False)
     log(f"{len(groups)} comparison groups, {tbl['subset_id'].nunique()} comparisons")
 
     run_ruvg(data, tbl)
     verify_residualize(data)
 
     done = set()
-    if NULL_CSV.exists():
-        done = set(pd.read_csv(NULL_CSV, usecols=["tag"])["tag"].unique())
+    if null_csv().exists():
+        done = set(pd.read_csv(null_csv(), usecols=["tag"])["tag"].unique())
     todo = [g for g in groups if g["tag"] not in done]
     log(f"metrics: {len(todo)} groups to run ({len(done)} already done)")
 

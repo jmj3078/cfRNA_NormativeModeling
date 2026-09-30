@@ -41,18 +41,19 @@ def load():
     W_m = W.loc[obs.loc[keep, "sample"].values].values
     genes = np.array(cache["genes"])
 
-    deg, padj = {}, {}
+    deg, padj, lfc = {}, {}, {}
     for f in sorted(config.PANCREATIC_DEG_DIR.glob("moore_b1__*/*.csv.gz")):
         r = pd.read_csv(f, index_col=0)
         key = (f.parent.name.split("__")[1], f.name.split(".")[0])
         deg[key] = set(r.index[r["padj"].fillna(1.0) < DESEQ2_PADJ]) & set(genes)
         padj[key] = r["padj"]
+        lfc[key] = r["log2FoldChange"]
 
     return dict(genes=genes, pos={g: i for i, g in enumerate(genes)},
                 X={d: (tmm if d == "no_covariate" else residualize(tmm, W_m[:, :int(d[-1])]))
                    for d in DESIGNS},
                 is_case=pheno == CASE_PHENOTYPE, is_hc=pheno == HC_PHENOTYPE,
-                deg=deg, padj=padj)
+                deg=deg, padj=padj, lfc=lfc)
 
 
 def de_genes(D, design):
@@ -146,12 +147,31 @@ def plot_direction(D, save_path=None):
                                   frac_below_06=[(v < 0.6).mean() for v in curves]))
 
 
-def plot_top_degs(D, n_show=20, thr=3.0, save_path=None, design=PICK):
+def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc"):
     """Broken axis: the bulk keeps a linear panel, the outliers get a log panel of their own,
-    each coloured by the patient carrying it."""
+    each coloured by the patient carrying it.
+
+    thr is both the outlier cut and the axis break, so the two panels partition the values
+    with nothing falling between them. 1.96 is the 95% HC interval -- the loosest cut that
+    still means something.
+
+    rank picks which of the design's DE genes to draw. "lfc" takes the most over-expressed
+    in disease, which puts the up-shifted genes side by side and reads left to right as one
+    direction; "padj" takes the most significant, which is what a paper would report;
+    "outliers" takes the ones carrying the most patient values above thr -- that last one
+    ranks on the quantity the panel then displays, so the caption says so."""
     G = de_genes(D, design)
     pa = D["padj"][("PancreaticNeoplasm", design)].combine_first(D["padj"][("PDAC", design)])
-    top = list(pa.reindex(G).sort_values().index[:n_show])
+    order = pa.reindex(G).sort_values()
+    if rank == "lfc":
+        lf = D["lfc"][("PancreaticNeoplasm", design)].combine_first(
+            D["lfc"][("PDAC", design)])
+        order = order.reindex(lf.reindex(G).sort_values(ascending=False).index)
+    if rank == "outliers":
+        Za, _ = standardized(D, design, list(order.index))
+        n_out = (Za > thr).sum(axis=0)
+        order = order.iloc[np.argsort(-n_out, kind="stable")]
+    top = list(order.index[:n_show])
 
     with h5py.File(config.H5AD_PATH, "r") as h:
         dec = lambda a: np.array([x.decode("utf-8", "replace") for x in a])
@@ -164,6 +184,7 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None, design=PICK):
     Zp, Zh = standardized(D, design, top)
 
     ext = Zp > thr
+    ext_h = Zh > thr
     lead = np.abs(Zp).argmax(axis=0)
     carriers = sorted(set(np.where(ext)[0].tolist()))
     shuffled = np.random.default_rng(SEED).permutation(len(carriers))
@@ -177,6 +198,9 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None, design=PICK):
 
     lab_lo, lab_hi = np.log10(thr * 1.15), np.log10(float(Zp.max()) * 1.9)
     for k in range(len(top)):
+        oh = np.where(ext_h[:, k])[0]
+        top_ax.plot(k - 0.30 + np.linspace(-0.06, 0.06, len(oh)), Zh[oh, k], "o", ms=3.2,
+                    color=C_HC, mec="none", alpha=0.75, zorder=2)
         out = np.where(ext[:, k])[0]
         out = out[np.argsort(-Zp[out, k])]
         jit = np.linspace(-0.11, 0.11, len(out)) if len(out) > 1 else np.zeros(len(out))
@@ -185,21 +209,28 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None, design=PICK):
         for j, pi in enumerate(out):
             x, y = k + jit[j], Zp[pi, k]
             top_ax.plot([x, k + 0.30], [y, 10 ** slots[j]], "-", lw=0.5, color="0.7", zorder=1)
-            top_ax.plot(x, y, "o", ms=7 if pi == lead[k] else 5, color=pat_col[pi], mec="k",
-                        mew=0.8 if pi == lead[k] else 0.35, zorder=3)
             top_ax.text(k + 0.33, 10 ** slots[j], f"P{pi}", va="center", ha="left", fontsize=7.5,
                         color="0.15", zorder=4,
                         fontweight="bold" if pi == lead[k] else "normal")
+            top_ax.plot(x, y, "o", ms=7 if pi == lead[k] else 5, color=pat_col[pi], mec="k",
+                        mew=0.8 if pi == lead[k] else 0.35, zorder=3)
 
     top_ax.set_yscale("log")
     top_ax.set_ylim(thr, float(Zp.max()) * 2.6)
-    top_ax.set_ylabel("outliers (>3 SD)")
+    top_ax.set_ylabel("outliers")
     top_ax.spines["bottom"].set_visible(False)
     top_ax.tick_params(axis="x", length=0)
-    top_ax.text(0.0, 1.12, f"{int(ext.sum())} patient values above {thr:g} SD, one colour per "
-                f"patient, no colour repeated ({len(carriers)} of {Zp.shape[0]} patients). The largest belongs to a "
-                f"different patient (bold) in {len(set(lead.tolist()))} of the {len(top)} genes.",
-                transform=top_ax.transAxes, fontsize=11, color="0.25")
+    ep, eh = Zp.size * 0.025, Zh.size * 0.025
+    top_ax.text(0.0, 1.30,
+                f"above {thr:g} SD: {int(ext.sum())} patient values ({int(ext.sum()) / ep:.1f}x "
+                f"the {ep:.0f} expected of a healthy cohort this size), "
+                f"{int(ext_h.sum())} healthy (grey, left) ({int(ext_h.sum()) / eh:.1f}x)\n"
+                f"one colour per patient, no colour repeated ({len(carriers)} of {Zp.shape[0]} "
+                f"patients); the largest belongs to a different patient (bold) in "
+                f"{len(set(lead.tolist()))} of the {len(top)} genes"
+                + ("; genes ranked by patient-outlier count, not p-value"
+                   if rank == "outliers" else ""),
+                transform=top_ax.transAxes, fontsize=11, color="0.25", va="top")
 
     for k in range(len(top)):
         for arr, off, col in [(Zp[:, k], -0.19, C_PAT), (Zh[:, k], 0.19, C_HC)]:
@@ -211,13 +242,16 @@ def plot_top_degs(D, n_show=20, thr=3.0, save_path=None, design=PICK):
             jit = np.random.default_rng(SEED + k).normal(0, 0.03, len(arr))
             ax.plot(k + off + jit[inside], arr[inside], ".", ms=2.4, color=col, alpha=0.6)
     ax.axhline(0, color="k", lw=0.8)
-    ax.axhline(1.96, color="k", lw=0.7, ls=":")
-    ax.text(len(top) - 0.4, 1.96, " 1.96 SD", va="center", ha="left", fontsize=10, color="0.4")
+    if thr > 2.1:
+        ax.axhline(1.96, color="k", lw=0.7, ls=":")
+        ax.text(len(top) - 0.4, 1.96, " 1.96 SD", va="center", ha="left", fontsize=10, color="0.4")
     ax.set_ylim(ylo, thr)
     ax.set_xlim(-0.6, len(top) - 0.4)
     ax.spines["top"].set_visible(False)
     ax.set_xticks(range(len(top)), sym, rotation=90)
-    ax.set_xlabel(f"top {len(top)} group DE genes (sorted by $p_{{adj}}$), "
+    by = {"outliers": "most patient outliers", "lfc": "highest log$_2$FC in disease"}.get(
+        rank, "$p_{adj}$")
+    ax.set_xlabel(f"{len(top)} of the {len(G)} group DE genes ({by}), "
                   f"patients (red) vs healthy (grey), RUVg {DESIGN_SHORT[design]}")
     ax.set_ylabel("HC-standardized TMM-log2")
 

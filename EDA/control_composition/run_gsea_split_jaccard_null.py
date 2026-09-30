@@ -30,7 +30,8 @@ from pathway_lib import ensg_to_symbol, gsea_prerank, load_pathway_library, load
 
 DESIGNS = ["no_covariate", "ruvg_k1", "ruvg_k2", "ruvg_k3"]
 DISEASE = "Pancreatic Cancer"
-OUT_CSV = config.CTRL_COMP_DIR / "gsea_split_jaccard" / "summary_null.csv"
+def out_csv(scope):
+    return config.CTRL_COMP_DIR / "gsea_split_jaccard" / f"summary_null_{scope}.csv"
 
 
 def log(msg):
@@ -48,11 +49,14 @@ def main():
     ap.add_argument("--n-null", type=int, default=10)
     ap.add_argument("--draws", default=None, help="comma-separated draw indices (shard); default 0..n_null-1")
     ap.add_argument("--designs", default=None, help="comma-separated designs; default all four")
-    ap.add_argument("--out", default=None, help="output CSV (shard); merged into summary_null.csv later")
+    ap.add_argument("--out", default=None, help="output CSV (shard); merged into the scope summary later")
+    ap.add_argument("--scope", default=config.CTRL_COMP_DEFAULT_SCOPE,
+                    choices=sorted(config.CTRL_COMP_SCOPES))
     args = ap.parse_args()
     draws = [int(d) for d in args.draws.split(",")] if args.draws else list(range(args.n_null))
     designs = args.designs.split(",") if args.designs else DESIGNS
-    out_csv = Path(args.out) if args.out else OUT_CSV
+    summary = out_csv(args.scope)
+    out_path = Path(args.out) if args.out else summary
 
     universe_syms, sym2idx, col2sym = load_symbol_vocab(None)
     terms, M = load_pathway_library()
@@ -62,15 +66,15 @@ def main():
     sym_of.index = sym_of.index.str.split(".").str[0]
 
     rows = []
-    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     done = set()
-    if OUT_CSV.exists():
-        prev = pd.read_csv(OUT_CSV)
+    if summary.exists():
+        prev = pd.read_csv(summary)
         done = set(prev["tag"] + "/" + prev["method"])
 
     for draw in draws:
         tag = f"{DISEASE.replace(' ', '_')}__null_{draw:04d}"
-        stat_dir = config.CTRL_COMP_DESEQ2_DIR / tag
+        stat_dir = config.CTRL_COMP_DESEQ2_DIR / args.scope / tag
         if not stat_dir.exists():
             log(f"skip {tag}: no cached DESeq2 stats")
             continue
@@ -97,8 +101,9 @@ def main():
                        **{f"jacc_T{i}T{j}": v for (i, j), v in zip(pairs, jaccs)},
                        jacc_mean=float(np.mean(jaccs)))
             rows.append(row)
-            pd.DataFrame(rows).to_csv(out_csv, index=False, mode="a" if out_csv.exists() else "w",
-                                      header=not out_csv.exists())
+            pd.DataFrame(rows).to_csv(out_path, index=False,
+                                      mode="a" if out_path.exists() else "w",
+                                      header=not out_path.exists())
             rows = []
             log(f"{tag}/deseq2__{design}: n_sig={','.join(map(str, n_sig))} "
                 f"jacc_mean={row['jacc_mean']:.3f}  ({time.time()-t0:.0f}s)")

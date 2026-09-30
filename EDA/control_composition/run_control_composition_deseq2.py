@@ -31,6 +31,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
 import MixedEffectsModeling.config as mconfig
+import run_control_composition as rcc
 from run_control_composition import (SEED, append_row, build_cache, enumerate_groups,
                                      load_W, log, pair_metrics)
 
@@ -41,21 +42,29 @@ DESIGNS = {"no_covariate": "~condition",
 MIN_COUNT_SUM = 10
 N_CPUS = 16
 
-RAW_CACHE = config.CTRL_COMP_DIR / "moore_b1_raw_counts.pkl"
-NULL_CSV = config.CTRL_COMP_DIR / "deseq2_null_distribution.csv"
+def raw_cache():
+    return config.CTRL_COMP_DIR / f"moore_{rcc.SCOPE}_raw_counts.pkl"
+
+
+def null_csv():
+    return config.CTRL_COMP_DIR / f"deseq2_null_distribution_{rcc.SCOPE}.csv"
+
+
+def stat_dir():
+    return config.CTRL_COMP_DESEQ2_DIR / rcc.SCOPE
 
 
 def load_raw_counts(data):
     """Raw counts aligned to the same sample/gene order as the shared cache."""
-    if RAW_CACHE.exists():
-        return pd.read_pickle(RAW_CACHE)
+    if raw_cache().exists():
+        return pd.read_pickle(raw_cache())
     log("loading raw counts for DESeq2 (aligned to existing sample/gene cache)")
     adata = sc.read_h5ad(mconfig.H5AD_PATH)
     sub = adata[data["obs"]["sample"].values, data["genes"]]
     raw = sub.layers["Raw"]
     raw = raw.toarray() if issparse(raw) else np.asarray(raw)
     counts = pd.DataFrame(np.round(raw).astype(int), index=sub.obs_names.astype(str), columns=data["genes"])
-    counts.to_pickle(RAW_CACHE)
+    counts.to_pickle(raw_cache())
     return counts
 
 
@@ -83,10 +92,10 @@ def process_group(data, counts, g, layers=None):
         sub_counts = counts.iloc[idx]
         condition = np.array(["disease"] * n_case + ["HC"] * len(ctrl))
 
-        stat_dir = config.CTRL_COMP_DESEQ2_DIR / g["tag"]
-        stat_dir.mkdir(parents=True, exist_ok=True)
+        tag_dir = stat_dir() / g["tag"]
+        tag_dir.mkdir(parents=True, exist_ok=True)
         for name in layers:
-            out_path = stat_dir / f"T{t}_{name}.csv.gz"
+            out_path = tag_dir / f"T{t}_{name}.csv.gz"
             if out_path.exists():
                 s = pd.read_csv(out_path, index_col=0)["stat"].values
             else:
@@ -105,7 +114,7 @@ def process_group(data, counts, g, layers=None):
         row.update(disease=g["disease"], split=g["split"], draw=g["draw"],
                    tag=g["tag"], layer=name, n_case=n_case,
                    n_ctrl=float(np.mean([len(s) for s in g["strata"]])))
-        append_row(NULL_CSV, row)
+        append_row(null_csv(), row)
 
 
 def main():
@@ -113,11 +122,14 @@ def main():
     ap.add_argument("--n-null", type=int, default=30)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--disease", default=None, help="restrict to one phenotype (default: all)")
+    ap.add_argument("--scope", default=config.CTRL_COMP_DEFAULT_SCOPE,
+                    choices=sorted(config.CTRL_COMP_SCOPES))
     args = ap.parse_args()
+    rcc.set_scope(args.scope)
 
     config.CTRL_COMP_DIR.mkdir(parents=True, exist_ok=True)
     if args.force:
-        NULL_CSV.unlink(missing_ok=True)
+        null_csv().unlink(missing_ok=True)
 
     data = build_cache()
     counts = load_raw_counts(data)
@@ -132,8 +144,8 @@ def main():
     log(f"deseq2: {len(groups)} comparison groups ({len(DESIGNS)} designs each)")
 
     done = set()
-    if NULL_CSV.exists():
-        d = pd.read_csv(NULL_CSV, usecols=["tag", "layer"])
+    if null_csv().exists():
+        d = pd.read_csv(null_csv(), usecols=["tag", "layer"])
         done = set(zip(d["tag"], d["layer"]))
     todo = [(g, [n for n in DESIGNS if (g["tag"], n) not in done]) for g in groups]
     todo = [(g, miss) for g, miss in todo if miss]

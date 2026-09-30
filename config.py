@@ -48,6 +48,16 @@ CTRL_COMP_DESEQ2_DIR = CTRL_COMP_DIR / "deseq2_stats"
 # would not: drawing 30 of 48 twice forces >=12 shared controls and inflates agreement.
 CTRL_COMP_N_SPLITS = 2
 
+# Sample scopes for the control-composition experiment. "b1" is the single pre-analytical
+# condition (CEDAR, 2x150); "b123" pools it with the two BCC batches, which is what the old
+# Batch_ID definition called "Moore et al._Batch_1" before 2026-09-30. Each scope writes to
+# its own subdirectory and CSV, so both can be held side by side.
+CTRL_COMP_SCOPES = {
+    "b1": ["Moore et al._Batch_1"],
+    "b123": ["Moore et al._Batch_1", "Moore et al._Batch_2", "Moore et al._Batch_3"],
+}
+CTRL_COMP_DEFAULT_SCOPE = "b1"
+
 EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
 EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"
 PANCREATIC_DEG_DIR = EDA_GROUP_CONTRAST_DIR / "pancreatic_deg"
