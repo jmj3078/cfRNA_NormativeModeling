@@ -2,6 +2,7 @@ import json
 import sys
 from pathlib import Path
 
+from matplotlib.patches import Patch
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
