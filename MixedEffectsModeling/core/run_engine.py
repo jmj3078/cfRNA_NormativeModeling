@@ -50,6 +50,7 @@ def main():
     disp_prior_path = args.out_dir / "disp_prior.json"
 
     engine = NormativeModelEngineMixed()
+    engine.resume = args.resume
     engine.load_hc_data()
     engine.assign_routes()
     n_pool = sum(1 for r in engine.genes.values() if r.route == "pool")

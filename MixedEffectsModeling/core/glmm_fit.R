@@ -13,7 +13,8 @@ opt <- parse_args(OptionParser(option_list = list(
   make_option("--disp-prior", type = "character", default = ""),
   make_option("--fit-params", type = "character", default = ""),
   make_option("--out", type = "character"), make_option("--chunk-size", type = "integer", default = 200),
-  make_option("--cores", type = "integer", default = min(parallel::detectCores() - 1, 12))
+  make_option("--cores", type = "integer", default = min(parallel::detectCores() - 1, 12)),
+  make_option("--resume", action = "store_true", default = FALSE)
 )))
 
 X <- as.matrix(read.csv(opt$x, row.names = 1))
@@ -60,6 +61,9 @@ if (opt$mode != "calib" && nzchar(opt$`disp-prior`) && file.exists(opt$`disp-pri
   stopifnot(length(TAU_SLOPE) == length(safe_names))
 }
 
+# Resume is opt-in: a stale --out from another run (e.g. a previous LOBO batch reusing the
+# same tmp path) would otherwise be silently taken as finished fits.
+if (!opt$resume && file.exists(opt$out)) file.remove(opt$out)
 done_genes <- character(0)
 if (file.exists(opt$out)) done_genes <- read.csv(opt$out)$gene
 

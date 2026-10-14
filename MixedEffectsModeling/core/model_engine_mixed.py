@@ -95,6 +95,7 @@ class NormativeModelEngineMixed:
         self.disp_tau_d2 = None
         self.trend_report = None
         self.trend_path = config.DISPERSION_TREND_PATH
+        self.resume = False
 
     def load_hc_data(self, h5ad_path=config.H5AD_PATH):
         adata = sc.read_h5ad(h5ad_path)
@@ -150,6 +151,8 @@ class NormativeModelEngineMixed:
                "--mode", mode, "--fit-params", str(fit_params), "--out", out_csv]
         if disp_prior_path is not None:
             cmd += ["--disp-prior", str(disp_prior_path)]
+        if self.resume:
+            cmd.append("--resume")
         subprocess.run(cmd, check=True, cwd=str(config.GLMM_FIT_R.parent))
 
     def calib_genes(self, n=None, n_strata=None, seed=42):
