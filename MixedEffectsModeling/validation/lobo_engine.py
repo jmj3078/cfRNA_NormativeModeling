@@ -385,6 +385,8 @@ def main():
         print(f"  saved -> {out_dir}  ({res['elapsed_s']:.0f}s, "
              f"{len(res['gene_names'])} genes, n_test={res['n_test']})", flush=True)
 
+    compute_ood(data, args.out_dir)
+
 
 if __name__ == "__main__":
     main()
