@@ -119,6 +119,7 @@ def _refit_model_genes(tr_idx, data, genes, stage_of, scaler, tmp, disp_prior_pa
           "--mode", "fixed_stage", "--out", f"{tmp}/res.csv"]
     if disp_prior_path is not None:
         cmd += ["--disp-prior", str(disp_prior_path)]
+    Path(f"{tmp}/res.csv").unlink(missing_ok=True)
     subprocess.run(cmd, check=True, cwd=str(config.GLMM_FIT_R.parent))
     fits = squeeze_fold(pd.read_csv(f"{tmp}/res.csv").set_index("gene"))
     if cache_path:

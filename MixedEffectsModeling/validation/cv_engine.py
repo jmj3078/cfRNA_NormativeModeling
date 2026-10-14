@@ -81,6 +81,7 @@ def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, 
             ]
             if disp_prior_path is not None:
                 cmd += ["--disp-prior", str(disp_prior_path)]
+            Path(f"{tmp}/res_{fi}.csv").unlink(missing_ok=True)
             subprocess.run(cmd, check=True, cwd=str(config.GLMM_FIT_R.parent))
 
             fold_fits = squeeze_fold(pd.read_csv(f"{tmp}/res_{fi}.csv").set_index("gene"))
