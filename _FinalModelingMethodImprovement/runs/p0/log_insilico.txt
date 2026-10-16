@@ -1,0 +1,3 @@
+scored cv/fold0
+scored cv/fold1
+scored cv/fold2

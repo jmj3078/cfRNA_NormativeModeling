@@ -3,13 +3,18 @@
 목표: 같은 분할, 같은 in-silico 데이터, 같은 지표 코드로 후보 파이프라인을 비교한다.
 우선순위: LOBO > signal detection > FDR 방어.
 
-## 후보
+## 후보 x 시나리오 (2026-10-16 확정)
 
-| id | 공변량 | RQR | 비고 |
+| id | 내용 | zero_shot | adaptation |
 |---|---|---|---|
-| `p1_baseline` | BIAS_COLUMNS 10개 | random effect 주변화 | 현행 그대로 |
-| `p2_blup` | BIAS_COLUMNS 10개 | 배치 BLUP 조건부 | Z 클리핑 범위는 p1과 동일. held-out 배치의 BLUP은 그 배치 HC로 추정(누수 감수) |
-| `p3_<tag>` | RUV 요인 W(k), 단독 또는 기술 공변량과 조합 | 주변화 | background gene 선정에 질병 샘플 사용(누수 감수), W 적합은 학습 HC만 |
+| `p0` | 현행 파이프라인 (BIAS 10개, 주변화 RQR) | O | O (평균 shift 재보정) |
+| `p1` | p0 + 배치 BLUP 조건부 RQR | -- (배치 HC 없이는 정의 불가) | O (교차적합 BLUP) |
+| `p2` | background gene RUV 공변량 | O | O (평균 shift 재보정) |
+| 이상치 방법 4개 | OUTRIDER(AE), PCA, OutSingle, PEER, 재적합 없음 | O | O (평균 shift 재보정) |
+
+adaptation = held-out 배치 HC를 2-fold 교차적합으로 사용, 자기 자신은 보정에 쓰지 않음.
+재보정 방식은 평균만 (평균+SD, 중앙값, 중앙값+MAD는 2026-10-16 비교 후 기각, `eval/adaptation.py` docstring).
+CV는 adaptation 없음.
 
 ## 디렉토리
 

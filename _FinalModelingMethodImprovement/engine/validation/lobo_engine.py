@@ -104,7 +104,7 @@ def _refit_model_genes(tr_idx, data, genes, stage_of, scaler, tmp, disp_prior_pa
     leave-one-batch-out train set -- a rerun with the cache present skips
     Rscript entirely, same cache-first contract as validation/cv_engine.py."""
     if cache_path and cache_path.exists():
-        return pd.read_csv(cache_path).set_index("gene")
+        return pd.read_csv(cache_path, float_precision="round_trip").set_index("gene")
     Xs_tr = scaler.transform(data["X_raw"][tr_idx])
     Y_tr = data["Y"][tr_idx][:, [data["gene_col"][g] for g in genes]]
     pd.DataFrame(Xs_tr, columns=config.BIAS_COLUMNS).to_csv(f"{tmp}/X.csv.gz")
@@ -254,7 +254,7 @@ def run_one_batch(batch_id, data, summary, alpha_fn, disp_prior_path, tmp, limit
     # batch) in-sample Z, applied to the held-out batch Z -- the LOBO analogue
     # of NormativeModelEngineMixed.fit_shash, never fit on the held-out Z itself.
     shash_cache = cache_dir / "shash_params.csv" if cache_dir else None
-    shash_cached = pd.read_csv(shash_cache).set_index("gene") if shash_cache and shash_cache.exists() else None
+    shash_cached = pd.read_csv(shash_cache, float_precision="round_trip").set_index("gene") if shash_cache and shash_cache.exists() else None
     genes_scored = [g for g in zdict if g in zdict_tr]
     Z_shash, shash_rows = {}, []
     for g in genes_scored:
@@ -366,7 +366,9 @@ def main():
     batches_df.to_csv(args.out_dir / "batch_tier_assignment.csv", index=False)
     print(batches_df.to_string())
 
-    todo = batches_df if args.batch is None else batches_df[batches_df["batch"] == args.batch]
+    frozen = json.loads(config.LOBO_FOLDS_PATH.read_text())
+    todo = batches_df[batches_df["batch"].isin(frozen)]
+    todo = todo if args.batch is None else todo[todo["batch"] == args.batch]
     if todo.empty:
         raise SystemExit(f"batch {args.batch!r} not found in usable_batches()")
 
@@ -379,6 +381,8 @@ def main():
             print(f"[skip, already done] {b}")
             continue
         print(f"\n=== LOBO batch: {b}  (tier={tier}, n_dis={n_dis}) ===", flush=True)
+        is_pool = data["is_hc"] & ~np.isin(data["batch"], list(data["small_hc_batches"]))
+        assert sorted(data["names"][is_pool & (data["batch"] != b)]) == sorted(frozen[b]["train"])
         res = run_one_batch(b, data, summary, alpha_fn, disp_prior_path, tmp, limit_genes=args.limit_genes,
                             cache_dir=args.out_dir / safe)
         out_dir = save_batch_result(res, tier, n_dis, args.out_dir)

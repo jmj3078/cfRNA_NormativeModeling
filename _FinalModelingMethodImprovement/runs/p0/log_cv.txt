@@ -1,0 +1,9 @@
+CV: 17800 model-route genes, 2051 pool-route genes
+model-route fold success rate: 0.994 (88496/89000)
+pool-route fold success: 5/5
+                          mean_z     std_z
+route stage                               
+model nbi_full_eb       0.003172  1.022720
+      nbi_intercept_eb  0.024559  1.011581
+pool  pool             -0.007301  0.946290
+Saved -> /project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/runs/p0_repro/cv/fold_stats.csv, pool_fold_stats.csv, cv_stats.csv, cv_zscores.pkl, cv_zscores_shash.pkl, cv_ppc.pkl

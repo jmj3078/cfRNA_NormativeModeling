@@ -63,7 +63,7 @@ def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, 
         scaler = StandardScaler().fit(e2.X_hc_raw[tr])
         cache_path = cache_dir / f"model_fold{fi}.csv" if cache_dir else None
         if cache_path and cache_path.exists():
-            fold_fits = pd.read_csv(cache_path).set_index("gene")
+            fold_fits = pd.read_csv(cache_path, float_precision="round_trip").set_index("gene")
         else:
             pd.DataFrame(scaler.transform(e2.X_hc_raw[tr]), columns=config.BIAS_COLUMNS).to_csv(f"{tmp}/X_{fi}.csv.gz")
             Y_tr = e2.Y_hc[tr][:, [e2._gene_col[g] for g in model_genes]]
@@ -90,7 +90,7 @@ def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, 
                 fold_fits.to_csv(cache_path)
 
         shash_cache_path = cache_dir / f"shash_model_fold{fi}.csv" if cache_dir else None
-        shash_cached = (pd.read_csv(shash_cache_path).set_index("gene")
+        shash_cached = (pd.read_csv(shash_cache_path, float_precision="round_trip").set_index("gene")
                        if shash_cache_path and shash_cache_path.exists() else None)
         fold_shash_rows = []
 
@@ -210,7 +210,7 @@ def cv_pool_route(e2, genes_t, folds, tmp, cache_dir=None):
             mult_te = np.clip(mult_te, fit["mult_lo"], fit["mult_hi"])
 
         shash_cache_path = cache_dir / f"shash_pool_fold{fi}.csv" if cache_dir else None
-        shash_cached = (pd.read_csv(shash_cache_path).set_index("gene")
+        shash_cached = (pd.read_csv(shash_cache_path, float_precision="round_trip").set_index("gene")
                        if shash_cache_path and shash_cache_path.exists() else None)
         fold_shash_rows = []
 

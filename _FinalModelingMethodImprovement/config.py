@@ -4,16 +4,25 @@ import sys
 from pathlib import Path
 
 FMMI = Path(__file__).resolve().parent
-PROJECT_ROOT = FMMI.parent
+
+
+def _main_worktree(root):
+    """Data and production outputs are untracked, so they live only in the main worktree."""
+    git = root / ".git"
+    return Path(git.read_text().split("gitdir:")[1].strip().split("/.git/")[0]) if git.is_file() else root
+
+
+PROJECT_ROOT = _main_worktree(FMMI.parent)
 
 H5AD_PATH = PROJECT_ROOT / "OpenAccess_nfcore" / "Merged_Processed_AnnData_with_Batch_Biases_QC_Status.h5ad"
 RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent / "Rscript")
 
 PIPELINES = {
-    "p1_baseline": dict(covariates="bias10", rqr="marginal"),
-    "p2_blup": dict(covariates="bias10", rqr="blup"),
+    "p0": dict(covariates="bias10", rqr="marginal"),  # current production pipeline
+    "p1": dict(covariates="bias10", rqr="blup"),      # p0 + batch BLUP, adaptation only
+    "p2": dict(covariates="ruv", rqr="marginal"),     # background-gene RUV covariates
 }
-PIPELINE = os.environ.get("FMMI_PIPELINE", "p1_baseline")
+PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")
 assert PIPELINE in PIPELINES, f"unknown pipeline {PIPELINE!r}"
 
 SPLITS_DIR = FMMI / "splits"
@@ -21,6 +30,9 @@ CV_FOLDS_PATH = SPLITS_DIR / "cv_folds.json"
 LOBO_FOLDS_PATH = SPLITS_DIR / "lobo_folds.json"
 INSILICO_DIR = FMMI / "insilico"
 RESULTS_DIR = FMMI / "results"
+INSILICO_CSV = RESULTS_DIR / "insilico_sweep.csv"
+DETECTION_LIMIT_CSV = RESULTS_DIR / "detection_limit.csv"
+OUTLIER_ARMS = {"autoencoder": "OUTRIDER (AE)", "pca": "PCA", "outsingle": "OutSingle", "peer": "PEER"}
 
 RUN_DIR = FMMI / "runs" / PIPELINE
 ENGINE_MIXED_DIR = RUN_DIR / "full"
