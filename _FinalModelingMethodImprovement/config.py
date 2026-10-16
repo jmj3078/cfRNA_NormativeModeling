@@ -18,9 +18,8 @@ H5AD_PATH = PROJECT_ROOT / "OpenAccess_nfcore" / "Merged_Processed_AnnData_with_
 RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent / "Rscript")
 
 PIPELINES = {
-    "p0": dict(covariates="bias10", rqr="marginal"),  # current production pipeline
-    "p1": dict(covariates="bias10", rqr="blup"),      # p0 + batch BLUP, adaptation only
-    "p2": dict(covariates="ruv", rqr="marginal"),     # background-gene RUV covariates
+    "p0": dict(covariates="bias10"),  # current production pipeline
+    "p2": dict(covariates="ruv"),  # background-gene RUV covariates
 }
 PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")
 assert PIPELINE in PIPELINES, f"unknown pipeline {PIPELINE!r}"

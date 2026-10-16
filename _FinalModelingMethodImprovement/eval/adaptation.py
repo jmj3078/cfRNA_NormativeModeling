@@ -9,8 +9,7 @@ precision much, so it is the fixed choice.
 
 Cross-fitted 2-fold: each HC half is shifted by the other half's mean, so no sample
 recalibrates itself. The adaptation half is read from the unperturbed (log2fc=0) cell, so
-injected signal never enters m. BLUP pipelines (rqr="blup") adapt inside the model and are
-not passed through this.
+injected signal never enters m.
 
 Run: python eval/adaptation.py insilico
 """
@@ -71,9 +70,7 @@ def method_cells(method, tag):
 
 
 def insilico():
-    methods = list(config.OUTLIER_ARMS) + [
-        p for p, spec in config.PIPELINES.items()
-        if spec["rqr"] == "marginal" and (config.FMMI / "runs" / p / "insilico").exists()]
+    methods = list(config.OUTLIER_ARMS) + [p for p in config.PIPELINES if (config.FMMI / "runs" / p / "insilico").exists()]
     rows = []
     for key, tag, _, te in fold_spec("lobo"):
         cells = {f: np.load(config.INSILICO_DIR / "sweep" / f"lobo_{tag}_log2fc{f:g}.npz") for f in LOG2FCS}

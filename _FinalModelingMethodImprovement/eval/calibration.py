@@ -4,8 +4,8 @@
 splits   cv        every HC of the 5-fold CV (nb1)
          cv_paired CV Z of exactly the LOBO HC kept by the OOD filter (nb2 "CV (seen batch)")
          lobo      LOBO Z of the same HC (nb2 "LOBO (unseen batch)")
-scenario zero_shot as scored; adaptation (lobo only) = marginal pipelines shifted by the other
-         half's per-gene mean within each batch (eval/adaptation.py), BLUP pipelines as stored.
+scenario zero_shot as scored; adaptation (lobo only) = shifted by the other half's per-gene
+         mean within each batch (eval/adaptation.py).
 
 Outputs (config.RESULTS_DIR): calibration_gene.csv, calibration_sample.csv,
 calibration_exceedance.csv, calibration_lobo_batch.csv, calibration_ppc.csv.
@@ -106,7 +106,6 @@ def ppc(run):
 def main():
     pipe = config.PIPELINE
     run = config.RUN_DIR
-    lobo_scen = ["adaptation"] if config.PIPELINES[pipe]["rqr"] == "blup" else ["zero_shot", "adaptation"]
     order, cv_raw, cv_sh = load_cv(run)
     full = [g for g, z in cv_raw.items() if len(z) == len(order)]
     genes, parts = load_lobo(run, full)
@@ -118,10 +117,9 @@ def main():
          ("cv", "zero_shot", "shash"): np.column_stack([cv_sh[g] for g in full]).astype(float),
          ("cv_paired", "zero_shot", "raw"): np.column_stack([cv_raw[g][pos] for g in genes]).astype(float),
          ("cv_paired", "zero_shot", "shash"): np.column_stack([cv_sh[g][pos] for g in genes]).astype(float)}
-    for scen in lobo_scen:
-        for kind in ("raw", "shash"):
-            Z[("lobo", scen, kind)] = (adapt(parts, kind) if scen == "adaptation" and lobo_scen != ["adaptation"]
-                                       else np.vstack([p[kind] for p in parts]))
+    for kind in ("raw", "shash"):
+        Z[("lobo", "zero_shot", kind)] = np.vstack([p[kind] for p in parts])
+        Z[("lobo", "adaptation", kind)] = adapt(parts, kind)
     for z in Z.values():
         z[~np.isfinite(z)] = np.nan
 
