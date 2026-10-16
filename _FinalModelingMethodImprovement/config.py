@@ -32,6 +32,9 @@ RESULTS_DIR = FMMI / "results"
 INSILICO_CSV = RESULTS_DIR / "insilico_sweep.csv"
 DETECTION_LIMIT_CSV = RESULTS_DIR / "detection_limit.csv"
 OUTLIER_ARMS = {"autoencoder": "OUTRIDER (AE)", "pca": "PCA", "outsingle": "OutSingle", "peer": "PEER"}
+COVARIATE_DIR = RESULTS_DIR / "covariates"
+PANGLAO_TSV = PROJECT_ROOT / "Data" / "PalangoDB_CellTypeMarkers.tsv"
+RUVSEQ_RSCRIPT = Path.home() / "miniconda3" / "envs" / "ruvseq_env" / "bin" / "Rscript"
 
 RUN_DIR = FMMI / "runs" / PIPELINE
 ENGINE_MIXED_DIR = RUN_DIR / "full"
