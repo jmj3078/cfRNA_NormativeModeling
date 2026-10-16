@@ -14,7 +14,7 @@ sn <- sanitize_names(colnames(X)); colnames(X) <- sn
 Xa <- cbind(1, X); n <- nrow(Xa); p <- ncol(Xa)
 pri <- as.numeric(fromJSON(PRIOR)$tau_slope)
 res <- read.csv(RES); res <- res[toupper(as.character(res$ok)) == "TRUE", ]
-mu_c <- paste0("mu_coef_", 0:10); dp_c <- paste0("disp_coef_", 0:10)
+mu_c <- paste0("mu_coef_", 0:(p - 1)); dp_c <- paste0("disp_coef_", 0:(p - 1))
 lev <- unique(batch); bidx <- match(batch, lev)
 TOPK <- 50
 

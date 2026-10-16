@@ -116,7 +116,7 @@ n_total_cum <- length(done_genes)
 for (i in seq_along(chunks)) {
   results <- mclapply(chunks[[i]], worker, mc.cores = opt$cores)
   rows <- lapply(results, function(r) {
-    p <- 11  # 1 intercept + 10 covariates
+    p <- 1 + ncol(X)  # intercept + covariates
     pad <- function(v) c(v, rep(NA, p - length(v)))[1:p]
     mu_padded <- pad(r$mu_coef)
     disp_padded <- pad(r$disp_coef)

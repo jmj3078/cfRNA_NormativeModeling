@@ -33,7 +33,8 @@ def main():
     cols = [data["gene_col"][g] for g in gene_names]
     hc = data["is_hc"] & ~np.isin(data["batch"], list(data["small_hc_batches"]))
     for tag, rows in (("hc", np.where(hc)[0]), ("disease", np.where(~data["is_hc"])[0])):
-        Z = np.clip(engine.score(data["X_raw"][rows], data["Y"][rows][:, cols], gene_names=gene_names), -Z_CAP, Z_CAP)
+        X = engine.covariates.transform(data["obs"][rows], data["Y"][rows])
+        Z = np.clip(engine.score(X, data["Y"][rows][:, cols], gene_names=gene_names), -Z_CAP, Z_CAP)
         np.save(SCORES_DIR / f"Z_{tag}.npy", Z)
         np.save(SCORES_DIR / f"Z_{tag}_shash.npy", shash_z(Z, gene_names, shash_params))
         pd.DataFrame({"sample": data["names"][rows], "batch": data["batch"][rows]}).to_csv(

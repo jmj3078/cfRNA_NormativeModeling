@@ -17,13 +17,6 @@ PROJECT_ROOT = _main_worktree(FMMI.parent)
 H5AD_PATH = PROJECT_ROOT / "OpenAccess_nfcore" / "Merged_Processed_AnnData_with_Batch_Biases_QC_Status.h5ad"
 RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent / "Rscript")
 
-PIPELINES = {
-    "p0": dict(covariates="bias10"),  # current production pipeline
-    "p2": dict(covariates="ruv"),  # background-gene RUV covariates
-}
-PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")
-assert PIPELINE in PIPELINES, f"unknown pipeline {PIPELINE!r}"
-
 SPLITS_DIR = FMMI / "splits"
 CV_FOLDS_PATH = SPLITS_DIR / "cv_folds.json"
 LOBO_FOLDS_PATH = SPLITS_DIR / "lobo_folds.json"
@@ -35,6 +28,33 @@ OUTLIER_ARMS = {"autoencoder": "OUTRIDER (AE)", "pca": "PCA", "outsingle": "OutS
 COVARIATE_DIR = RESULTS_DIR / "covariates"
 PANGLAO_TSV = PROJECT_ROOT / "Data" / "PalangoDB_CellTypeMarkers.tsv"
 RUVSEQ_RSCRIPT = Path.home() / "miniconda3" / "envs" / "ruvseq_env" / "bin" / "Rscript"
+
+BIAS_COLUMNS = [
+    "log(Total Reads)",
+    "Spliced Reads (%)",
+    "gDNA Contamination (Intron/Exon)",
+    "rRNA Fraction",
+    "RNA Degradation (3' Bias)",
+    "Platelet Score",
+    "GC Bias",
+    "Gene Length Bias",
+    "NG80",
+    "(NP80/NG80)",
+]
+
+# covariates: obs columns as they are, "W_<i>" = RUVg factor i of control_genes (engine/core/covariates.py).
+# A new covariate set is a new entry here, with its own runs/<pipeline>/ and its own pcis_cut
+# (the PCIS null depends on the design; eval/fit_pipeline.sh <pipe> calib prints it).
+PIPELINES = {
+    "p0": dict(covariates=BIAS_COLUMNS),  # current production pipeline
+    "p2": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)],
+               control_genes=SPLITS_DIR / "control_genes_N500.txt",  # 0_build_covariates.ipynb, N=500 + sex genes
+               pcis_cut=2.561541),
+}
+PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")
+assert PIPELINE in PIPELINES, f"unknown pipeline {PIPELINE!r}"
+COVARIATES = PIPELINES[PIPELINE]["covariates"]
+CONTROL_GENES = PIPELINES[PIPELINE]["control_genes"].read_text().split() if "control_genes" in PIPELINES[PIPELINE] else []
 
 RUN_DIR = FMMI / "runs" / PIPELINE
 ENGINE_MIXED_DIR = RUN_DIR / "full"
@@ -51,19 +71,6 @@ GLMM_FIT_POOL_R = FMMI / "engine" / "core" / "glmm_fit_pool.R"
 
 # Read-only: outputs of the production pipeline, consumed by baseline_import.py only.
 BASELINE_MEM_DIR = PROJECT_ROOT / "MixedEffectsModeling"
-
-BIAS_COLUMNS = [
-    "log(Total Reads)",
-    "Spliced Reads (%)",
-    "gDNA Contamination (Intron/Exon)",
-    "rRNA Fraction",
-    "RNA Degradation (3' Bias)",
-    "Platelet Score",
-    "GC Bias",
-    "Gene Length Bias",
-    "NG80",
-    "(NP80/NG80)",
-]
 
 STRATIFY_COL = "Batch_ID"
 NZ_A_MAX = 31
@@ -91,7 +98,7 @@ FIT_PARAMS = {
     "beta_explode_thr": SPIKE_PARAMS["beta_explode_thr"],
     "tau2_max": 3.0,
     "disp_intercept_max": 10.0,
-    "pcis_cut": 3.62,
+    "pcis_cut": PIPELINES[PIPELINE].get("pcis_cut", 3.62),  # 1e-4 per-observation null rate, eval/fit_pipeline.sh calib
     "max_outlier_frac": 0.05,
     "chunk_size": 200,
     "cores": 12,

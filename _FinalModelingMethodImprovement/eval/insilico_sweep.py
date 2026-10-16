@@ -4,6 +4,8 @@ freeze          write every injected-count cell once (universe genes, all held-o
                 CV fold / LOBO batch). The arm-independent injection makes this possible.
 score           score the FMMI_PIPELINE engine on the frozen cells (zero_shot), append its
                 rows to config.INSILICO_CSV and keep its Z under runs/<pipe>/insilico/.
+                Covariates are refitted on the fold's training HC; data-derived ones (W) are
+                projected from each cell's injected counts, so the injection moves them too.
 import          copy the production outlier-method arms (zero_shot) into the same csv.
 Adaptation rows are added by eval/adaptation.py.
 
@@ -26,7 +28,7 @@ from _FinalModelingMethodImprovement.engine.core.dispersion_trend import load_tr
 from _FinalModelingMethodImprovement.engine.core.marginal_rqr import marginal_nb_rqr
 from _FinalModelingMethodImprovement.engine.core.shash import shash_transform_to_z
 from _FinalModelingMethodImprovement.engine.validation.cv_engine import _mu_alpha
-from _FinalModelingMethodImprovement.engine.validation.lobo_engine import load_full_data, safe_dir
+from _FinalModelingMethodImprovement.engine.validation.lobo_engine import fold_covariates, load_full_data, safe_dir
 from _FinalModelingMethodImprovement.eval.results import append
 
 PROD_MC = config.BASELINE_MEM_DIR / "MethodComparison" / "cache"
@@ -121,7 +123,7 @@ def freeze():
             print(f"froze {split}/{tag}", flush=True)
 
 
-def engine_params(split, key, tag, U, tr_rows, te_rows, X_raw):
+def engine_params(split, key, U, X_tr, X_te):
     if split == "cv":
         src = config.CV_MIXED_DIR / "fold_params"
         fits = pd.read_csv(src / f"model_fold{key}.csv").set_index("gene")
@@ -131,8 +133,8 @@ def engine_params(split, key, tag, U, tr_rows, te_rows, X_raw):
         fits = pd.read_csv(src / "model_fits.csv").set_index("gene")
         shash = pd.read_csv(src / "shash_params.csv").set_index("gene")
     alpha_fn = load_trend(config.DISPERSION_TREND_PATH)
-    scaler = StandardScaler().fit(X_raw[tr_rows])
-    Xa = np.column_stack([np.ones(len(te_rows)), scaler.transform(X_raw[te_rows])])
+    scaler = StandardScaler().fit(X_tr)
+    Xa = np.column_stack([np.ones(len(X_te)), scaler.transform(X_te)])
     mu_cols = [c for c in fits.columns if c.startswith("mu_coef_")]
     disp_cols = [c for c in fits.columns if c.startswith("disp_coef_")]
     params = {}
@@ -160,15 +162,20 @@ def score():
     U = universe()
     data = load_full_data()
     row_of = {s: i for i, s in enumerate(data["names"])}
+    u_cols = [data["gene_col"][g] for g in U]
     out_dir = config.RUN_DIR / "insilico"
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for split in SPLITS:
         for seed_i, (key, tag, tr, te) in enumerate(fold_spec(split)):
             tr_rows, te_rows = [row_of[s] for s in tr], [row_of[s] for s in te]
-            params = engine_params(split, key, tag, U, tr_rows, te_rows, data["X_raw"])
+            cov = fold_covariates(data, tr_rows)
+            X_tr = cov.transform(data["obs"][tr_rows], data["Y"][tr_rows])
             for f in LOG2FCS:
                 c = np.load(cell_path(split, tag, f))
+                Y_te = data["Y"][te_rows].copy()
+                Y_te[:, u_cols] = c["y_pert"]
+                params = engine_params(split, key, U, X_tr, cov.transform(data["obs"][te_rows], Y_te))
                 z = engine_z(1000 * (seed_i + 1), params, len(te_rows), len(U), c["y_pert"].astype(np.float64))
                 p = 2 * norm.sf(np.abs(z))
                 np.savez_compressed(out_dir / f"{split}_{tag}_log2fc{f:g}.npz", z=z.astype(np.float32))

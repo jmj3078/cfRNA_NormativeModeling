@@ -1,7 +1,12 @@
 """Per-sample spike-in detection limit, 3_detection_limit.ipynb design (engine mu as the
 injection reference, LOBO half-boot and in-sample KFold arms). Needs runs/<pipe>/{full,lobo}
 and full/scores from score_full.py. Writes runs/<pipe>/detection_limit/ and appends
-config.DETECTION_LIMIT_CSV (scenario zero_shot, or adaptation with --adapt)."""
+config.DETECTION_LIMIT_CSV (scenario zero_shot, or adaptation with --adapt).
+
+Data-derived covariates (W): the injection reference mu uses W of the unperturbed sample, the
+injected sample is then scored with W projected from its injected counts, and every gene is
+rescored (not only the injected ones) because W moves all of them. The rescoring replicates
+the stored Z exactly (same rows, seeds, SHASH), asserted at log2fc = 0."""
 import json
 import pickle
 import sys
@@ -17,11 +22,16 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import _FinalModelingMethodImprovement.config as config
 from _FinalModelingMethodImprovement.engine.core.calibration import bh_fdr_reject
+from _FinalModelingMethodImprovement.engine.core.covariates import W_INDEX
+from _FinalModelingMethodImprovement.engine.core.dispersion_trend import load_trend
 from _FinalModelingMethodImprovement.engine.core.marginal_rqr import marginal_nb_rqr
-from _FinalModelingMethodImprovement.engine.core.shash import shash_transform_to_z
-from _FinalModelingMethodImprovement.engine.validation.lobo_engine import load_full_data, safe_dir
+from _FinalModelingMethodImprovement.engine.core.model_engine_mixed import NormativeModelEngineMixed
+from _FinalModelingMethodImprovement.engine.core.shash import load_shash_params, shash_transform_to_z
+from _FinalModelingMethodImprovement.engine.validation.lobo_engine import (
+    _score_model_genes, _score_pool, fold_covariates, load_full_data, safe_dir)
 from _FinalModelingMethodImprovement.eval.adaptation import loc
 from _FinalModelingMethodImprovement.eval.results import append
+from _FinalModelingMethodImprovement.eval.score_full import Z_CAP, shash_z
 
 N_PERTURB_GENES = 500
 LOG2FCS = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
@@ -36,9 +46,8 @@ data = load_full_data()
 name2row = {n: i for i, n in enumerate(data["names"])}
 
 
-def mu_alpha_tau2(b, genes, sample_rows):
-    Xs = b["scaler"].transform(data["X_raw"][sample_rows])
-    Xa = np.column_stack([np.ones(len(sample_rows)), Xs])
+def mu_alpha_tau2(b, genes, Xs):
+    Xa = np.column_stack([np.ones(len(Xs)), Xs])
     mu, alpha, tau2 = {}, {}, {}
     fits = b["fits"]
     mu_cols = [c for c in fits.columns if c.startswith("mu_coef_")]
@@ -49,22 +58,54 @@ def mu_alpha_tau2(b, genes, sample_rows):
         disp_coef = row[disp_cols].values.astype(float)
         mu[g] = np.clip(np.exp(Xa @ np.nan_to_num(mu_coef, nan=0.0)), 1e-6, 1e8)
         alpha[g] = (np.exp(-Xa @ np.nan_to_num(disp_coef, nan=0.0)) if not np.all(np.isnan(disp_coef))
-                    else np.full(len(sample_rows), float(row["trend_alpha"])))
+                    else np.full(len(Xs), float(row["trend_alpha"])))
         tau2[g] = float(row["tau2"])
     return mu, alpha, tau2
 
 
 def perturb_genes_fold(b, genes, sample_rows, log2fc, seed):
-    mu, alpha, tau2 = mu_alpha_tau2(b, genes, sample_rows)
+    """Z of the injected genes and the injected counts (all genes) of sample_rows."""
+    mu, alpha, tau2 = mu_alpha_tau2(b, genes, b["scaler"].transform(b["X"][sample_rows]))
+    Y = data["Y"][sample_rows].copy()
+    for g in genes:
+        c = data["gene_col"][g]
+        Y[:, c] = np.round(np.maximum(Y[:, c] + mu[g] * (2 ** log2fc - 1), 0))
+    if W_INDEX:
+        mu, alpha, tau2 = mu_alpha_tau2(b, genes, b["scaler"].transform(b["cov"].transform(data["obs"][sample_rows], Y)))
     z_of = {}
     for g in genes:
-        y_real = data["Y"][sample_rows, data["gene_col"][g]]
-        y_pert = np.round(np.maximum(y_real + mu[g] * (2 ** log2fc - 1), 0))
-        z_raw = marginal_nb_rqr(y_pert, mu[g], alpha[g], tau2[g], seed=seed + zlib.crc32(g.encode()) % 9973)
+        z_raw = marginal_nb_rqr(Y[:, data["gene_col"][g]], mu[g], alpha[g], tau2[g], seed=seed + zlib.crc32(g.encode()) % 9973)
         srow = b["shash_p"].loc[g]
         z = shash_transform_to_z(z_raw, srow.xi, srow.eta, srow.eps, srow.delta) if srow.ok else z_raw
         z_of[g] = np.clip(z, -50, 50)
-    return z_of
+    return z_of, Y
+
+
+def rescore_lobo(b, idx_A, Y_A):
+    """Z_test_shash of the held-out batch HC idx_A, as lobo_engine.run_one_batch scores it, with
+    their counts replaced by Y_A (all held-out samples are rescored so the RQR draws line up)."""
+    Y = data["Y"][b["test_rows"]].copy()
+    Y[b["hc_pos"][idx_A]] = Y_A
+    Xs = b["scaler"].transform(b["cov"].transform(data["obs"][b["test_rows"]], Y))
+    zdict, _ = _score_model_genes(b["fits_rt"], b["fits_rt"].index.tolist(), Xs, Y, data["gene_col"], b["alpha_fn"], report=False)
+    if b["pool_fit"] is not None and b["pool_fit"]["ok"]:
+        zdict.update(_score_pool(b["pool_fit"], list(b["pool_fit"]["gene"]), Xs, Y, data["gene_col"], 42))
+    sp = b["shash_rt"]
+    for g, z in zdict.items():
+        if g in sp.index and bool(sp.loc[g, "ok"]):
+            s = sp.loc[g]
+            zdict[g] = shash_transform_to_z(z.astype(np.float64), s["xi"], s["eta"], s["eps"], s["delta"]).astype(np.float32)
+    return np.column_stack([zdict[g] for g in b["gene_names"]])[b["hc_pos"][idx_A]]
+
+
+def rescore_insample(b, idx_A, Y_A):
+    """Z_hc_shash rows idx_A, as score_full.py scores them, with their counts replaced by Y_A."""
+    Y = data["Y"][b["hc_test_rows"]].copy()
+    Y[idx_A] = Y_A
+    e = b["engine"]
+    Z = np.clip(e.score(e.covariates.transform(data["obs"][b["hc_test_rows"]], Y), Y[:, b["cols"]], gene_names=b["gene_names"]),
+                -Z_CAP, Z_CAP)
+    return shash_z(Z, b["gene_names"], b["shash_full"])[idx_A]
 
 
 def load_batch(batch_id):
@@ -80,10 +121,20 @@ def load_batch(batch_id):
     is_hc, batch, small = data["is_hc"], data["batch"], data["small_hc_batches"]
     tr_idx = np.where(is_hc & (batch != batch_id) & ~np.isin(batch, list(small)))[0]
     assert sorted(data["names"][tr_idx]) == sorted(json.loads(config.LOBO_FOLDS_PATH.read_text())[batch_id]["train"])
-    hc_test_rows = np.array([name2row[n] for n in np.array(meta["test_names"])[test_is_hc]])
-    return dict(gene_names=gene_names, gene_pos={g: j for j, g in enumerate(gene_names)},
-                Z_hc=Z_test[test_is_hc], universe=universe, fits=fits, shash_p=shash_p,
-                scaler=StandardScaler().fit(data["X_raw"][tr_idx]), hc_test_rows=hc_test_rows)
+    test_rows = np.array([name2row[n] for n in meta["test_names"]])
+    cov = fold_covariates(data, tr_idx)
+    X = cov.transform(data["obs"], data["Y"])
+    b = dict(gene_names=gene_names, gene_pos={g: j for j, g in enumerate(gene_names)},
+             Z_hc=Z_test[test_is_hc], universe=universe, fits=fits, shash_p=shash_p, cov=cov, X=X,
+             scaler=StandardScaler().fit(X[tr_idx]), hc_test_rows=test_rows[test_is_hc])
+    if W_INDEX:
+        pool = bdir / "pool_fit.json"
+        b.update(rescore=rescore_lobo, test_rows=test_rows, hc_pos=np.where(test_is_hc)[0],
+                 fits_rt=pd.read_csv(bdir / "model_fits.csv", float_precision="round_trip").set_index("gene"),
+                 shash_rt=pd.read_csv(bdir / "shash_params.csv", float_precision="round_trip").set_index("gene"),
+                 pool_fit=json.loads(pool.read_text()) if pool.exists() else None,
+                 alpha_fn=load_trend(config.DISPERSION_TREND_PATH))
+    return b
 
 
 def load_insample():
@@ -111,9 +162,15 @@ def load_insample():
         eta=np.where(ok_arr, su["cv_shash_eta"].fillna(1.0).values, 1.0),
         eps=np.where(ok_arr, su["cv_shash_eps"].fillna(0.0).values, 0.0),
         delta=np.where(ok_arr, su["cv_shash_delta"].fillna(1.0).values, 1.0), ok=ok_arr), index=universe)
-    return dict(gene_names=gene_names, gene_pos={g: j for j, g in enumerate(gene_names)}, Z_hc=Z_hc,
-                universe=universe, fits=fits, shash_p=shash_p, scaler=scaler,
-                hc_test_rows=np.array([name2row[s] for s in hc_meta["sample"]]))
+    engine = NormativeModelEngineMixed.load(config.ENGINE_MIXED_DIR)
+    b = dict(gene_names=gene_names, gene_pos={g: j for j, g in enumerate(gene_names)}, Z_hc=Z_hc,
+             universe=universe, fits=fits, shash_p=shash_p, scaler=scaler, cov=engine.covariates,
+             X=engine.covariates.transform(data["obs"], data["Y"]),
+             hc_test_rows=np.array([name2row[s] for s in hc_meta["sample"]]))
+    if W_INDEX:
+        b.update(rescore=rescore_insample, engine=engine, cols=[data["gene_col"][g] for g in gene_names],
+                 shash_full=load_shash_params(config.ENGINE_MIXED_DIR / "training_summary.csv"))
+    return b
 
 
 def iter_lobo():
@@ -142,8 +199,12 @@ def run(split, adapt=False):
         for log2fc in LOG2FCS:
             rng = np.random.default_rng(int(1e6 * log2fc) + boot + zlib.crc32(group_id.encode()) % 9973)
             pert_genes = list(rng.choice(b["universe"], min(N_PERTURB_GENES, len(b["universe"])), replace=False))
-            z_of = perturb_genes_fold(b, pert_genes, rows_A, log2fc, seed=int(1e6 * log2fc) + boot)
+            z_of, Y_A = perturb_genes_fold(b, pert_genes, rows_A, log2fc, seed=int(1e6 * log2fc) + boot)
             Z_A = b["Z_hc"][idx_A].copy()
+            if W_INDEX:
+                Z_A = b["rescore"](b, idx_A, Y_A)
+                if log2fc == 0:
+                    assert ((Z_A == b["Z_hc"][idx_A]) | (np.isnan(Z_A) & np.isnan(b["Z_hc"][idx_A]))).all(), group_id
             labels = np.zeros(len(b["gene_names"]), dtype=bool)
             for g in pert_genes:
                 Z_A[:, b["gene_pos"][g]] = z_of[g]

@@ -8,7 +8,7 @@
 | id | 내용 | zero_shot | adaptation |
 |---|---|---|---|
 | `p0` | 현행 파이프라인 (BIAS 10개, 주변화 RQR) | O | O (평균 shift 재보정) |
-| `p2` | background gene RUV 공변량 | O | O (평균 shift 재보정) |
+| `p2` | log(Total Reads) + RUVg W_1..6 (control 504개 고정) | O | O (평균 shift 재보정) |
 | 이상치 방법 4개 | OUTRIDER(AE), PCA, OutSingle, PEER, 재적합 없음 | O | O (평균 shift 재보정) |
 
 비교 조합: p0_zeroshot, p0_adaptation, p2_zeroshot, p2_adaptation (+ 이상치 방법 x 2).
@@ -78,6 +78,11 @@ _FinalModelingMethodImprovement/
 6. adaptation 재보정은 평균만
 7. p1(BLUP) 제외
 8. calibration 비교는 엔진 파이프라인끼리만
+9. p2 공변량 (2026-10-16): control = 검출 95% + phenotype 연관 최소 500개 + 성별 유전자 4개 (`splits/control_genes_N500.txt`, 재선정 없음), k = 6.
+   N/k 근거는 `0_build_covariates.ipynb` 8절 (안정성, 성별, 설명분산, VIF, 번짐). control-library 정규화는 번짐·설명분산 모두 악화로 기각
+10. 공변량은 `config.PIPELINES[<pipe>]["covariates"]`로 지정 (obs 열 이름 또는 `W_<i>`), `engine/core/covariates.py`가 fold 학습 HC로 W 적합 후
+    모든 샘플에 자기 count로 투사. in-silico / detection limit은 주입된 count로 W를 다시 투사하고 전 유전자 재채점
+11. OOD 필터는 파이프라인 공변량 사용. PCIS cut은 파이프라인별 재보정 (`eval/fit_pipeline.sh <pipe> calib`)
 
 ## 진행 상황 (pre-Ward production state 기준)
 
@@ -87,7 +92,7 @@ _FinalModelingMethodImprovement/
 - [x] S1: CV Z/cv_stats, LOBO Z/SHASH Z/OOD mask(5배치), in-silico 엔진 Z·counts, detection limit(lobo 600행, insample_cv 240행), calibration(nb2 배치 요약, nb1 유전자 moment/outlier, PPC) 재현
 - [x] p0 zero_shot / adaptation 행: in-silico, detection limit, calibration
 - [x] `1_compare.ipynb`, `2_calibration.ipynb`
-- [ ] S2 공변량 EDA (사용자)
-- [ ] S3 p2
+- [x] S2 공변량 EDA (사용자)
+- [ ] S3 p2: provider 구현, p0 bit 재현(CV/LOBO/in-silico/재채점), p2 smoke 통과. 전체 적합 진행 중
 - [ ] S4 MMD 통합
 - [ ] S5 Ward 재실행
