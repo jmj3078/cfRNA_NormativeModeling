@@ -1,7 +1,8 @@
 """Add obs['Sex Score'] to the merged h5ad in place: mean log2(CPM + 1) of the chrY genes of the Staedtler et al. 2013
 sex-marker panel (Biomarkers 18:436, doi:10.3109/1354750X.2013.811538; XIST, the fifth gene, is not used so the score
 needs no X-chromosome normalisation). CPM over all genes of X (raw counts). Defined for every sample, so it covers the
-HC whose sex metadata is missing. Rerun after any h5ad rebuild (e.g. the Ward lane-merge refit); an existing column is replaced.
+HC whose sex metadata is missing. The same cell is part of the h5ad build (OpenAccess_nfcore/Merge_Datasets.ipynb, after
+total_counts), so a rebuilt h5ad already carries it; this script only patches an existing h5ad (an existing column is replaced).
 
 Run: python eval/add_sex_score.py
 """
