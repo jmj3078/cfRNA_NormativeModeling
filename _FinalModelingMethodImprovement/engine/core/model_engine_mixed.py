@@ -472,9 +472,10 @@ class NormativeModelEngineMixed:
         engine = cls()
         with open(directory / "genes.pkl", "rb") as f: engine.genes = pickle.load(f)
         with open(directory / "scaler.pkl", "rb") as f: engine.scaler = pickle.load(f)
-        engine.covariates = Covariates({})  # no data-derived covariates (engine states saved before covariates.pkl)
         if (directory / "covariates.pkl").exists():
             with open(directory / "covariates.pkl", "rb") as f: engine.covariates = pickle.load(f)
+        else:
+            engine.covariates = Covariates({})  # engine states saved before covariates.pkl: obs columns only
         rare_glm_path = directory / "rare_glm.pkl"
         if rare_glm_path.exists():
             with open(rare_glm_path, "rb") as f: engine.rare_glm = pickle.load(f)
