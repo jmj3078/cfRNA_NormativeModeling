@@ -1,0 +1,37 @@
+lobo Chen et al._Batch_1 0 done
+lobo Chen et al._Batch_1 1 done
+lobo Chen et al._Batch_1 2 done
+lobo Chen et al._Batch_1 3 done
+lobo Chen et al._Batch_1 4 done
+lobo Moore et al._Batch_1 0 done
+lobo Moore et al._Batch_1 1 done
+lobo Moore et al._Batch_1 2 done
+lobo Moore et al._Batch_1 3 done
+lobo Moore et al._Batch_1 4 done
+lobo Moufarrej et al._Batch_1 0 done
+lobo Moufarrej et al._Batch_1 1 done
+lobo Moufarrej et al._Batch_1 2 done
+lobo Moufarrej et al._Batch_1 3 done
+lobo Moufarrej et al._Batch_1 4 done
+lobo Moufarrej et al._Batch_4 0 done
+lobo Moufarrej et al._Batch_4 1 done
+lobo Moufarrej et al._Batch_4 2 done
+lobo Moufarrej et al._Batch_4 3 done
+lobo Moufarrej et al._Batch_4 4 done
+lobo Ward Z et al._Batch_1 0 done
+lobo Ward Z et al._Batch_1 1 done
+lobo Ward Z et al._Batch_1 2 done
+lobo Ward Z et al._Batch_1 3 done
+lobo Ward Z et al._Batch_1 4 done
+/project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/eval/detection_limit.py:154: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  ok_arr = su["cv_shash_ok"].fillna(False).infer_objects(copy=False).values.astype(bool)
+insample_cv insample_fold0 0 done
+insample_cv insample_fold1 1 done
+insample_cv insample_fold2 2 done
+insample_cv insample_fold3 3 done
+insample_cv insample_fold4 4 done
+insample_cv insample_fold5 5 done
+insample_cv insample_fold6 6 done
+insample_cv insample_fold7 7 done
+insample_cv insample_fold8 8 done
+insample_cv insample_fold9 9 done
