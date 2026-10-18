@@ -4,8 +4,9 @@ freeze          write every injected-count cell once (universe genes, all held-o
                 CV fold / LOBO batch). The arm-independent injection makes this possible.
 score           score the FMMI_PIPELINE engine on the frozen cells (zero_shot), append its
                 rows to config.INSILICO_CSV and keep its Z under runs/<pipe>/insilico/.
-                Covariates are refitted on the fold's training HC; data-derived ones (W) are
-                projected from each cell's injected counts, so the injection moves them too.
+                Covariates are refitted on the fold's training HC; every count-derived one (W, and
+                the BIAS metrics that are functions of the counts) is recomputed from each cell's
+                injected counts, so the injection moves them too.
 import          copy the production outlier-method arms (zero_shot) into the same csv.
 Adaptation rows are added by eval/adaptation.py.
 
@@ -175,7 +176,7 @@ def score():
                 c = np.load(cell_path(split, tag, f))
                 Y_te = data["Y"][te_rows].copy()
                 Y_te[:, u_cols] = c["y_pert"]
-                params = engine_params(split, key, U, X_tr, cov.transform(data["obs"][te_rows], Y_te))
+                params = engine_params(split, key, U, X_tr, cov.transform(data["obs"][te_rows], Y_te, data["Y"][te_rows]))
                 z = engine_z(1000 * (seed_i + 1), params, len(te_rows), len(U), c["y_pert"].astype(np.float64))
                 p = 2 * norm.sf(np.abs(z))
                 np.savez_compressed(out_dir / f"{split}_{tag}_log2fc{f:g}.npz", z=z.astype(np.float32))

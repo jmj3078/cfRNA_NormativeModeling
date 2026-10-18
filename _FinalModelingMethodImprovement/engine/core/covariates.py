@@ -4,14 +4,19 @@
 0_build_covariates.ipynb section 3), i.e. the left singular vectors of the training-HC log2 CPM
 control matrix centred by its gene means. fit() sees the training HC only; transform() projects
 any sample from its own counts, W = (log2 CPM - HC mean) V D^-1, so injected counts move W too.
-Any other name: the obs column as it is.
+Any other name: the obs column as it is; with Y0 (the same rows' counts before an in-silico injection)
+the count-derived ones (count_metrics.COUNT_METRICS) are shifted by f(Y) - f(Y0), so they move with
+the injection exactly as recomputed from counts and are unchanged where Y == Y0.
 """
 import numpy as np
 
 import _FinalModelingMethodImprovement.config as config
+from _FinalModelingMethodImprovement.engine.core.count_metrics import COUNT_METRICS, count_metrics
 
 OBS_COLUMNS = [c for c in config.COVARIATES if not c.startswith("W_")]
 W_INDEX = [int(c[2:]) - 1 for c in config.COVARIATES if c.startswith("W_")]
+COUNT_COLUMNS = [c for c in OBS_COLUMNS if c in COUNT_METRICS]
+DEPENDS_ON_COUNTS = bool(W_INDEX or COUNT_COLUMNS)
 
 
 def control_logcpm(Y, idx):
@@ -32,9 +37,15 @@ class Covariates:
             self.v, self.d = vt[:k].T, d[:k]
         return self
 
-    def transform(self, obs, Y):
-        """obs: rows x OBS_COLUMNS; Y: the same rows' counts over all genes."""
-        cols = dict(zip(OBS_COLUMNS, np.asarray(obs, dtype=np.float64).T))
+    def transform(self, obs, Y, Y0=None):
+        """obs: rows x OBS_COLUMNS; Y: the same rows' counts over all genes; Y0: their counts before injection."""
+        cols = dict(zip(OBS_COLUMNS, np.asarray(obs, dtype=np.float64).copy().T))
+        if Y0 is not None and COUNT_COLUMNS:
+            changed = np.where((Y != Y0).any(1))[0]
+            if len(changed):
+                new, old = count_metrics(Y[changed], COUNT_COLUMNS), count_metrics(Y0[changed], COUNT_COLUMNS)
+                for c in COUNT_COLUMNS:
+                    cols[c][changed] += new[c] - old[c]
         if W_INDEX:
             W = (control_logcpm(Y, self.idx) - self.mean) @ self.v / self.d
             cols.update({f"W_{i + 1}": W[:, i] for i in W_INDEX})
