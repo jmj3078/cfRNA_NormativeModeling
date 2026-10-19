@@ -12,9 +12,9 @@ Two splits, both genuinely inductive:
 Normative mode means full-pipeline: the perturbed counts go through each method's own
 scoring path, so size factors and any expression-derived latent reference are recomputed
 from the perturbed sample -- what happens when a frozen model meets a real outlier. The
-engine's covariates come from h5ad obs and cannot move, so for it this is identical to
-scoring unperturbed covariates; that asymmetry is a property of the designs, not of this
-harness.
+engine's count-derived covariates (depth, Platelet Score, GC / length bias, NG80, NP80/NG80;
+core/count_metrics.py) are recomputed from the injected counts the same way; the read-level
+ones (spliced reads, gDNA, rRNA, 3' bias) cannot be and stay fixed.
 
 Every arm receives bit-identical injected counts, shares one evaluation universe, and has
 BH applied within that universe. Each grid cell is cached, so a rerun only does what is
@@ -32,10 +32,12 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
+from MixedEffectsModeling.core.count_metrics import shift_covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import marginal_nb_rqr
 from MixedEffectsModeling.core.shash import shash_transform_to_z
 from MixedEffectsModeling.validation.cv_engine import _mu_alpha
+from MixedEffectsModeling.validation.lobo_engine import load_full_data
 
 import outsingle
 import peer_arm
@@ -84,10 +86,10 @@ def eval_universe_nm():
     return universe
 
 
-def engine_params(source, tag, universe, tr_rows, te_rows, X_raw):
-    """Per-fold frozen GLMM coefficients + that fold's train-fit SHASH. mu/alpha depend
-    only on covariates, so they are computed once and reused across every injection level,
-    which also gives common random numbers across log2fc."""
+def engine_params(source, tag, universe, X_tr, X_te):
+    """Per-fold frozen GLMM coefficients + that fold's train-fit SHASH, mu/alpha at the
+    test covariates X_te (recomputed per injection level). RQR seeds do not depend on log2fc,
+    so random numbers stay common across levels."""
     if (source / "model_fits.csv").exists():        # LOBO layout
         fits = pd.read_csv(source / "model_fits.csv").set_index("gene")
         shash = pd.read_csv(source / "shash_params.csv").set_index("gene")
@@ -97,8 +99,8 @@ def engine_params(source, tag, universe, tr_rows, te_rows, X_raw):
         shash = pd.read_csv(source / f"shash_model_fold{fi}.csv").set_index("gene")
 
     alpha_fn = load_trend(config.DISPERSION_TREND_PATH)
-    scaler = StandardScaler().fit(X_raw[tr_rows])
-    Xa = np.column_stack([np.ones(len(te_rows)), scaler.transform(X_raw[te_rows])])
+    scaler = StandardScaler().fit(X_tr)
+    Xa = np.column_stack([np.ones(len(X_te)), scaler.transform(X_te)])
     mu_cols = [c for c in fits.columns if c.startswith("mu_coef_")]
     disp_cols = [c for c in fits.columns if c.startswith("disp_coef_")]
 
@@ -137,7 +139,7 @@ def save_cell(split, tag, log2fc, samples, universe, y_pert, labels, z, p):
     np.savez_compressed(MATRIX_DIR / f"{split}_{tag}_log2fc{log2fc:g}.npz", **payload)
 
 
-def run_split(split, universe, all_counts, samples_u, Y_u, X_raw):
+def run_split(split, universe, all_counts, samples_u, Y_u, X_raw, full):
     CELL_DIR.mkdir(parents=True, exist_ok=True)
     row_of = {s: i for i, s in enumerate(samples_u)}
     out = []
@@ -159,7 +161,10 @@ def run_split(split, universe, all_counts, samples_u, Y_u, X_raw):
             out += [pd.read_csv(CELL_DIR / f"{split}_{tag}_log2fc{f:g}.csv") for f in LOG2FCS]
             continue
 
-        params = engine_params(src, tag, universe, tr_rows, te_rows, X_raw)
+        # full-gene counts of the test samples, universe columns from Y_u so log2fc 0 is exact
+        u_cols = [full["gene_col"][g] for g in universe]
+        Y0 = full["Y"][[full["row"][s] for s in te_names]]
+        Y0[:, u_cols] = Y_u[te_rows]
         latent = {}
         for impl in LATENT_ARMS:
             fit = load_fit(impl, tag)
@@ -184,6 +189,10 @@ def run_split(split, universe, all_counts, samples_u, Y_u, X_raw):
                 continue
 
             y_pert = perturb(Y_u[te_rows], m_ref, pert_idx, log2fc)
+            Y1 = Y0.copy()
+            Y1[:, u_cols] = y_pert
+            params = engine_params(src, tag, universe, X_raw[tr_rows],
+                                   shift_covariates(X_raw[te_rows], config.BIAS_COLUMNS, Y0, Y1))
             z, p = {}, {}
             z["engine"] = engine_z(1000 * (seed_i + 1), params, len(te_rows), len(universe), y_pert)
             p["engine"] = z_pvals(z["engine"])
@@ -222,10 +231,12 @@ def main():
     all_counts = pd.read_csv(config.OUTRIDER_COMPARISON_DIR / "hc_counts.csv", index_col=0)
     samples_u, Y_u = load_counts(universe)
     X_raw = load_covariates(samples_u)
+    full = load_full_data()
+    full["row"] = {n: i for i, n in enumerate(full["names"])}
 
     parts = []
     for split in splits:
-        parts += run_split(split, universe, all_counts, samples_u, Y_u, X_raw)
+        parts += run_split(split, universe, all_counts, samples_u, Y_u, X_raw, full)
 
     df = pd.concat(parts, ignore_index=True)
     df.to_csv(CACHE / "sweep_nm_counts.csv", index=False)
