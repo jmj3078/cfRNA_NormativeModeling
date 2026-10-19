@@ -69,6 +69,11 @@ clean_matrix <- function(mat) {
 }
 
 group_list <- unique(meta$Group)
+group_args <- commandArgs(trailingOnly = TRUE)
+if (length(group_args) > 0) {
+    stopifnot(all(group_args %in% group_list))
+    group_list <- group_args
+}
 message(paste("Start processing for", length(group_list), "groups:", paste(group_list, collapse=", ")))
 
 for (group in group_list) {
