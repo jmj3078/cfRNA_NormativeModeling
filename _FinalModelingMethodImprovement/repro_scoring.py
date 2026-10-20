@@ -1,5 +1,5 @@
 """Gate S1-a: with the production fits copied in, the forked cv_engine / lobo_engine must
-rescore CV and LOBO Z bit for bit. Builds runs/p0 from the pre-Ward production state; refuses to overwrite an existing run."""
+rescore CV and LOBO Z bit for bit. Builds runs/p0 from the current production state; refuses to overwrite an existing run."""
 import os
 import pickle
 import shutil

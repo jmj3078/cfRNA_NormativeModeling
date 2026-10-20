@@ -46,10 +46,10 @@ BIAS_COLUMNS = [
 # A new covariate set is a new entry here, with its own runs/<pipeline>/ and its own pcis_cut
 # (the PCIS null depends on the design; eval/fit_pipeline.sh <pipe> calib prints it).
 PIPELINES = {
-    "p0": dict(covariates=BIAS_COLUMNS),  # current production pipeline
+    "p0": dict(covariates=BIAS_COLUMNS, pcis_cut=3.83),  # current production pipeline
     "p2": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)],
                control_genes=SPLITS_DIR / "control_genes_N500.txt",  # 0_build_covariates.ipynb, N=500 + sex genes
-               pcis_cut=2.561541),
+               pcis_cut=None),
 }
 PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")
 assert PIPELINE in PIPELINES, f"unknown pipeline {PIPELINE!r}"
@@ -98,7 +98,7 @@ FIT_PARAMS = {
     "beta_explode_thr": SPIKE_PARAMS["beta_explode_thr"],
     "tau2_max": 3.0,
     "disp_intercept_max": 10.0,
-    "pcis_cut": PIPELINES[PIPELINE].get("pcis_cut", 3.62),  # 1e-4 per-observation null rate, eval/fit_pipeline.sh calib
+    "pcis_cut": PIPELINES[PIPELINE]["pcis_cut"],  # 1e-4 per-observation null rate, eval/fit_pipeline.sh calib
     "max_outlier_frac": 0.05,
     "chunk_size": 200,
     "cores": 12,

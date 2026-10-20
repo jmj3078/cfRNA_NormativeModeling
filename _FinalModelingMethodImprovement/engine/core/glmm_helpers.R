@@ -75,6 +75,7 @@ disp_se <- function(fit, ncoef) {
 # 2026-09-30: 1,912 genes x 679 obs, 25 batches -> 3.62. The whole move is the
 # design (Moore_1 71 -> 48/7/16); a composition-matched control on the old null
 # still gave 2.29.
+# 2026-10-19: 1,936 genes x 592 obs (Ward lane-merge, 4 runs -> 1 library) -> 3.83.
 # Observations are dropped rather than replaced by a trimmed mean, which would
 # fabricate counts and bias dispersion downward. Returns indices ordered by
 # decreasing influence.
