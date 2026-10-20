@@ -301,10 +301,10 @@ def process_group(data, g):
         tt = {name: welch_t(M[:n_case], M[n_case:]) for name, M in mats.items()}
         stats.append(tt)
 
-        stat_dir = stat_dir() / g["tag"]
-        stat_dir.mkdir(parents=True, exist_ok=True)
+        out_dir = stat_dir() / g["tag"]
+        out_dir.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(tt, index=data["genes"]).assign(GeneName=data["gene_names"]).to_csv(
-            stat_dir / f"T{t}_welch_t.csv.gz")
+            out_dir / f"T{t}_welch_t.csv.gz")
 
     for layer in STATIC_LAYERS + DYNAMIC_LAYERS:
         acc = [pair_metrics(stats[i][layer], stats[j][layer])

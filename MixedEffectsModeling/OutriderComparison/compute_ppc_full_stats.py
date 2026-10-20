@@ -24,7 +24,7 @@ def gene_level_calib_table(cal_csv):
     return {lab: calib_stats(cal[oc], cal[pc], logsc) for oc, pc, lab, logsc in panels}
 
 
-def pvalue_summary(y_mu_alpha_tau2_iter, n_genes, seed0=2000):
+def pvalue_summary(y_mu_alpha_tau2_iter, seed0=2000):
     rows = []
     for i, (g, y, mu, alpha, tau2) in enumerate(y_mu_alpha_tau2_iter):
         if y.size == 0 or not (np.isfinite(mu).all() and np.isfinite(alpha).all() and np.isfinite(tau2).all()):
@@ -33,7 +33,7 @@ def pvalue_summary(y_mu_alpha_tau2_iter, n_genes, seed0=2000):
         pv["gene"] = g
         rows.append(pv)
         if (i + 1) % 2000 == 0:
-            print(f"  {i+1}/{n_genes}")
+            print(f"  {i+1} genes")
     return pd.DataFrame(rows)
 
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     if not out_eng.exists():
         print("computing our-engine PPC p-values...")
-        df = pvalue_summary(our_engine_iter(), 19858)
+        df = pvalue_summary(our_engine_iter())
         df.to_csv(out_eng, index=False)
         print(f"saved -> {out_eng}")
     else:
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
     if not out_outr.exists():
         print("computing OUTRIDER PPC p-values...")
-        df = pvalue_summary(outrider_iter(), 12305)
+        df = pvalue_summary(outrider_iter())
         df.to_csv(out_outr, index=False)
         print(f"saved -> {out_outr}")
     else:
@@ -89,27 +89,27 @@ if __name__ == "__main__":
 
     eng_calib = gene_level_calib_table(config.CV_MIXED_DIR / "cv_calibration_moments.csv")
     outr_calib = gene_level_calib_table(DIR / "outrider_cv_calibration_moments.csv")
-    print("\nour engine calib_stats (full 19858g):", eng_calib)
-    print("\nOUTRIDER calib_stats (12305g):", outr_calib)
+    print("\nour engine calib_stats (all genes):", eng_calib)
+    print("\nOUTRIDER calib_stats:", outr_calib)
 
     rows = []
-    for engine_name, table in [("our_engine_full19858", eng_calib), ("outrider_12305", outr_calib)]:
+    for engine_name, table in [("our_engine_full", eng_calib), ("outrider", outr_calib)]:
         for panel, stats in table.items():
             rows.append(dict(engine=engine_name, panel=panel, **stats))
     pd.DataFrame(rows).to_csv(DIR / "ppc_calib_stats.csv", index=False)
     print(f"\nsaved -> {DIR / 'ppc_calib_stats.csv'}")
 
-    # our-engine calib_stats restricted to the same 12305-gene subset OUTRIDER covers, for a
-    # like-for-like comparison alongside the full-19858 number.
+    # our-engine calib_stats restricted to the gene subset OUTRIDER covers, for a
+    # like-for-like comparison alongside the all-gene number.
     eng_cal_full = pd.read_csv(config.CV_MIXED_DIR / "cv_calibration_moments.csv")
     outr_genes = pd.read_csv(DIR / "outrider_cv_calibration_moments.csv")["gene"]
     eng_cal_sub = eng_cal_full[eng_cal_full["gene"].isin(outr_genes)]
-    sub_path = DIR / "our_engine_cv_calibration_moments_12305subset.csv"
+    sub_path = DIR / "our_engine_cv_calibration_moments_outrider_genes.csv"
     eng_cal_sub.to_csv(sub_path, index=False)
     panels = [("obs_mean", "pred_mean", "mean", True), ("obs_var", "pred_var", "var", True),
              ("obs_zero", "pred_zero", "zero_frac", False)]
     eng_calib_sub = {lab: calib_stats(eng_cal_sub[oc], eng_cal_sub[pc], logsc) for oc, pc, lab, logsc in panels}
-    rows_sub = [dict(engine="our_engine_12305subset", panel=panel, **stats) for panel, stats in eng_calib_sub.items()]
+    rows_sub = [dict(engine="our_engine_outrider_genes", panel=panel, **stats) for panel, stats in eng_calib_sub.items()]
     pd.concat([pd.read_csv(DIR / "ppc_calib_stats.csv"), pd.DataFrame(rows_sub)], ignore_index=True).to_csv(
         DIR / "ppc_calib_stats.csv", index=False)
-    print("our engine calib_stats (12305g subset):", eng_calib_sub)
+    print("our engine calib_stats (OUTRIDER genes):", eng_calib_sub)
