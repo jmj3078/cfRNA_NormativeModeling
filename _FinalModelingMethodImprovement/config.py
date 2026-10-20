@@ -25,7 +25,9 @@ RESULTS_DIR = FMMI / "results"
 INSILICO_CSV = RESULTS_DIR / "insilico_sweep.csv"
 DETECTION_LIMIT_CSV = RESULTS_DIR / "detection_limit.csv"
 OUTLIER_ARMS = {"autoencoder": "OUTRIDER (AE)", "pca": "PCA", "outsingle": "OutSingle", "peer": "PEER"}
-COVARIATE_DIR = RESULTS_DIR / "covariates"
+CONTROL_GENE_DIR = RESULTS_DIR / "control_genes"
+HPA_SINGLE_CELL_ZIP = PROJECT_ROOT / "Data" / "HPA" / "rna_single_cell_type.tsv.zip"  # HPA 25.1, Data/HPA/VERSION.txt
+GTEX_WB_GCT = PROJECT_ROOT / "Data" / "GTEx" / "gene_reads_v10_whole_blood.gct"
 PANGLAO_TSV = PROJECT_ROOT / "Data" / "PalangoDB_CellTypeMarkers.tsv"
 RUVSEQ_RSCRIPT = Path.home() / "miniconda3" / "envs" / "ruvseq_env" / "bin" / "Rscript"
 
@@ -48,7 +50,7 @@ BIAS_COLUMNS = [
 PIPELINES = {
     "p0": dict(covariates=BIAS_COLUMNS, pcis_cut=3.83),  # current production pipeline
     "p2": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)],
-               control_genes=SPLITS_DIR / "control_genes_N500.txt",  # 0_build_covariates.ipynb, N=500 + sex genes
+               control_genes=SPLITS_DIR / "control_genes_blood.txt",  # 0_control_genes.ipynb
                pcis_cut=None),
 }
 PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")

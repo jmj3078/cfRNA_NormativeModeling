@@ -1,7 +1,7 @@
 """Covariate matrix of the active pipeline: the columns of config.COVARIATES, in that order.
 
 "W_<i>": RUVg factor i of the config.CONTROL_GENES (RUVSeq::RUVg(isLog=TRUE, center=TRUE),
-0_build_covariates.ipynb section 3), i.e. the left singular vectors of the training-HC log2 CPM
+0_control_genes.ipynb), i.e. the left singular vectors of the training-HC log2 CPM
 control matrix centred by its gene means. fit() sees the training HC only; transform() projects
 any sample from its own counts, W = (log2 CPM - HC mean) V D^-1, so injected counts move W too.
 Any other name: the obs column as it is; with Y0 (the same rows' counts before an in-silico injection)

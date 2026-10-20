@@ -41,7 +41,7 @@ _FinalModelingMethodImprovement/
     build_results.sh <pipe>   위 단계를 순서대로 실행, 로그는 runs/<pipe>/log_*.txt
   runs/<pipeline>/{full,cv,lobo,insilico,detection_limit,tmp}/
   results/*.csv         method x scenario 행 추가 방식 (eval/results.append)
-  0_covariate_eda.ipynb   사용자가 background gene 집합과 k, 변수 선택을 결정
+  0_control_genes.ipynb   p2 control 유전자 집합(C1/C2a/C2b)과 k
   1_compare.ipynb         in-silico / detection limit: 엔진 + 이상치 방법
   2_calibration.ipynb     CV/LOBO calibration: 엔진 파이프라인만 (KDE, violin)
 ```
@@ -78,8 +78,9 @@ _FinalModelingMethodImprovement/
 6. adaptation 재보정은 평균만
 7. p1(BLUP) 제외
 8. calibration 비교는 엔진 파이프라인끼리만
-9. p2 공변량 (2026-10-16): control = 검출 95% + phenotype 연관 최소 500개 + 성별 유전자 4개 (`splits/control_genes_N500.txt`, 재선정 없음), k = 6.
-   N/k 근거는 `0_build_covariates.ipynb` 8절 (안정성, 성별, 설명분산, VIF, 번짐). control-library 정규화는 번짐·설명분산 모두 악화로 기각
+9. p2 공변량 (2026-10-20 재정의, Ward 통합 후): control = C1 배치x phenotype 그룹마다 검출 95% (질병·정상 모두) & C2a HPA 혈액 세포형 10종 모두 발현 + tau <= 0.3
+   & C2b GTEx v10 WB 기증자 95% 발현 + Gini < 0.2 (Nesselbush 2025), + 성별 유전자 4개 (`splits/control_genes_blood.txt`, `0_control_genes.ipynb`).
+   질병 데이터는 검출(C1)로만 쓰고 phenotype 연관은 보고만 함. 이전 집합(phenotype F-test 상위 500, `0_build_covariates.ipynb`)은 폐기. k는 노트북 6-9절
 10. 공변량은 `config.PIPELINES[<pipe>]["covariates"]`로 지정 (obs 열 이름 또는 `W_<i>`), `engine/core/covariates.py`가 fold 학습 HC로 W 적합 후
     모든 샘플에 자기 count로 투사. in-silico / detection limit은 주입된 count로 W를 다시 투사하고 전 유전자 재채점
 11. OOD 필터는 파이프라인 공변량 사용. PCIS cut은 파이프라인별 재보정 (`eval/fit_pipeline.sh <pipe> calib`)
