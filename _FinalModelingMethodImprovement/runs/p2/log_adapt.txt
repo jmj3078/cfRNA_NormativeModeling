@@ -1,0 +1,7 @@
+/project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/eval/adaptation.py:44: RuntimeWarning: Mean of empty slice
+  m = np.nanmean(z_ref, axis=0)
+adapted lobo_Chen_et_al._Batch_1: ['autoencoder', 'pca', 'outsingle', 'peer', 'p0', 'p2']
+adapted lobo_Moore_et_al._Batch_1: ['autoencoder', 'pca', 'outsingle', 'peer', 'p0', 'p2']
+adapted lobo_Moufarrej_et_al._Batch_1: ['autoencoder', 'pca', 'outsingle', 'peer', 'p0', 'p2']
+adapted lobo_Moufarrej_et_al._Batch_4: ['autoencoder', 'pca', 'outsingle', 'peer', 'p0', 'p2']
+adapted lobo_Ward_Z_et_al._Batch_1: ['autoencoder', 'pca', 'outsingle', 'peer', 'p0', 'p2']

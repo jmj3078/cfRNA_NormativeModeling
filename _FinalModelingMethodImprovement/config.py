@@ -51,7 +51,10 @@ PIPELINES = {
     "p0": dict(covariates=BIAS_COLUMNS, pcis_cut=3.83),  # current production pipeline
     "p2": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)],
                control_genes=SPLITS_DIR / "control_genes_blood.txt",  # 0_control_genes.ipynb
-               pcis_cut=None),
+               pcis_cut=1.585319),
+    "p3": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)] + ["Gene Length Bias", "GC Bias"],
+               control_genes=SPLITS_DIR / "control_genes_blood.txt",  # p2 + the two BIAS metrics W leaves (0_control_genes.ipynb 9)
+               pcis_cut=3.641121),
 }
 PIPELINE = os.environ.get("FMMI_PIPELINE", "p0")
 assert PIPELINE in PIPELINES, f"unknown pipeline {PIPELINE!r}"

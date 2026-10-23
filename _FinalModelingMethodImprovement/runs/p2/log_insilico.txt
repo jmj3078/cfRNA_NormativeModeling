@@ -1,0 +1,10 @@
+scored cv/fold0
+scored cv/fold1
+scored cv/fold2
+scored cv/fold3
+scored cv/fold4
+scored lobo/lobo_Chen_et_al._Batch_1
+scored lobo/lobo_Moore_et_al._Batch_1
+scored lobo/lobo_Moufarrej_et_al._Batch_1
+scored lobo/lobo_Moufarrej_et_al._Batch_4
+scored lobo/lobo_Ward_Z_et_al._Batch_1
