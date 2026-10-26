@@ -1,0 +1,31 @@
+HC=592 genes=20097 nz_a_max=31 pool_route=2288 model_route=17809
+hyperparams cached: trend -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/engine_state_mixed/dispersion_trend.json, prior -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/engine_state_mixed/disp_prior.json
+disp slope EB prior sd (n_calib=1939)
+  tau_slope[log(Total Reads)] = 0.1590
+  tau_slope[W_1] = 0.2432
+  tau_slope[W_2] = 0.1338
+  tau_slope[W_3] = 0.2924
+  tau_slope[W_4] = 0.1550
+  tau_slope[W_5] = 0.1986
+  tau_slope[W_6] = 0.1587
+  tau_slope[Gene Length Bias] = 0.3646
+  tau_slope[GC Bias] = 0.2272
+--calib-only: stopping before the full cascade. RES for pcis_null.R -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/engine_state_mixed/calib_fits.csv, WORK -> /tmp/nm_p3/glmm_train
+Warning messages:
+1: package ‘glmmTMB’ was built under R version 4.3.3 
+2: In checkDepPackageVersion(dep_pkg = "TMB") :
+  Package version inconsistency detected.
+glmmTMB was built with TMB version 1.9.16
+Current TMB version is 1.9.17
+Please re-install glmmTMB from source or restore original ‘TMB’ package (see '?reinstalling' for more information)
+null sim done: genes=1939 reps=5 rows=484750 -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/PCIS_Calibration/null_pcis.csv
+ target_per_obs_rate  population_percentile       cut  null_removed_per_gene  max_removed_per_gene  topk_saturation_frac
+             0.00100                0.99900  0.467722               0.591851                     9                  0.18
+             0.00050                0.99950  0.895866               0.295926                     4                  0.08
+             0.00030                0.99970  1.410863               0.177514                     3                  0.06
+             0.00020                0.99980  2.010297               0.118308                     3                  0.06
+             0.00015                0.99985  2.542571               0.088706                     3                  0.06
+             0.00010                0.99990  3.648786               0.059103                     2                  0.04
+             0.00005                0.99995  6.655157               0.029500                     2                  0.04
+             0.00001                0.99999 25.266608               0.005776                     1                  0.02
+pcis_cut (1e-4): 3.64878564170492

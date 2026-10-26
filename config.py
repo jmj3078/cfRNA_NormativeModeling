@@ -1,3 +1,4 @@
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -110,29 +111,14 @@ _MEM = ROOT / "MixedEffectsModeling"
 RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent / "Rscript")
 
 
-ENGINE_MIXED_DIR        = _MEM / "engine_state_mixed"
-CV_MIXED_DIR            = _MEM / "CV_Results_mixed"
-LOBO_MIXED_DIR          = _MEM / "LOBO_Results_mixed"
-ZSCORES_MIXED_DIR       = _MEM / "Z_scores_mixed"
-PCIS_CAL_DIR            = _MEM / "PCIS_Calibration"
-PCIS_CAL_FIG_DIR        = PCIS_CAL_DIR / "Figures"
-DISEASE_SCORING_FIG_DIR = _MEM / "DiseaseScoring" / "Figures"
-DISEASE_REF_DIR         = _MEM / "Benchmark" / "disease_reference"
-GROUP_VS_INDIV_DIR      = _MEM / "GroupVsIndividual"
-GROUP_VS_INDIV_FIG_DIR  = GROUP_VS_INDIV_DIR / "Figures"
 MOORE2025_REPO_DIR = ROOT / "Data" / "2024_ngolab_cfRNA" / "Analysis_Scripts"
-MOORE2025_DE_R = GROUP_VS_INDIV_DIR / "moore2025_de.R"
-MOORE2025_DE_DIR = GROUP_VS_INDIV_DIR / "moore2025_de"
-OUTRIDER_COMPARISON_DIR = _MEM / "OutriderComparison" / "insample_comparison"
-OUTRIDER_HELD_OUT_DIR   = _MEM / "OutriderComparison" / "held_out_comparison"
-DETECTION_LIMIT_DIR     = _MEM / "DetectionLimitResults"
-METHOD_COMP_DIR         = _MEM / "MethodComparison"
-METHOD_COMP_CACHE_DIR   = METHOD_COMP_DIR / "cache"
-METHOD_COMP_FIG_DIR     = METHOD_COMP_DIR / "Figures"
+MOORE2025_DE_R = _MEM / "GroupVsIndividual" / "moore2025_de.R"
 GLMM_FIT_R     = _MEM / "core" / "glmm_fit.R"
 GLMM_FIT_POOL_R = _MEM / "core" / "glmm_fit_pool.R"
-DISPERSION_TREND_PATH = ENGINE_MIXED_DIR / "dispersion_trend.json"
-DISP_PRIOR_PATH = ENGINE_MIXED_DIR / "disp_prior.json"
+HPA_SINGLE_CELL_ZIP = ROOT / "Data" / "HPA" / "rna_single_cell_type.tsv.zip"  # HPA 25.1, Data/HPA/VERSION.txt
+GTEX_WB_GCT = ROOT / "Data" / "GTEx" / "gene_reads_v10_whole_blood.gct"
+PANGLAO_TSV = ROOT / "Data" / "PalangoDB_CellTypeMarkers.tsv"
+RUVSEQ_RSCRIPT = Path.home() / "miniconda3" / "envs" / "ruvseq_env" / "bin" / "Rscript"
 
 
 STRATIFY_COL = "Batch_ID"
@@ -176,3 +162,43 @@ FIT_PARAMS = {
     "chunk_size": 200,
     "cores": 12,
 }
+
+
+# Covariate pipelines. "W_<i>" = RUVg factor i of control_genes (core/covariates.py); any other name is an obs column.
+# Every output and cache of a pipeline lives under MixedEffectsModeling/Notebook_<pipeline>/, next to its notebooks.
+# The pipeline is chosen by the NM_PIPELINE environment variable only; without it no output path is defined,
+# so nothing can read or write the other pipeline's results.
+PIPELINES = {
+    "p0": dict(covariates=BIAS_COLUMNS, pcis_cut=3.83),  # frozen: from a null run before per-gene seeding, not regenerable
+    "p3": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)] + ["Gene Length Bias", "GC Bias"],
+               control_genes=_MEM / "core" / "control_genes_blood.txt",
+               pcis_cut=3.64878564170492),  # core/fit_pipeline.sh p3 calib (NREP 5, per-gene seeds)
+}
+PIPELINE = os.environ.get("NM_PIPELINE")
+if PIPELINE is not None:
+    assert PIPELINE in PIPELINES, f"unknown NM_PIPELINE {PIPELINE!r}"
+    COVARIATES = PIPELINES[PIPELINE]["covariates"]
+    CONTROL_GENES = PIPELINES[PIPELINE]["control_genes"].read_text().split() if "control_genes" in PIPELINES[PIPELINE] else []
+    FIT_PARAMS["pcis_cut"] = PIPELINES[PIPELINE]["pcis_cut"]
+    PIPELINE_DIR = _MEM / f"Notebook_{PIPELINE}"
+    TMP_ROOT = Path(os.environ.get("NM_TMP", f"/tmp/nm_{PIPELINE}"))
+    ENGINE_MIXED_DIR = PIPELINE_DIR / "engine_state_mixed"
+    CV_MIXED_DIR = PIPELINE_DIR / "CV_Results_mixed"
+    LOBO_MIXED_DIR = PIPELINE_DIR / "LOBO_Results_mixed"
+    ZSCORES_MIXED_DIR = PIPELINE_DIR / "Z_scores_mixed"
+    PCIS_CAL_DIR = PIPELINE_DIR / "PCIS_Calibration"
+    PCIS_CAL_FIG_DIR = PCIS_CAL_DIR / "Figures"
+    DISEASE_SCORING_FIG_DIR = PIPELINE_DIR / "DiseaseScoring" / "Figures"
+    DISEASE_REF_DIR = PIPELINE_DIR / "Benchmark" / "disease_reference"
+    GROUP_VS_INDIV_DIR = PIPELINE_DIR / "GroupVsIndividual"
+    GROUP_VS_INDIV_FIG_DIR = GROUP_VS_INDIV_DIR / "Figures"
+    MOORE2025_DE_DIR = GROUP_VS_INDIV_DIR / "moore2025_de"
+    OUTRIDER_COMPARISON_DIR = PIPELINE_DIR / "OutriderComparison" / "insample_comparison"
+    OUTRIDER_HELD_OUT_DIR = PIPELINE_DIR / "OutriderComparison" / "held_out_comparison"
+    DETECTION_LIMIT_DIR = PIPELINE_DIR / "DetectionLimitResults"
+    METHOD_COMP_DIR = PIPELINE_DIR / "MethodComparison"
+    METHOD_COMP_CACHE_DIR = METHOD_COMP_DIR / "cache"
+    METHOD_COMP_FIG_DIR = METHOD_COMP_DIR / "Figures"
+    CONTROL_GENE_DIR = PIPELINE_DIR / "ControlGenes"
+    DISPERSION_TREND_PATH = ENGINE_MIXED_DIR / "dispersion_trend.json"
+    DISP_PRIOR_PATH = ENGINE_MIXED_DIR / "disp_prior.json"

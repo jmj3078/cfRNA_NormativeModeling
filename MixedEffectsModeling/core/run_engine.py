@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.model_engine_mixed import NormativeModelEngineMixed
 
-TMP_DIR = "/tmp/glmm_train"
+TMP_DIR = str(config.TMP_ROOT / "glmm_train")
 
 
 def main():
@@ -24,11 +24,11 @@ def main():
                     help="directory to save the trained engine into (defaults to the production engine_state_mixed)")
     ap.add_argument("--calib-only", action="store_true",
                     help="stop after prepare_hyperparams (calib_fits.csv/trend/disp_prior) -- skip the "
-                         "full cascade. Use to get a cheap RES for pcis_recalibrate.py before committing "
+                         "full cascade. Used by fit_pipeline.sh calib (PCIS null cut) before committing "
                          "to the full (hours-long) retrain.")
     ap.add_argument("--pcis-cut", type=float, default=None,
-                    help="override config.FIT_PARAMS['pcis_cut'] for this run (e.g. from a prior "
-                         "pcis_recalibrate.py pass) instead of the committed default")
+                    help="override config.FIT_PARAMS['pcis_cut'] for this run (e.g. from fit_pipeline.sh calib) "
+                         "instead of the committed default")
     ap.add_argument("--nz-a-max", type=int, default=None,
                     help="override config.NZ_A_MAX for this run (e.g. 0 to route every gene to "
                          "the cascade, disabling the pooled-GLM route)")
@@ -60,8 +60,8 @@ def main():
     # Always (re)write X/batch to TMP_DIR, independent of the trend/disp_prior cache check below --
     # prepare_hyperparams short-circuits (skips _write_r_inputs) on a cache hit, and --calib-only
     # stops before train() (which normally writes them). Without this, a cached-hyperparams +
-    # --calib-only run leaves TMP_DIR without X.csv.gz/batch.csv.gz, breaking pcis_recalibrate.py's
-    # WORK dir requirement.
+    # --calib-only run leaves TMP_DIR without X.csv.gz/batch.csv.gz, breaking the WORK dir
+    # that fit_pipeline.sh calib passes to pcis_null.R.
     engine._write_r_inputs(TMP_DIR)
 
     ran = engine.prepare_hyperparams(trend_path, disp_prior_path, TMP_DIR, args.calib_genes)
@@ -72,7 +72,7 @@ def main():
         print(f"  tau_slope[{cov}] = {tau:.4f}")
 
     if args.calib_only:
-        print(f"--calib-only: stopping before the full cascade. RES for pcis_recalibrate.py -> "
+        print(f"--calib-only: stopping before the full cascade. RES for pcis_null.R -> "
               f"{args.out_dir / 'calib_fits.csv'}, WORK -> {TMP_DIR}")
         return
 

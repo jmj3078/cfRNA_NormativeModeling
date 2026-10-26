@@ -12,9 +12,10 @@ Two splits, both genuinely inductive:
 Normative mode means full-pipeline: the perturbed counts go through each method's own
 scoring path, so size factors and any expression-derived latent reference are recomputed
 from the perturbed sample -- what happens when a frozen model meets a real outlier. The
-engine's count-derived covariates (depth, Platelet Score, GC / length bias, NG80, NP80/NG80;
-core/count_metrics.py) are recomputed from the injected counts the same way; the read-level
-ones (spliced reads, gDNA, rRNA, 3' bias) cannot be and stay fixed.
+engine's covariates (config.COVARIATES, core/covariates.py) are fitted on each fold's train HC,
+and the count-derived ones (RUVg W, depth, Platelet Score, GC / length bias, NG80, NP80/NG80)
+are recomputed from the injected counts the same way; the read-level ones (spliced reads,
+gDNA, rRNA, 3' bias) cannot be and stay fixed.
 
 Every arm receives bit-identical injected counts, shares one evaluation universe, and has
 BH applied within that universe. Each grid cell is cached, so a rerun only does what is
@@ -32,7 +33,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
-from MixedEffectsModeling.core.count_metrics import shift_covariates
+from MixedEffectsModeling.core.covariates import Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import marginal_nb_rqr
 from MixedEffectsModeling.core.shash import shash_transform_to_z
@@ -44,7 +45,7 @@ import peer_arm
 from common import (CACHE, LOG2FCS, Q_LEVELS, count_rejections, draw_perturbed,
                     injection_reference, perturb, z_pvals)
 from frozen_latent import FITS, load_fit, score_frozen
-from gate import load_counts, load_covariates
+from gate import full_counts, load_counts, load_covariates
 
 N_PERTURB = 500
 LATENT_ARMS = ["autoencoder", "pca"]
@@ -165,6 +166,8 @@ def run_split(split, universe, all_counts, samples_u, Y_u, X_raw, full):
         u_cols = [full["gene_col"][g] for g in universe]
         Y0 = full["Y"][[full["row"][s] for s in te_names]]
         Y0[:, u_cols] = Y_u[te_rows]
+        cov = Covariates(full["gene_col"]).fit(full_counts(full, tr_names))
+        X_tr = cov.transform(X_raw[tr_rows], full_counts(full, tr_names))
         latent = {}
         for impl in LATENT_ARMS:
             fit = load_fit(impl, tag)
@@ -191,8 +194,7 @@ def run_split(split, universe, all_counts, samples_u, Y_u, X_raw, full):
             y_pert = perturb(Y_u[te_rows], m_ref, pert_idx, log2fc)
             Y1 = Y0.copy()
             Y1[:, u_cols] = y_pert
-            params = engine_params(src, tag, universe, X_raw[tr_rows],
-                                   shift_covariates(X_raw[te_rows], config.BIAS_COLUMNS, Y0, Y1))
+            params = engine_params(src, tag, universe, X_tr, cov.transform(X_raw[te_rows], Y1, Y0))
             z, p = {}, {}
             z["engine"] = engine_z(1000 * (seed_i + 1), params, len(te_rows), len(universe), y_pert)
             p["engine"] = z_pvals(z["engine"])

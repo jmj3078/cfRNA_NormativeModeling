@@ -24,8 +24,8 @@ def load_null(path):
 
 def rate_table(d, real_summary=None):
     n = int(d.n_obs.iloc[0])
-    n_genes = int(d.gene.nunique())
-    n_total = n_genes * n
+    unit = d.gene.astype(str) + "|" + d.rep.astype(str)
+    n_total = unit.nunique() * n
     p = np.sort(d.pcis.values)[::-1]
     rows = []
     for rate in TARGET_RATES:
@@ -34,7 +34,7 @@ def rate_table(d, real_summary=None):
             continue
         c = float(p[k - 1])
         ex = d.pcis > c
-        per_gene = ex.groupby(d.gene).sum().reindex(d.gene.unique(), fill_value=0)
+        per_gene = ex.groupby(unit).sum().reindex(unit.unique(), fill_value=0)
         rows.append({
             "target_per_obs_rate": rate,
             "population_percentile": 1 - rate,
@@ -81,5 +81,5 @@ def run_all(null_path, outdir=None, fig_dir=None, real_summary_path=None):
 
 
 if __name__ == "__main__":
-    t = run_all(sys.argv[1] if len(sys.argv) > 1 else "/tmp/null_pcis.csv")
+    t = run_all(sys.argv[1] if len(sys.argv) > 1 else str(PCIS_CAL_DIR / "null_pcis.csv"))
     print(t.to_string(index=False))

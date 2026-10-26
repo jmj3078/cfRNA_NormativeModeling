@@ -3,7 +3,7 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 
-dir <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/insample_comparison"
+dir <- commandArgs(trailingOnly = TRUE)[1]  # config.OUTRIDER_COMPARISON_DIR
 counts <- fread(file.path(dir, "hc_counts.csv"))
 genes <- counts[[1]]
 mat <- as.matrix(counts[, -1])

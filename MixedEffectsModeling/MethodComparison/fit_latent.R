@@ -8,22 +8,22 @@
 #
 # Each (implementation, fold) is cached, so a rerun only fits what is missing.
 #
-# Usage: Rscript fit_latent.R [cv|lobo] [fold]      (no fold = all folds of that split)
+# Usage: Rscript fit_latent.R <OUTRIDER_COMPARISON_DIR> <METHOD_COMP_CACHE_DIR> [cv|lobo] [fold]
+#        (no fold = all folds of that split)
 suppressPackageStartupMessages({ library(data.table); library(jsonlite) })
 source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/MethodComparison/frozen_latent.R")
 
-BASE <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/MethodComparison"
-IN_DIR <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/insample_comparison"
-OUT_DIR <- file.path(BASE, "cache", "latent_fits")
-dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
-
 args <- commandArgs(trailingOnly = TRUE)
-split <- if (length(args) >= 1) args[1] else "cv"
+IN_DIR <- args[1]
+CACHE <- args[2]
+OUT_DIR <- file.path(CACHE, "latent_fits")
+dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+split <- if (length(args) >= 3) args[3] else "cv"
 
-folds_path <- if (split == "lobo") file.path(BASE, "cache", "lobo_folds.json") else
+folds_path <- if (split == "lobo") file.path(CACHE, "lobo_folds.json") else
                                    file.path(IN_DIR, "cv_folds.json")
 folds <- fromJSON(folds_path)
-want <- if (length(args) >= 2) args[2] else names(folds)
+want <- if (length(args) >= 4) args[4] else names(folds)
 
 hc_counts <- fread(file.path(IN_DIR, "hc_counts.csv"))
 hc_genes <- hc_counts[[1]]

@@ -50,7 +50,7 @@ def _mu_alpha(Xa, mu_coef, disp_coef, row, alpha_fn):
     return mu, alpha
 
 
-def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, cache_dir=None):
+def cv_model_route(e2, model_genes, stage_of, folds, tmp, trend_path, disp_prior_path=None, cache_dir=None):
     """cache_dir, if given, persists each fold's post-squeeze GLMM fit
     (model_fold{fi}.csv) and per-gene train-fit SHASH params
     (shash_model_fold{fi}.csv) -- both the expensive R refit and the SHASH fit
@@ -60,12 +60,13 @@ def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, 
         return {}, {}, {}, []
     rows, fold_stat_rows, shash_rows = [], [], []
     for fi, (tr, te) in enumerate(folds):
-        scaler = StandardScaler().fit(e2.X_hc_raw[tr])
+        X = e2.fold_X(tr)
+        scaler = StandardScaler().fit(X[tr])
         cache_path = cache_dir / f"model_fold{fi}.csv" if cache_dir else None
         if cache_path and cache_path.exists():
             fold_fits = pd.read_csv(cache_path).set_index("gene")
         else:
-            pd.DataFrame(scaler.transform(e2.X_hc_raw[tr]), columns=config.BIAS_COLUMNS).to_csv(f"{tmp}/X_{fi}.csv.gz")
+            pd.DataFrame(scaler.transform(X[tr]), columns=config.COVARIATES).to_csv(f"{tmp}/X_{fi}.csv.gz")
             Y_tr = e2.Y_hc[tr][:, [e2._gene_col[g] for g in model_genes]]
             pd.DataFrame(Y_tr, columns=model_genes).to_csv(f"{tmp}/Y_{fi}.csv.gz")
             pd.DataFrame({"Batch_ID": e2.batch[tr]}).to_csv(f"{tmp}/batch_{fi}.csv.gz")
@@ -76,7 +77,7 @@ def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, 
             cmd = [
                 config.RSCRIPT, str(config.GLMM_FIT_R), "--x", f"{tmp}/X_{fi}.csv.gz", "--y", f"{tmp}/Y_{fi}.csv.gz",
                 "--batch", f"{tmp}/batch_{fi}.csv.gz", "--genes", f"{tmp}/genes_{fi}.csv",
-                "--trend", str(config.DISPERSION_TREND_PATH), "--fit-params", str(fit_params),
+                "--trend", str(trend_path), "--fit-params", str(fit_params),
                 "--mode", "fixed_stage", "--out", f"{tmp}/res_{fi}.csv",
             ]
             if disp_prior_path is not None:
@@ -94,8 +95,8 @@ def cv_model_route(e2, model_genes, stage_of, folds, tmp, disp_prior_path=None, 
                        if shash_cache_path and shash_cache_path.exists() else None)
         fold_shash_rows = []
 
-        Xa_tr = np.column_stack([np.ones(len(tr)), scaler.transform(e2.X_hc_raw[tr])])
-        Xa_te = np.column_stack([np.ones(len(te)), scaler.transform(e2.X_hc_raw[te])])
+        Xa_tr = np.column_stack([np.ones(len(tr)), scaler.transform(X[tr])])
+        Xa_te = np.column_stack([np.ones(len(te)), scaler.transform(X[te])])
         for g in model_genes:
             if g not in fold_fits.index:
                 fold_stat_rows.append(dict(gene=g, fold=fi, stage=stage_of[g], ok=False,
@@ -166,13 +167,14 @@ def cv_pool_route(e2, genes_t, folds, tmp, cache_dir=None):
         return {}, {}, {}, []
     rows, fold_stats = [], []
     for fi, (tr, te) in enumerate(folds):
-        scaler = StandardScaler().fit(e2.X_hc_raw[tr])
+        X = e2.fold_X(tr)
+        scaler = StandardScaler().fit(X[tr])
         cache_path = cache_dir / f"pool_fold{fi}.json" if cache_dir else None
         if cache_path and cache_path.exists():
             with open(cache_path) as f:
                 fit = json.load(f)
         else:
-            pd.DataFrame(scaler.transform(e2.X_hc_raw[tr]), columns=config.BIAS_COLUMNS).to_csv(f"{tmp}/Xp_{fi}.csv.gz")
+            pd.DataFrame(scaler.transform(X[tr]), columns=config.COVARIATES).to_csv(f"{tmp}/Xp_{fi}.csv.gz")
             Y_tr = e2.Y_hc[tr][:, [e2._gene_col[g] for g in genes_t]]
             pd.DataFrame(Y_tr, columns=genes_t).to_csv(f"{tmp}/Yp_{fi}.csv.gz")
             pd.DataFrame({"Batch_ID": e2.batch[tr]}).to_csv(f"{tmp}/batchp_{fi}.csv.gz")
@@ -201,8 +203,8 @@ def cv_pool_route(e2, genes_t, folds, tmp, cache_dir=None):
         alpha_eff = fit["alpha"] if fit["family"] == "negbin" else POISSON_ALPHA_EPS
         mean_hc = dict(zip(fit["gene"], fit["mean_hc"]))
         eps = fit["eps"]
-        X_tr = scaler.transform(e2.X_hc_raw[tr])
-        X_te = scaler.transform(e2.X_hc_raw[te])
+        X_tr = scaler.transform(X[tr])
+        X_te = scaler.transform(X[te])
         mult_tr = np.exp(X_tr @ beta[1:])
         mult_te = np.exp(X_te @ beta[1:])
         if fit.get("mult_lo") is not None:
@@ -316,13 +318,13 @@ def main():
         {str(i): dict(train=e2.names[tr].tolist(), test=e2.names[te].tolist())
          for i, (tr, te) in enumerate(folds)}, indent=1))
 
-    tmp = "/tmp/cv_glmm_v2"
-    Path(tmp).mkdir(exist_ok=True)
+    tmp = str(config.TMP_ROOT / "cv_glmm")
+    Path(tmp).mkdir(parents=True, exist_ok=True)
     cache_dir = out_dir / "fold_params"
 
     print(f"CV: {len(model_genes)} model-route genes, {len(pool_genes)} pool-route genes")
     zdict_m, zcorr_m, ppc_dict_m, fold_stat_rows = cv_model_route(
-        e2, model_genes, stage_of, folds, tmp, disp_prior_path, cache_dir=cache_dir)
+        e2, model_genes, stage_of, folds, tmp, engine_dir / "dispersion_trend.json", disp_prior_path, cache_dir=cache_dir)
     zdict_p, zcorr_p, ppc_dict_p, pool_fold_stats = cv_pool_route(e2, pool_genes, folds, tmp, cache_dir=cache_dir)
     zdict = {**zdict_m, **zdict_p}
     zdict_corr = {**zcorr_m, **zcorr_p}

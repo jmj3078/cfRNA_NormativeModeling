@@ -14,7 +14,7 @@ sn <- sanitize_names(colnames(X)); colnames(X) <- sn
 Xa <- cbind(1, X); n <- nrow(Xa); p <- ncol(Xa)
 pri <- as.numeric(fromJSON(PRIOR)$tau_slope)
 res <- read.csv(RES); res <- res[toupper(as.character(res$ok)) == "TRUE", ]
-mu_c <- paste0("mu_coef_", 0:10); dp_c <- paste0("disp_coef_", 0:10)
+mu_c <- paste0("mu_coef_", 0:(p - 1)); dp_c <- paste0("disp_coef_", 0:(p - 1))
 lev <- unique(batch); bidx <- match(batch, lev)
 TOPK <- 50
 
@@ -40,6 +40,7 @@ pcis_vec <- function(fit, y, trend_alpha) {
 }
 
 work <- function(i) {
+  set.seed(11 + i)
   row <- res[i, ]; st <- row$stage; ta <- row$trend_alpha
   if (!is.finite(ta)) return(NULL)
   bc <- as.numeric(row[mu_c]); gc_ <- as.numeric(row[dp_c])
@@ -71,7 +72,6 @@ work <- function(i) {
   if (!length(out)) NULL else do.call(rbind, out)
 }
 
-set.seed(11)
 r <- mclapply(seq_len(nrow(res)), work, mc.cores = CORES)
 df <- do.call(rbind, r[!sapply(r, is.null)])
 write.csv(df, OUT, row.names = FALSE)

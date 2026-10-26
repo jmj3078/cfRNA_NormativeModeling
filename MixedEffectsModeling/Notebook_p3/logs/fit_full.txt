@@ -1,0 +1,227 @@
+Warning messages:
+1: package ‘glmmTMB’ was built under R version 4.3.3 
+2: In checkDepPackageVersion(dep_pkg = "TMB") :
+  Package version inconsistency detected.
+glmmTMB was built with TMB version 1.9.16
+Current TMB version is 1.9.17
+Please re-install glmmTMB from source or restore original ‘TMB’ package (see '?reinstalling' for more information)
+[15:39:25] chunk 1/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=13) | elapsed=0.4min eta=34.6min | cum_ok_rate=0.990 (198/200)
+[15:39:48] chunk 2/90 done (200 genes, ok_rate=1.00, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=15) | elapsed=0.8min eta=34.3min | cum_ok_rate=0.995 (398/400)
+[15:40:12] chunk 3/90 done (200 genes, ok_rate=1.00, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=12) | elapsed=1.2min eta=34.0min | cum_ok_rate=0.997 (598/600)
+[15:40:36] chunk 4/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=12) | elapsed=1.6min eta=33.8min | cum_ok_rate=0.998 (798/800)
+[15:41:03] chunk 5/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=19) | elapsed=2.0min eta=34.4min | cum_ok_rate=0.998 (998/1000)
+[15:41:27] chunk 6/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=12) | elapsed=2.4min eta=34.0min | cum_ok_rate=0.998 (1197/1200)
+[15:41:51] chunk 7/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=13) | elapsed=2.8min eta=33.5min | cum_ok_rate=0.998 (1397/1400)
+[15:42:16] chunk 8/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=19) | elapsed=3.2min eta=33.1min | cum_ok_rate=0.998 (1597/1600)
+[15:42:40] chunk 9/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=7) | elapsed=3.6min eta=32.7min | cum_ok_rate=0.998 (1797/1800)
+[15:43:05] chunk 10/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=14) | elapsed=4.0min eta=32.4min | cum_ok_rate=0.998 (1996/2000)
+[15:43:29] chunk 11/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=17) | elapsed=4.5min eta=32.0min | cum_ok_rate=0.998 (2196/2200)
+[15:43:53] chunk 12/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=12) | elapsed=4.9min eta=31.6min | cum_ok_rate=0.998 (2395/2400)
+[15:44:16] chunk 13/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=7) | elapsed=5.2min eta=31.0min | cum_ok_rate=0.998 (2595/2600)
+[15:44:40] chunk 14/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=19) | elapsed=5.6min eta=30.6min | cum_ok_rate=0.998 (2795/2800)
+[15:45:07] chunk 15/90 done (200 genes, ok_rate=0.98, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=17) | elapsed=6.1min eta=30.4min | cum_ok_rate=0.997 (2992/3000)
+[15:45:29] chunk 16/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=5) | elapsed=6.5min eta=29.9min | cum_ok_rate=0.998 (3192/3200)
+[15:45:54] chunk 17/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=12) | elapsed=6.9min eta=29.5min | cum_ok_rate=0.998 (3392/3400)
+[15:46:17] chunk 18/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=15) | elapsed=7.3min eta=29.0min | cum_ok_rate=0.998 (3591/3600)
+[15:46:41] chunk 19/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=11) | elapsed=7.7min eta=28.6min | cum_ok_rate=0.997 (3790/3800)
+[15:47:04] chunk 20/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=12) | elapsed=8.0min eta=28.2min | cum_ok_rate=0.997 (3988/4000)
+[15:47:31] chunk 21/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=16) | elapsed=8.5min eta=27.9min | cum_ok_rate=0.997 (4186/4200)
+[15:47:54] chunk 22/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=10) | elapsed=8.9min eta=27.4min | cum_ok_rate=0.997 (4385/4400)
+[15:48:17] chunk 23/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=11) | elapsed=9.3min eta=27.0min | cum_ok_rate=0.997 (4585/4600)
+[15:48:40] chunk 24/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=16) | elapsed=9.6min eta=26.5min | cum_ok_rate=0.997 (4784/4800)
+[15:49:05] chunk 25/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=13) | elapsed=10.1min eta=26.1min | cum_ok_rate=0.996 (4982/5000)
+[15:49:27] chunk 26/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=7) | elapsed=10.4min eta=25.6min | cum_ok_rate=0.996 (5180/5200)
+[15:49:49] chunk 27/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=5) | elapsed=10.8min eta=25.2min | cum_ok_rate=0.996 (5378/5400)
+[15:50:13] chunk 28/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=15) | elapsed=11.2min eta=24.8min | cum_ok_rate=0.996 (5576/5600)
+[15:50:37] chunk 29/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=14) | elapsed=11.6min eta=24.4min | cum_ok_rate=0.996 (5775/5800)
+[15:50:58] chunk 30/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=8) | elapsed=11.9min eta=23.9min | cum_ok_rate=0.996 (5974/6000)
+[15:51:23] chunk 31/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=17) | elapsed=12.4min eta=23.5min | cum_ok_rate=0.995 (6172/6200)
+[15:51:46] chunk 32/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=11) | elapsed=12.7min eta=23.1min | cum_ok_rate=0.995 (6371/6400)
+[15:52:10] chunk 33/90 done (200 genes, ok_rate=0.99, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=14) | elapsed=13.1min eta=22.7min | cum_ok_rate=0.995 (6569/6600)
+[15:52:34] chunk 34/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=13) | elapsed=13.5min eta=22.3min | cum_ok_rate=0.995 (6768/6800)
+[15:52:59] chunk 35/90 done (200 genes, ok_rate=0.99, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=12) | elapsed=14.0min eta=21.9min | cum_ok_rate=0.995 (6966/7000)
+[15:53:23] chunk 36/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=13) | elapsed=14.4min eta=21.5min | cum_ok_rate=0.995 (7165/7200)
+[15:53:46] chunk 37/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=8) | elapsed=14.7min eta=21.1min | cum_ok_rate=0.995 (7363/7400)
+[15:54:09] chunk 38/90 done (200 genes, ok_rate=0.98, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=10) | elapsed=15.1min eta=20.7min | cum_ok_rate=0.995 (7560/7600)
+[15:54:32] chunk 39/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=16) | elapsed=15.5min eta=20.3min | cum_ok_rate=0.995 (7759/7800)
+[15:54:54] chunk 40/90 done (200 genes, ok_rate=1.00, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=11) | elapsed=15.9min eta=19.8min | cum_ok_rate=0.995 (7959/8000)
+[15:55:16] chunk 41/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=17) | elapsed=16.2min eta=19.4min | cum_ok_rate=0.995 (8158/8200)
+[15:55:40] chunk 42/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=16) | elapsed=16.6min eta=19.0min | cum_ok_rate=0.995 (8357/8400)
+[15:56:03] chunk 43/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=17) | elapsed=17.0min eta=18.6min | cum_ok_rate=0.995 (8556/8600)
+[15:56:26] chunk 44/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=15) | elapsed=17.4min eta=18.2min | cum_ok_rate=0.995 (8754/8800)
+[15:56:49] chunk 45/90 done (200 genes, ok_rate=0.98, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=19) | elapsed=17.8min eta=17.8min | cum_ok_rate=0.994 (8950/9000)
+[15:57:11] chunk 46/90 done (200 genes, ok_rate=0.98, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=15) | elapsed=18.2min eta=17.4min | cum_ok_rate=0.994 (9146/9200)
+[15:57:35] chunk 47/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=20) | elapsed=18.5min eta=17.0min | cum_ok_rate=0.994 (9345/9400)
+[15:57:57] chunk 48/90 done (200 genes, ok_rate=1.00, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=20) | elapsed=18.9min eta=16.6min | cum_ok_rate=0.994 (9545/9600)
+[15:58:20] chunk 49/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=17) | elapsed=19.3min eta=16.2min | cum_ok_rate=0.994 (9745/9800)
+[15:58:44] chunk 50/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=9) | elapsed=19.7min eta=15.8min | cum_ok_rate=0.994 (9944/10000)
+[15:59:06] chunk 51/90 done (200 genes, ok_rate=0.97, nbi_full_eb=195,nbi_intercept_eb=5, out_genes=8) | elapsed=20.1min eta=15.3min | cum_ok_rate=0.994 (10139/10200)
+[15:59:30] chunk 52/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=14) | elapsed=20.5min eta=15.0min | cum_ok_rate=0.994 (10339/10400)
+[15:59:54] chunk 53/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=15) | elapsed=20.9min eta=14.6min | cum_ok_rate=0.994 (10537/10600)
+[16:00:15] chunk 54/90 done (200 genes, ok_rate=0.99, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=11) | elapsed=21.2min eta=14.2min | cum_ok_rate=0.994 (10736/10800)
+[16:00:39] chunk 55/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=28) | elapsed=21.6min eta=13.8min | cum_ok_rate=0.994 (10935/11000)
+[16:01:01] chunk 56/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=12) | elapsed=22.0min eta=13.4min | cum_ok_rate=0.994 (11133/11200)
+[16:01:23] chunk 57/90 done (200 genes, ok_rate=0.98, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=12) | elapsed=22.4min eta=12.9min | cum_ok_rate=0.994 (11330/11400)
+[16:01:45] chunk 58/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=9) | elapsed=22.7min eta=12.5min | cum_ok_rate=0.994 (11529/11600)
+[16:02:10] chunk 59/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=23) | elapsed=23.1min eta=12.2min | cum_ok_rate=0.994 (11727/11800)
+[16:02:31] chunk 60/90 done (200 genes, ok_rate=0.99, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=16) | elapsed=23.5min eta=11.7min | cum_ok_rate=0.994 (11926/12000)
+[16:02:53] chunk 61/90 done (200 genes, ok_rate=0.99, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=16) | elapsed=23.9min eta=11.3min | cum_ok_rate=0.994 (12125/12200)
+[16:03:17] chunk 62/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=17) | elapsed=24.3min eta=11.0min | cum_ok_rate=0.994 (12324/12400)
+[16:03:38] chunk 63/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=8) | elapsed=24.6min eta=10.5min | cum_ok_rate=0.994 (12522/12600)
+[16:04:00] chunk 64/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=14) | elapsed=25.0min eta=10.1min | cum_ok_rate=0.994 (12720/12800)
+[16:04:22] chunk 65/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=18) | elapsed=25.3min eta=9.7min | cum_ok_rate=0.994 (12919/13000)
+[16:04:44] chunk 66/90 done (200 genes, ok_rate=0.99, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=16) | elapsed=25.7min eta=9.3min | cum_ok_rate=0.994 (13117/13200)
+[16:05:07] chunk 67/90 done (200 genes, ok_rate=0.98, nbi_full_eb=195,nbi_intercept_eb=5, out_genes=13) | elapsed=26.1min eta=9.0min | cum_ok_rate=0.994 (13313/13400)
+[16:05:28] chunk 68/90 done (200 genes, ok_rate=0.99, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=18) | elapsed=26.4min eta=8.6min | cum_ok_rate=0.993 (13511/13600)
+[16:05:50] chunk 69/90 done (200 genes, ok_rate=0.98, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=10) | elapsed=26.8min eta=8.2min | cum_ok_rate=0.993 (13708/13800)
+[16:06:13] chunk 70/90 done (200 genes, ok_rate=0.97, nbi_full_eb=195,nbi_intercept_eb=5, out_genes=15) | elapsed=27.2min eta=7.8min | cum_ok_rate=0.993 (13903/14000)
+[16:06:34] chunk 71/90 done (200 genes, ok_rate=0.98, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=7) | elapsed=27.5min eta=7.4min | cum_ok_rate=0.993 (14100/14200)
+[16:06:55] chunk 72/90 done (200 genes, ok_rate=0.99, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=19) | elapsed=27.9min eta=7.0min | cum_ok_rate=0.993 (14298/14400)
+[16:07:15] chunk 73/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=10) | elapsed=28.2min eta=6.6min | cum_ok_rate=0.993 (14497/14600)
+[16:07:35] chunk 74/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=13) | elapsed=28.6min eta=6.2min | cum_ok_rate=0.993 (14696/14800)
+[16:07:58] chunk 75/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=13) | elapsed=28.9min eta=5.8min | cum_ok_rate=0.993 (14896/15000)
+[16:08:19] chunk 76/90 done (200 genes, ok_rate=0.98, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=16) | elapsed=29.3min eta=5.4min | cum_ok_rate=0.993 (15092/15200)
+[16:08:42] chunk 77/90 done (200 genes, ok_rate=1.00, nbi_full_eb=200, out_genes=13) | elapsed=29.7min eta=5.0min | cum_ok_rate=0.993 (15292/15400)
+[16:09:06] chunk 78/90 done (200 genes, ok_rate=0.99, nbi_full_eb=199,nbi_intercept_eb=1, out_genes=15) | elapsed=30.1min eta=4.6min | cum_ok_rate=0.993 (15491/15600)
+[16:09:28] chunk 79/90 done (200 genes, ok_rate=0.97, nbi_full_eb=195,nbi_intercept_eb=5, out_genes=15) | elapsed=30.4min eta=4.2min | cum_ok_rate=0.993 (15686/15800)
+[16:09:50] chunk 80/90 done (200 genes, ok_rate=0.97, nbi_full_eb=193,nbi_intercept_eb=7, out_genes=13) | elapsed=30.8min eta=3.9min | cum_ok_rate=0.993 (15880/16000)
+[16:10:12] chunk 81/90 done (200 genes, ok_rate=0.99, nbi_full_eb=198,nbi_intercept_eb=2, out_genes=12) | elapsed=31.2min eta=3.5min | cum_ok_rate=0.992 (16078/16200)
+[16:10:32] chunk 82/90 done (200 genes, ok_rate=0.95, nbi_full_eb=190,nbi_intercept_eb=10, out_genes=10) | elapsed=31.5min eta=3.1min | cum_ok_rate=0.992 (16268/16400)
+[16:10:54] chunk 83/90 done (200 genes, ok_rate=0.98, nbi_full_eb=196,nbi_intercept_eb=4, out_genes=17) | elapsed=31.9min eta=2.7min | cum_ok_rate=0.992 (16465/16600)
+[16:11:15] chunk 84/90 done (200 genes, ok_rate=0.98, nbi_full_eb=197,nbi_intercept_eb=3, out_genes=14) | elapsed=32.2min eta=2.3min | cum_ok_rate=0.992 (16662/16800)
+[16:11:36] chunk 85/90 done (200 genes, ok_rate=0.97, nbi_full_eb=194,nbi_intercept_eb=6, out_genes=23) | elapsed=32.6min eta=1.9min | cum_ok_rate=0.992 (16857/17000)
+[16:11:57] chunk 86/90 done (200 genes, ok_rate=0.96, nbi_full_eb=190,nbi_intercept_eb=10, out_genes=17) | elapsed=32.9min eta=1.5min | cum_ok_rate=0.991 (17049/17200)
+[16:12:18] chunk 87/90 done (200 genes, ok_rate=0.96, nbi_full_eb=190,nbi_intercept_eb=10, out_genes=17) | elapsed=33.3min eta=1.1min | cum_ok_rate=0.991 (17241/17400)
+[16:12:38] chunk 88/90 done (200 genes, ok_rate=0.92, nbi_full_eb=184,nbi_intercept_eb=16, out_genes=20) | elapsed=33.6min eta=0.8min | cum_ok_rate=0.990 (17425/17600)
+[16:12:58] chunk 89/90 done (200 genes, ok_rate=0.96, nbi_full_eb=192,nbi_intercept_eb=8, out_genes=19) | elapsed=33.9min eta=0.4min | cum_ok_rate=0.990 (17617/17800)
+[16:12:59] chunk 90/90 done (9 genes, ok_rate=1.00, nbi_full_eb=8,nbi_intercept_eb=1, out_genes=0) | elapsed=34.0min eta=0.0min | cum_ok_rate=0.990 (17626/17809)
+DONE
+Warning messages:
+1: package ‘glmmTMB’ was built under R version 4.3.3 
+2: In checkDepPackageVersion(dep_pkg = "TMB") :
+  Package version inconsistency detected.
+glmmTMB was built with TMB version 1.9.16
+Current TMB version is 1.9.17
+Please re-install glmmTMB from source or restore original ‘TMB’ package (see '?reinstalling' for more information)
+DONE
+HC=592 genes=20097 nz_a_max=31 pool_route=2288 model_route=17809
+hyperparams cached: trend -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/engine_state_mixed/dispersion_trend.json, prior -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/engine_state_mixed/disp_prior.json
+disp slope EB prior sd (n_calib=1939)
+  tau_slope[log(Total Reads)] = 0.1590
+  tau_slope[W_1] = 0.2432
+  tau_slope[W_2] = 0.1338
+  tau_slope[W_3] = 0.2924
+  tau_slope[W_4] = 0.1550
+  tau_slope[W_5] = 0.1986
+  tau_slope[W_6] = 0.1587
+  tau_slope[Gene Length Bias] = 0.3646
+  tau_slope[GC Bias] = 0.2272
+fit_shash: 200/19914 (1.0%) elapsed=2s rate=97.3 genes/s eta=203s
+fit_shash: 400/19914 (2.0%) elapsed=4s rate=96.6 genes/s eta=202s
+fit_shash: 600/19914 (3.0%) elapsed=6s rate=95.9 genes/s eta=201s
+fit_shash: 800/19914 (4.0%) elapsed=8s rate=95.5 genes/s eta=200s
+fit_shash: 1000/19914 (5.0%) elapsed=11s rate=94.7 genes/s eta=200s
+fit_shash: 1200/19914 (6.0%) elapsed=13s rate=94.5 genes/s eta=198s
+fit_shash: 1400/19914 (7.0%) elapsed=15s rate=94.5 genes/s eta=196s
+fit_shash: 1600/19914 (8.0%) elapsed=17s rate=94.4 genes/s eta=194s
+fit_shash: 1800/19914 (9.0%) elapsed=19s rate=94.5 genes/s eta=192s
+fit_shash: 2000/19914 (10.0%) elapsed=21s rate=94.8 genes/s eta=189s
+fit_shash: 2200/19914 (11.0%) elapsed=23s rate=94.8 genes/s eta=187s
+fit_shash: 2400/19914 (12.1%) elapsed=25s rate=94.7 genes/s eta=185s
+fit_shash: 2600/19914 (13.1%) elapsed=27s rate=94.9 genes/s eta=182s
+fit_shash: 2800/19914 (14.1%) elapsed=29s rate=95.0 genes/s eta=180s
+fit_shash: 3000/19914 (15.1%) elapsed=32s rate=94.9 genes/s eta=178s
+fit_shash: 3200/19914 (16.1%) elapsed=34s rate=95.0 genes/s eta=176s
+fit_shash: 3400/19914 (17.1%) elapsed=36s rate=94.9 genes/s eta=174s
+fit_shash: 3600/19914 (18.1%) elapsed=38s rate=94.8 genes/s eta=172s
+fit_shash: 3800/19914 (19.1%) elapsed=40s rate=95.0 genes/s eta=170s
+fit_shash: 4000/19914 (20.1%) elapsed=42s rate=95.0 genes/s eta=168s
+fit_shash: 4200/19914 (21.1%) elapsed=44s rate=94.8 genes/s eta=166s
+fit_shash: 4400/19914 (22.1%) elapsed=46s rate=94.8 genes/s eta=164s
+fit_shash: 4600/19914 (23.1%) elapsed=49s rate=94.8 genes/s eta=162s
+fit_shash: 4800/19914 (24.1%) elapsed=51s rate=94.8 genes/s eta=159s
+fit_shash: 5000/19914 (25.1%) elapsed=53s rate=94.9 genes/s eta=157s
+fit_shash: 5200/19914 (26.1%) elapsed=55s rate=94.9 genes/s eta=155s
+fit_shash: 5400/19914 (27.1%) elapsed=57s rate=94.9 genes/s eta=153s
+fit_shash: 5600/19914 (28.1%) elapsed=59s rate=94.9 genes/s eta=151s
+fit_shash: 5800/19914 (29.1%) elapsed=61s rate=95.0 genes/s eta=149s
+fit_shash: 6000/19914 (30.1%) elapsed=63s rate=94.9 genes/s eta=147s
+fit_shash: 6200/19914 (31.1%) elapsed=65s rate=95.0 genes/s eta=144s
+fit_shash: 6400/19914 (32.1%) elapsed=67s rate=94.9 genes/s eta=142s
+fit_shash: 6600/19914 (33.1%) elapsed=70s rate=94.9 genes/s eta=140s
+fit_shash: 6800/19914 (34.1%) elapsed=72s rate=95.0 genes/s eta=138s
+fit_shash: 7000/19914 (35.2%) elapsed=74s rate=95.0 genes/s eta=136s
+fit_shash: 7200/19914 (36.2%) elapsed=76s rate=95.0 genes/s eta=134s
+fit_shash: 7400/19914 (37.2%) elapsed=78s rate=95.0 genes/s eta=132s
+fit_shash: 7600/19914 (38.2%) elapsed=80s rate=95.0 genes/s eta=130s
+fit_shash: 7800/19914 (39.2%) elapsed=82s rate=95.0 genes/s eta=127s
+fit_shash: 8000/19914 (40.2%) elapsed=84s rate=95.0 genes/s eta=125s
+fit_shash: 8200/19914 (41.2%) elapsed=86s rate=95.1 genes/s eta=123s
+fit_shash: 8400/19914 (42.2%) elapsed=88s rate=95.1 genes/s eta=121s
+fit_shash: 8600/19914 (43.2%) elapsed=90s rate=95.1 genes/s eta=119s
+fit_shash: 8800/19914 (44.2%) elapsed=92s rate=95.1 genes/s eta=117s
+fit_shash: 9000/19914 (45.2%) elapsed=95s rate=95.2 genes/s eta=115s
+fit_shash: 9200/19914 (46.2%) elapsed=97s rate=95.2 genes/s eta=113s
+fit_shash: 9400/19914 (47.2%) elapsed=99s rate=95.3 genes/s eta=110s
+fit_shash: 9600/19914 (48.2%) elapsed=101s rate=95.3 genes/s eta=108s
+fit_shash: 9800/19914 (49.2%) elapsed=103s rate=95.3 genes/s eta=106s
+fit_shash: 10000/19914 (50.2%) elapsed=105s rate=95.3 genes/s eta=104s
+fit_shash: 10200/19914 (51.2%) elapsed=107s rate=95.3 genes/s eta=102s
+fit_shash: 10400/19914 (52.2%) elapsed=109s rate=95.3 genes/s eta=100s
+fit_shash: 10600/19914 (53.2%) elapsed=111s rate=95.3 genes/s eta=98s
+fit_shash: 10800/19914 (54.2%) elapsed=113s rate=95.3 genes/s eta=96s
+fit_shash: 11000/19914 (55.2%) elapsed=115s rate=95.3 genes/s eta=93s
+fit_shash: 11200/19914 (56.2%) elapsed=117s rate=95.4 genes/s eta=91s
+fit_shash: 11400/19914 (57.2%) elapsed=120s rate=95.4 genes/s eta=89s
+fit_shash: 11600/19914 (58.3%) elapsed=122s rate=95.4 genes/s eta=87s
+fit_shash: 11800/19914 (59.3%) elapsed=124s rate=95.4 genes/s eta=85s
+fit_shash: 12000/19914 (60.3%) elapsed=126s rate=95.4 genes/s eta=83s
+fit_shash: 12200/19914 (61.3%) elapsed=128s rate=95.4 genes/s eta=81s
+fit_shash: 12400/19914 (62.3%) elapsed=130s rate=95.4 genes/s eta=79s
+fit_shash: 12600/19914 (63.3%) elapsed=132s rate=95.4 genes/s eta=77s
+fit_shash: 12800/19914 (64.3%) elapsed=134s rate=95.5 genes/s eta=75s
+fit_shash: 13000/19914 (65.3%) elapsed=136s rate=95.6 genes/s eta=72s
+fit_shash: 13200/19914 (66.3%) elapsed=138s rate=95.6 genes/s eta=70s
+fit_shash: 13400/19914 (67.3%) elapsed=140s rate=95.6 genes/s eta=68s
+fit_shash: 13600/19914 (68.3%) elapsed=142s rate=95.6 genes/s eta=66s
+fit_shash: 13800/19914 (69.3%) elapsed=144s rate=95.6 genes/s eta=64s
+fit_shash: 14000/19914 (70.3%) elapsed=146s rate=95.6 genes/s eta=62s
+fit_shash: 14200/19914 (71.3%) elapsed=148s rate=95.7 genes/s eta=60s
+fit_shash: 14400/19914 (72.3%) elapsed=150s rate=95.7 genes/s eta=58s
+fit_shash: 14600/19914 (73.3%) elapsed=153s rate=95.7 genes/s eta=56s
+fit_shash: 14800/19914 (74.3%) elapsed=154s rate=95.8 genes/s eta=53s
+fit_shash: 15000/19914 (75.3%) elapsed=157s rate=95.8 genes/s eta=51s
+fit_shash: 15200/19914 (76.3%) elapsed=159s rate=95.9 genes/s eta=49s
+fit_shash: 15400/19914 (77.3%) elapsed=161s rate=95.9 genes/s eta=47s
+fit_shash: 15600/19914 (78.3%) elapsed=163s rate=96.0 genes/s eta=45s
+fit_shash: 15800/19914 (79.3%) elapsed=165s rate=96.0 genes/s eta=43s
+fit_shash: 16000/19914 (80.3%) elapsed=167s rate=96.1 genes/s eta=41s
+fit_shash: 16200/19914 (81.3%) elapsed=169s rate=96.1 genes/s eta=39s
+fit_shash: 16400/19914 (82.4%) elapsed=171s rate=96.1 genes/s eta=37s
+fit_shash: 16600/19914 (83.4%) elapsed=173s rate=96.0 genes/s eta=35s
+fit_shash: 16800/19914 (84.4%) elapsed=175s rate=96.0 genes/s eta=32s
+fit_shash: 17000/19914 (85.4%) elapsed=177s rate=96.0 genes/s eta=30s
+fit_shash: 17200/19914 (86.4%) elapsed=179s rate=96.0 genes/s eta=28s
+fit_shash: 17400/19914 (87.4%) elapsed=181s rate=96.1 genes/s eta=26s
+fit_shash: 17600/19914 (88.4%) elapsed=183s rate=96.1 genes/s eta=24s
+fit_shash: 17800/19914 (89.4%) elapsed=185s rate=96.1 genes/s eta=22s
+fit_shash: 18000/19914 (90.4%) elapsed=187s rate=96.2 genes/s eta=20s
+fit_shash: 18200/19914 (91.4%) elapsed=189s rate=96.2 genes/s eta=18s
+fit_shash: 18400/19914 (92.4%) elapsed=191s rate=96.2 genes/s eta=16s
+fit_shash: 18600/19914 (93.4%) elapsed=193s rate=96.3 genes/s eta=14s
+fit_shash: 18800/19914 (94.4%) elapsed=195s rate=96.3 genes/s eta=12s
+fit_shash: 19000/19914 (95.4%) elapsed=197s rate=96.3 genes/s eta=9s
+fit_shash: 19200/19914 (96.4%) elapsed=199s rate=96.3 genes/s eta=7s
+fit_shash: 19400/19914 (97.4%) elapsed=201s rate=96.3 genes/s eta=5s
+fit_shash: 19600/19914 (98.4%) elapsed=203s rate=96.4 genes/s eta=3s
+fit_shash: 19800/19914 (99.4%) elapsed=205s rate=96.4 genes/s eta=1s
+fit_shash: 19914/19914 (100.0%) elapsed=207s rate=96.4 genes/s eta=0s
+route     stage           
+excluded  nbi_intercept_eb      183
+model     nbi_full_eb         17593
+          nbi_intercept_eb       33
+pool      pool                 2288
+ok=19914/20097
+disp intercept EB: tau_d=0.3330 shrink_frac_median=0.041
+Cook outliers: genes_with_any=1244/19914 mean_removed=0.06 max=3 refit_failed=2
+Saved -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/engine_state_mixed

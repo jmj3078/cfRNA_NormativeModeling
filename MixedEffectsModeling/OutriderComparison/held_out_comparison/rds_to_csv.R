@@ -1,4 +1,4 @@
-setwd("/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/held_out_comparison")
+setwd(commandArgs(trailingOnly = TRUE)[1])  # config.OUTRIDER_HELD_OUT_DIR
 
 for (f in list.files(".", pattern = "^z_test_.*\\.rds$")) {
   z <- readRDS(f)

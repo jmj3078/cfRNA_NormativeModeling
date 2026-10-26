@@ -23,10 +23,12 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
+from MixedEffectsModeling.core.covariates import OBS_COLUMNS, Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import marginal_nb_rqr
 from MixedEffectsModeling.core.shash import shash_transform_to_z
 from MixedEffectsModeling.validation.cv_engine import _mu_alpha
+from MixedEffectsModeling.validation.lobo_engine import load_full_data
 
 from common import (CACHE, LOG2FCS, count_rejections, draw_perturbed, eval_universe,
                     injection_reference, nb_pvals, perturb, summarize, z_pvals)
@@ -52,22 +54,28 @@ def load_counts(universe):
 
 
 def load_covariates(samples):
+    """The obs columns of config.COVARIATES (core/covariates.OBS_COLUMNS) for samples."""
     with h5py.File(config.H5AD_PATH, "r") as f:
         names = [n.decode() if isinstance(n, bytes) else n for n in f["obs/_index"][()]]
-        X = np.column_stack([f[f"obs/{c}"][()] for c in config.BIAS_COLUMNS]).astype(np.float64)
+        X = np.column_stack([f[f"obs/{c}"][()] for c in OBS_COLUMNS]).astype(np.float64)
     pos = {n: i for i, n in enumerate(names)}
     return X[[pos[s] for s in samples]]
 
 
-def engine_fold(fi, universe, tr_rows, te_rows, X_raw):
+def full_counts(full, names):
+    """All-gene counts of names from load_full_data()."""
+    return full["Y"][[full["row"][s] for s in names]]
+
+
+def engine_fold(fi, universe, X_tr, X_te):
     """Per-fold refit coefficients + the fold's own train-fit SHASH, hoisted out of the
     log2fc loop. mu/alpha depend only on covariates, so they are computed once and reused
     across every injection level -- which also gives common random numbers across log2fc."""
     fits = pd.read_csv(FOLD_PARAMS / f"model_fold{fi}.csv").set_index("gene")
     shash = pd.read_csv(FOLD_PARAMS / f"shash_model_fold{fi}.csv").set_index("gene")
     alpha_fn = load_trend(config.DISPERSION_TREND_PATH)
-    scaler = StandardScaler().fit(X_raw[tr_rows])
-    Xa = np.column_stack([np.ones(len(te_rows)), scaler.transform(X_raw[te_rows])])
+    scaler = StandardScaler().fit(X_tr)
+    Xa = np.column_stack([np.ones(len(X_te)), scaler.transform(X_te)])
 
     mu_cols = [c for c in fits.columns if c.startswith("mu_coef_")]
     disp_cols = [c for c in fits.columns if c.startswith("disp_coef_")]
@@ -112,6 +120,8 @@ def main():
 
     samples, Y = load_counts(universe)
     X_raw = load_covariates(samples)
+    full = load_full_data()
+    full["row"] = {n: i for i, n in enumerate(full["names"])}
     row_of = {s: i for i, s in enumerate(samples)}
     folds = json.load(open(config.OUTRIDER_COMPARISON_DIR / "cv_folds.json"))
 
@@ -130,7 +140,9 @@ def main():
         outr = {name: outrider_fold(d, fi, universe, te_names) for name, d in
                 [("outrider_insample", config.OUTRIDER_COMPARISON_DIR),
                  ("outrider_heldout", config.OUTRIDER_HELD_OUT_DIR)]}
-        params = engine_fold(fi, universe, tr_rows, te_rows, X_raw)
+        cov = Covariates(full["gene_col"]).fit(full_counts(full, tr_names))
+        params = engine_fold(fi, universe, cov.transform(X_raw[tr_rows], full_counts(full, tr_names)),
+                             cov.transform(X_raw[te_rows], full_counts(full, te_names)))
 
         for log2fc in LOG2FCS:
             y_pert = perturb(Y[te_rows], m_ref, pert_idx, log2fc)

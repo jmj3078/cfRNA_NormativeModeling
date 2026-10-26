@@ -42,7 +42,7 @@ def _tau2(est_spread_var, se, floor):
 
 def estimate_slope_prior(calib_csv, n_cov=None, floor=None):
     """tau_k per dispersion slope from a --mode calib run (no dispersion prior)."""
-    n_cov = len(config.BIAS_COLUMNS) if n_cov is None else n_cov
+    n_cov = len(config.COVARIATES) if n_cov is None else n_cov
     floor = EB["tau_floor"] if floor is None else floor
     df = pd.read_csv(calib_csv)
     df = df[df["ok"].astype(bool) & (df["stage"] == "nbi_full_eb")]
@@ -51,7 +51,7 @@ def estimate_slope_prior(calib_csv, n_cov=None, floor=None):
         est = df[f"disp_coef_{k}"].to_numpy(dtype=np.float64)
         se = df[f"disp_se_{k}"].to_numpy(dtype=np.float64)
         tau.append(float(np.sqrt(_tau2(robust_var(est), se, floor))))
-    return {"n_calib_genes": int(len(df)), "covariates": list(config.BIAS_COLUMNS), "tau_slope": tau}
+    return {"n_calib_genes": int(len(df)), "covariates": list(config.COVARIATES), "tau_slope": tau}
 
 
 def save_disp_prior(prior, path=None):

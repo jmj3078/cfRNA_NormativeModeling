@@ -15,6 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
+from MixedEffectsModeling.core.covariates import OBS_COLUMNS, Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import _poisson_rqr, marginal_nb_rqr
 from MixedEffectsModeling.core.ood_filter import MahalanobisFilter, RangeFilter
@@ -67,6 +68,7 @@ def load_full_data(h5ad_path=config.H5AD_PATH):
         keep = qc_passed & (phenotype_full != "") & (phenotype_full != "Unknown") & (protocol != "Exome-based (EB)")
 
         X_raw = np.column_stack([f[f"obs/{c}"][()] for c in config.BIAS_COLUMNS]).astype(np.float64)[keep]
+        obs = np.column_stack([f[f"obs/{c}"][()] for c in OBS_COLUMNS] or [np.empty((len(keep), 0))]).astype(np.float64)[keep]
         names = f["obs/_index"][()].astype(str)[keep]
         batch = _decode_cat(f[f"obs/{config.STRATIFY_COL}"])[keep]
         phenotype = phenotype_full[keep]
@@ -84,8 +86,18 @@ def load_full_data(h5ad_path=config.H5AD_PATH):
     is_hc = phenotype == "Healthy Control"
     bsize = pd.Series(batch[is_hc]).value_counts()
     small_hc_batches = set(bsize.loc[lambda v: v < config.MIN_HC_BATCH_SIZE].index)
-    return dict(X_raw=X_raw, Y=Y, names=names, batch=batch, is_hc=is_hc, phenotype=phenotype,
+    return dict(X_raw=X_raw, obs=obs, Y=Y, names=names, batch=batch, is_hc=is_hc, phenotype=phenotype,
                small_hc_batches=small_hc_batches, gene_col=gene_col)
+
+
+def fold_covariates(data, tr_idx):
+    """Pipeline covariates fitted on the training HC rows tr_idx only."""
+    return Covariates(data["gene_col"]).fit(data["Y"][tr_idx])
+
+
+def fold_X(data, tr_idx):
+    """X (config.COVARIATES) of every sample, covariates fitted on the training HC tr_idx."""
+    return fold_covariates(data, tr_idx).transform(data["obs"], data["Y"])
 
 
 def usable_batches(data):
@@ -99,15 +111,15 @@ def usable_batches(data):
     return pd.DataFrame(rows)
 
 
-def _refit_model_genes(tr_idx, data, genes, stage_of, scaler, tmp, disp_prior_path, cache_path=None):
+def _refit_model_genes(tr_idx, data, X, genes, stage_of, scaler, tmp, trend_path, disp_prior_path, cache_path=None):
     """cache_path persists the post-squeeze GLMM fit for this batch's
     leave-one-batch-out train set -- a rerun with the cache present skips
     Rscript entirely, same cache-first contract as validation/cv_engine.py."""
     if cache_path and cache_path.exists():
         return pd.read_csv(cache_path).set_index("gene")
-    Xs_tr = scaler.transform(data["X_raw"][tr_idx])
+    Xs_tr = scaler.transform(X[tr_idx])
     Y_tr = data["Y"][tr_idx][:, [data["gene_col"][g] for g in genes]]
-    pd.DataFrame(Xs_tr, columns=config.BIAS_COLUMNS).to_csv(f"{tmp}/X.csv.gz")
+    pd.DataFrame(Xs_tr, columns=config.COVARIATES).to_csv(f"{tmp}/X.csv.gz")
     pd.DataFrame(Y_tr, columns=genes).to_csv(f"{tmp}/Y.csv.gz")
     pd.DataFrame({"Batch_ID": data["batch"][tr_idx]}).to_csv(f"{tmp}/batch.csv.gz")
     pd.DataFrame({"gene": genes, "stage": [stage_of[g] for g in genes]}).to_csv(f"{tmp}/genes.csv", index=False)
@@ -115,7 +127,7 @@ def _refit_model_genes(tr_idx, data, genes, stage_of, scaler, tmp, disp_prior_pa
     fit_params.write_text(json.dumps(config.FIT_PARAMS))
     cmd = [config.RSCRIPT, str(config.GLMM_FIT_R), "--x", f"{tmp}/X.csv.gz", "--y", f"{tmp}/Y.csv.gz",
           "--batch", f"{tmp}/batch.csv.gz", "--genes", f"{tmp}/genes.csv",
-          "--trend", str(config.DISPERSION_TREND_PATH), "--fit-params", str(fit_params),
+          "--trend", str(trend_path), "--fit-params", str(fit_params),
           "--mode", "fixed_stage", "--out", f"{tmp}/res.csv"]
     if disp_prior_path is not None:
         cmd += ["--disp-prior", str(disp_prior_path)]
@@ -128,12 +140,12 @@ def _refit_model_genes(tr_idx, data, genes, stage_of, scaler, tmp, disp_prior_pa
     return fits
 
 
-def _score_model_genes(fits, genes, idx, data, scaler, alpha_fn, seed=42, report=True):
-    """Score `genes` at `idx` (either the held-out batch or, for the SHASH
-    train-fit below, the same train_idx the GLMM above was just fit on).
-    report=False skips the per-gene fold_info rows (only needed once, for the
-    held-out call)."""
-    Xa = np.column_stack([np.ones(len(idx)), scaler.transform(data["X_raw"][idx])])
+def _score_model_genes(fits, genes, Xs, Y, gene_col, alpha_fn, seed=42, report=True):
+    """Score `genes` on the rows of the scaled covariates Xs and counts Y (all genes): either
+    the held-out batch or, for the SHASH train-fit below, the same train_idx the GLMM above
+    was just fit on. report=False skips the per-gene fold_info rows (only needed once, for
+    the held-out call)."""
+    Xa = np.column_stack([np.ones(len(Xs)), Xs])
     zdict, rows = {}, []
     for g in genes:
         if g not in fits.index:
@@ -155,23 +167,23 @@ def _score_model_genes(fits, genes, idx, data, scaler, alpha_fn, seed=42, report
         if not np.all(np.isnan(disp_coef)):
             alpha = np.exp(-Xa @ np.nan_to_num(disp_coef, nan=0.0))
         elif "trend_alpha" in row.index and not pd.isna(row["trend_alpha"]):
-            alpha = np.full(len(idx), float(row["trend_alpha"]))
+            alpha = np.full(len(Xs), float(row["trend_alpha"]))
         else:
-            alpha = np.full(len(idx), alpha_fn(float(mu.mean())))
-        y = data["Y"][idx, data["gene_col"][g]]
+            alpha = np.full(len(Xs), alpha_fn(float(mu.mean())))
+        y = Y[:, gene_col[g]]
         z = marginal_nb_rqr(y, mu, alpha, float(row["tau2"]), seed=seed)
         zdict[g] = z.astype(np.float32)
     return zdict, rows
 
 
-def _refit_and_score_pool(tr_idx, te_idx, data, genes, scaler, tmp, cache_path=None):
+def _refit_and_score_pool(tr_idx, te_idx, data, X, genes, scaler, tmp, cache_path=None):
     if cache_path and cache_path.exists():
         with open(cache_path) as f:
             fit = json.load(f)
     else:
-        Xs_tr = scaler.transform(data["X_raw"][tr_idx])
+        Xs_tr = scaler.transform(X[tr_idx])
         Y_tr = data["Y"][tr_idx][:, [data["gene_col"][g] for g in genes]]
-        pd.DataFrame(Xs_tr, columns=config.BIAS_COLUMNS).to_csv(f"{tmp}/Xp.csv.gz")
+        pd.DataFrame(Xs_tr, columns=config.COVARIATES).to_csv(f"{tmp}/Xp.csv.gz")
         pd.DataFrame(Y_tr, columns=genes).to_csv(f"{tmp}/Yp.csv.gz")
         pd.DataFrame({"Batch_ID": data["batch"][tr_idx]}).to_csv(f"{tmp}/batchp.csv.gz")
         pd.DataFrame({"gene": genes}).to_csv(f"{tmp}/genesp.csv", index=False)
@@ -189,34 +201,26 @@ def _refit_and_score_pool(tr_idx, te_idx, data, genes, scaler, tmp, cache_path=N
                 json.dump(fit, f)
     if not fit["ok"]:
         return {}, {}, [dict(gene=g, route="pool", ok=False, fail_reason="pooled_glmm_fit_error") for g in genes]
+    zdict = _score_pool(fit, genes, scaler.transform(X[te_idx]), data["Y"][te_idx], data["gene_col"], 42)
+    zdict_tr = _score_pool(fit, genes, scaler.transform(X[tr_idx]), data["Y"][tr_idx], data["gene_col"], 1042)
+    return zdict, zdict_tr, [dict(gene=g, route="pool", ok=True, family=fit["family"]) for g in genes]
 
+
+def _score_pool(fit, genes, Xs, Y, gene_col, seed):
+    """Pooled-GLM Z of `genes` on the rows of the scaled covariates Xs and counts Y (all genes)."""
     beta = np.asarray(fit["beta"])
     tau2 = float(fit["tau2"]) if fit.get("tau2") is not None else 0.0
     alpha_eff = fit["alpha"] if fit["family"] == "negbin" else 1e-8
     mean_hc = dict(zip(fit["gene"], fit["mean_hc"]))
-    eps = fit["eps"]
-    Xs_te = scaler.transform(data["X_raw"][te_idx])
-    Xs_tr = scaler.transform(data["X_raw"][tr_idx])
-    mult_te = np.exp(Xs_te @ beta[1:])
-    mult_tr = np.exp(Xs_tr @ beta[1:])
+    mult = np.exp(Xs @ beta[1:])
     if fit.get("mult_lo") is not None:
-        mult_te = np.clip(mult_te, fit["mult_lo"], fit["mult_hi"])
-        mult_tr = np.clip(mult_tr, fit["mult_lo"], fit["mult_hi"])
-
+        mult = np.clip(mult, fit["mult_lo"], fit["mult_hi"])
     rqr = _poisson_rqr if fit["family"] == "poisson" else lambda y, mu, seed: marginal_nb_rqr(y, mu, alpha_eff, tau2, seed=seed)
-    zdict, zdict_tr, rows = {}, {}, []
-    for g in genes:
-        mu_te = np.clip((mean_hc[g] + eps) * np.exp(beta[0]) * mult_te, 1e-6, 1e8)
-        mu_tr = np.clip((mean_hc[g] + eps) * np.exp(beta[0]) * mult_tr, 1e-6, 1e8)
-        y_te = data["Y"][te_idx, data["gene_col"][g]]
-        y_tr = data["Y"][tr_idx, data["gene_col"][g]]
-        zdict[g] = rqr(y_te, mu_te, 42).astype(np.float32)
-        zdict_tr[g] = rqr(y_tr, mu_tr, 1042).astype(np.float32)
-        rows.append(dict(gene=g, route="pool", ok=True, family=fit["family"]))
-    return zdict, zdict_tr, rows
+    return {g: rqr(Y[:, gene_col[g]], np.clip((mean_hc[g] + fit["eps"]) * np.exp(beta[0]) * mult, 1e-6, 1e8), seed).astype(np.float32)
+            for g in genes}
 
 
-def run_one_batch(batch_id, data, summary, alpha_fn, disp_prior_path, tmp, limit_genes=None, cache_dir=None):
+def run_one_batch(batch_id, data, summary, alpha_fn, trend_path, disp_prior_path, tmp, limit_genes=None, cache_dir=None):
     """cache_dir (normally the batch's own output directory) persists this
     batch's leave-one-batch-out GLMM fit (model_fits.csv / pool_fit.json) and
     train-fit SHASH params (shash_params.csv) -- a rerun with these cached
@@ -231,21 +235,24 @@ def run_one_batch(batch_id, data, summary, alpha_fn, disp_prior_path, tmp, limit
     model_genes = genes.index[genes["route"] == "model"].tolist()
     pool_genes = genes.index[genes["route"] == "pool"].tolist()
     stage_of = genes["stage"].to_dict()
-    scaler = StandardScaler().fit(data["X_raw"][tr_idx])
+    X = fold_X(data, tr_idx)
+    scaler = StandardScaler().fit(X[tr_idx])
 
     t0 = time.perf_counter()
     zdict, zdict_tr, fold_rows = {}, {}, []
     if model_genes:
         model_cache = cache_dir / "model_fits.csv" if cache_dir else None
-        fits = _refit_model_genes(tr_idx, data, model_genes, stage_of, scaler, tmp, disp_prior_path, cache_path=model_cache)
-        z_m, rows_m = _score_model_genes(fits, model_genes, te_idx, data, scaler, alpha_fn)
-        z_m_tr, _ = _score_model_genes(fits, model_genes, tr_idx, data, scaler, alpha_fn, seed=1042, report=False)
+        fits = _refit_model_genes(tr_idx, data, X, model_genes, stage_of, scaler, tmp, trend_path, disp_prior_path,
+                                  cache_path=model_cache)
+        z_m, rows_m = _score_model_genes(fits, model_genes, scaler.transform(X[te_idx]), data["Y"][te_idx], data["gene_col"], alpha_fn)
+        z_m_tr, _ = _score_model_genes(fits, model_genes, scaler.transform(X[tr_idx]), data["Y"][tr_idx], data["gene_col"],
+                                       alpha_fn, seed=1042, report=False)
         zdict.update(z_m)
         zdict_tr.update(z_m_tr)
         fold_rows += rows_m
     if pool_genes:
         pool_cache = cache_dir / "pool_fit.json" if cache_dir else None
-        z_p, z_p_tr, rows_p = _refit_and_score_pool(tr_idx, te_idx, data, pool_genes, scaler, tmp, cache_path=pool_cache)
+        z_p, z_p_tr, rows_p = _refit_and_score_pool(tr_idx, te_idx, data, X, pool_genes, scaler, tmp, cache_path=pool_cache)
         zdict.update(z_p)
         zdict_tr.update(z_p_tr)
         fold_rows += rows_p
@@ -324,12 +331,13 @@ def compute_ood(data=None, out_dir=config.LOBO_MIXED_DIR, percentile=95, n_out_t
         meta = json.loads(meta_path.read_text())
         batch_id = meta["batch_id"]
         tr_idx = np.where(data["is_hc"] & (data["batch"] != batch_id) & ~small)[0]
-        X_tr = data["X_raw"][tr_idx]
+        X = fold_X(data, tr_idx)
+        X_tr = X[tr_idx]
         mahal = MahalanobisFilter(percentile=percentile).fit(X_tr)
         rng_filter = RangeFilter(n_out_thr=n_out_thr).fit(X_tr)
 
         te_rows = np.array([name2row[n] for n in meta["test_names"]])
-        X_te = data["X_raw"][te_rows]
+        X_te = X[te_rows]
         d = mahal.distances(X_te)
         keep = (d <= mahal.threshold_) & rng_filter.mask(X_te)
 
@@ -370,8 +378,8 @@ def main():
     if todo.empty:
         raise SystemExit(f"batch {args.batch!r} not found in usable_batches()")
 
-    tmp = "/tmp/lobo_glmm"
-    Path(tmp).mkdir(exist_ok=True)
+    tmp = str(config.TMP_ROOT / "lobo_glmm")
+    Path(tmp).mkdir(parents=True, exist_ok=True)
     for _, brow in todo.iterrows():
         b, tier, n_dis = brow["batch"], brow["tier"], int(brow["n_dis"])
         safe = safe_dir(b)
@@ -379,8 +387,8 @@ def main():
             print(f"[skip, already done] {b}")
             continue
         print(f"\n=== LOBO batch: {b}  (tier={tier}, n_dis={n_dis}) ===", flush=True)
-        res = run_one_batch(b, data, summary, alpha_fn, disp_prior_path, tmp, limit_genes=args.limit_genes,
-                            cache_dir=args.out_dir / safe)
+        res = run_one_batch(b, data, summary, alpha_fn, args.engine_dir / "dispersion_trend.json", disp_prior_path, tmp,
+                            limit_genes=args.limit_genes, cache_dir=args.out_dir / safe)
         out_dir = save_batch_result(res, tier, n_dis, args.out_dir)
         print(f"  saved -> {out_dir}  ({res['elapsed_s']:.0f}s, "
              f"{len(res['gene_names'])} genes, n_test={res['n_test']})", flush=True)

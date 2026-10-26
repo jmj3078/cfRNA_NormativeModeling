@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.calibration import gene_shash_calibration
+from MixedEffectsModeling.core.covariates import OBS_COLUMNS, Covariates
 from MixedEffectsModeling.core.dispersion_trend import (
     build_trend, build_trend_from_fits, load_trend, save_trend,
 )
@@ -80,6 +81,8 @@ class GeneRecordMixed:
 class NormativeModelEngineMixed:
     def __init__(self):
         self.X_hc_raw = None
+        self.obs_hc = None
+        self.covariates = None
         self.X_hc_scaled = None
         self.Y_hc = None
         self.scaler = None
@@ -111,10 +114,7 @@ class NormativeModelEngineMixed:
         small = set(bsize.loc[lambda v: v < config.MIN_HC_BATCH_SIZE].index)
         keep = np.array([b not in small for b in batch_hc])
 
-        X_raw = adata.obs[config.BIAS_COLUMNS].values.astype(np.float64)[is_hc][keep]
-        self.X_hc_raw = X_raw
-        self.scaler = StandardScaler()
-        self.X_hc_scaled = self.scaler.fit_transform(X_raw)
+        self.obs_hc = adata.obs[OBS_COLUMNS].values.astype(np.float64)[is_hc][keep]
         self.batch = batch_hc[keep]
         self.names = adata.obs_names.values[is_hc][keep]
         Y_raw = adata.X.toarray() if issparse(adata.X) else np.asarray(adata.X)
@@ -123,6 +123,14 @@ class NormativeModelEngineMixed:
         self.pc_gene_names = adata.var_names[is_pc].tolist()
         pc_indices = np.where(is_pc)[0]
         self._gene_col = {g: pc_indices[i] for i, g in enumerate(self.pc_gene_names)}
+        self.covariates = Covariates(self._gene_col).fit(self.Y_hc)
+        self.X_hc_raw = self.covariates.transform(self.obs_hc, self.Y_hc)
+        self.scaler = StandardScaler()
+        self.X_hc_scaled = self.scaler.fit_transform(self.X_hc_raw)
+
+    def fold_X(self, tr):
+        """X of every HC with the covariates refitted on the HC rows tr only (CV folds)."""
+        return Covariates(self._gene_col).fit(self.Y_hc[tr]).transform(self.obs_hc, self.Y_hc)
 
     def assign_routes(self):
         self.nz_a_max = config.NZ_A_MAX
@@ -134,7 +142,7 @@ class NormativeModelEngineMixed:
 
     def _write_r_inputs(self, tmp_dir):
         Path(tmp_dir).mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(self.X_hc_scaled, columns=config.BIAS_COLUMNS).to_csv(f"{tmp_dir}/X.csv.gz")
+        pd.DataFrame(self.X_hc_scaled, columns=config.COVARIATES).to_csv(f"{tmp_dir}/X.csv.gz")
         pd.DataFrame({"Batch_ID": self.batch}).to_csv(f"{tmp_dir}/batch.csv.gz")
 
     def _write_gene_block(self, genes, tmp_dir, tag):
@@ -171,7 +179,7 @@ class NormativeModelEngineMixed:
         return [genes[i] for i in sorted(picked)]
 
     def prepare_hyperparams(self, trend_path=None, disp_prior_path=None,
-                            tmp_dir="/tmp/glmm_train", n_genes=None):
+                            tmp_dir=str(config.TMP_ROOT / "glmm_train"), n_genes=None):
         trend_path = Path(trend_path or config.DISPERSION_TREND_PATH)
         disp_prior_path = Path(disp_prior_path or config.DISP_PRIOR_PATH)
         calib_path = trend_path.parent / "calib_fits.csv"
@@ -237,7 +245,7 @@ class NormativeModelEngineMixed:
             r.log_theta_eb = float(p)
             r.disp_coef[0] = p
 
-    def train(self, limit=None, tmp_dir="/tmp/glmm_train", disp_prior_path=None):
+    def train(self, limit=None, tmp_dir=str(config.TMP_ROOT / "glmm_train"), disp_prior_path=None):
         model_genes = [g for g, r in self.genes.items() if r.route == "model"][:limit]
         self._write_r_inputs(tmp_dir)
         self._write_gene_block(model_genes, tmp_dir, "model")
@@ -269,7 +277,7 @@ class NormativeModelEngineMixed:
         self.train_pool(tmp_dir=tmp_dir)
         self.fit_shash()
 
-    def train_pool(self, tmp_dir="/tmp/glmm_train"):
+    def train_pool(self, tmp_dir=str(config.TMP_ROOT / "glmm_train")):
         """Route "pool": one shared-beta pooled GLM (+ batch random intercept)
         fit jointly across all pool-route genes. Unused this round (nz_a_max
         defaults to 0, so no gene ever routes to "pool"); kept so re-enabling
@@ -448,6 +456,7 @@ class NormativeModelEngineMixed:
         directory = Path(directory); directory.mkdir(parents=True, exist_ok=True)
         with open(directory / "genes.pkl", "wb") as f: pickle.dump(self.genes, f)
         with open(directory / "scaler.pkl", "wb") as f: pickle.dump(self.scaler, f)
+        with open(directory / "covariates.pkl", "wb") as f: pickle.dump(self.covariates, f)
         if self.rare_glm is not None:
             with open(directory / "rare_glm.pkl", "wb") as f: pickle.dump(self.rare_glm, f)
         if self.disp_prior is not None:
@@ -463,6 +472,10 @@ class NormativeModelEngineMixed:
         engine = cls()
         with open(directory / "genes.pkl", "rb") as f: engine.genes = pickle.load(f)
         with open(directory / "scaler.pkl", "rb") as f: engine.scaler = pickle.load(f)
+        if (directory / "covariates.pkl").exists():
+            with open(directory / "covariates.pkl", "rb") as f: engine.covariates = pickle.load(f)
+        else:
+            engine.covariates = Covariates({})  # engine states saved before covariates.pkl: obs columns only
         rare_glm_path = directory / "rare_glm.pkl"
         if rare_glm_path.exists():
             with open(rare_glm_path, "rb") as f: engine.rare_glm = pickle.load(f)

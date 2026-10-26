@@ -1,9 +1,13 @@
 import datetime
 import json
+import sys
 import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import MixedEffectsModeling.config as config
 
 OPEN_TARGETS = "https://api.platform.opentargets.org/api/v4/graphql"
 MONARCH = "https://api.monarchinitiative.org/v3/api"
@@ -126,7 +130,7 @@ def disgenet_supplement_genes(query, exclude):
 
 
 def main():
-    outdir = Path(__file__).parent / "disease_reference"
+    outdir = config.DISEASE_REF_DIR
     outdir.mkdir(parents=True, exist_ok=True)
     today = datetime.date.today().isoformat()
     for ph, q in PHENO_QUERY.items():

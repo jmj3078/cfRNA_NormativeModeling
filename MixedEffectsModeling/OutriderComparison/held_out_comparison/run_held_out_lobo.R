@@ -8,8 +8,8 @@
 suppressPackageStartupMessages({ library(data.table); library(jsonlite) })
 source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/held_out_comparison/frozen_outrider.R")
 
-IN_DIR <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/insample_comparison"
-OUT_DIR <- "/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/held_out_comparison"
+IN_DIR <- commandArgs(trailingOnly = TRUE)[1]   # config.OUTRIDER_COMPARISON_DIR
+OUT_DIR <- commandArgs(trailingOnly = TRUE)[2]  # config.OUTRIDER_HELD_OUT_DIR
 
 hc_counts <- fread(file.path(IN_DIR, "hc_counts.csv"))
 hc_genes <- hc_counts[[1]]

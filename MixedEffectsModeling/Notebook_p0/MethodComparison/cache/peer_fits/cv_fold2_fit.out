@@ -1,0 +1,73 @@
+train matrix: 474 12361 
+NULL
+NULL
+NULL
+NULL
+	iteration 0/100
+	iteration 1/100
+	iteration 2/100
+	iteration 3/100
+	iteration 4/100
+	iteration 5/100
+	iteration 6/100
+	iteration 7/100
+	iteration 8/100
+	iteration 9/100
+	iteration 10/100
+	iteration 11/100
+	iteration 12/100
+	iteration 13/100
+	iteration 14/100
+	iteration 15/100
+	iteration 16/100
+	iteration 17/100
+	iteration 18/100
+	iteration 19/100
+	iteration 20/100
+	iteration 21/100
+	iteration 22/100
+	iteration 23/100
+	iteration 24/100
+	iteration 25/100
+	iteration 26/100
+	iteration 27/100
+	iteration 28/100
+	iteration 29/100
+	iteration 30/100
+	iteration 31/100
+	iteration 32/100
+	iteration 33/100
+	iteration 34/100
+	iteration 35/100
+	iteration 36/100
+	iteration 37/100
+	iteration 38/100
+	iteration 39/100
+	iteration 40/100
+	iteration 41/100
+	iteration 42/100
+	iteration 43/100
+	iteration 44/100
+	iteration 45/100
+	iteration 46/100
+	iteration 47/100
+	iteration 48/100
+	iteration 49/100
+	iteration 50/100
+	iteration 51/100
+	iteration 52/100
+	iteration 53/100
+	iteration 54/100
+	iteration 55/100
+	iteration 56/100
+	iteration 57/100
+	iteration 58/100
+	iteration 59/100
+	iteration 60/100
+	iteration 61/100
+	iteration 62/100
+Converged (var(residuals)) after 62 iterations
+
+NULL
+W: 12361 20 | effective factors (alpha < 10x min): 3 of 20 
+PEER_FIT_DONE

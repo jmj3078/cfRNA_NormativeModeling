@@ -1,7 +1,7 @@
 # Both run_outrider_cv.R and run_outrider_lobo.R save .rds only, but every consumer
 # (MethodComparison/gate.py, common.py::eval_universe, compute_*_ppc.py) reads .csv.
 # Mirrors held_out_comparison/rds_to_csv.R, plus z (the in-sample arm reports it).
-setwd("/project/cfRNA_NormativeModeling/MixedEffectsModeling/OutriderComparison/insample_comparison")
+setwd(commandArgs(trailingOnly = TRUE)[1])  # config.OUTRIDER_COMPARISON_DIR
 
 for (f in list.files(".", pattern = "^z_test_.*\\.rds$")) {
   write.csv(readRDS(f), sub("\\.rds$", ".csv", f))
