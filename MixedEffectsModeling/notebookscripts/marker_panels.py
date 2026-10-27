@@ -1,7 +1,7 @@
 """Pancreas cell-type marker panel from PanglaoDB, shared by 4_disease_scoring and
-6_pancreatic_cancer_cohort_deepdive.
+7_pancreatic_cancer_cohort_deepdive (6_ in Notebook_p3).
 
-Lives here rather than in either notebook because 6 builds marker_panel.csv from Z, which
+Lives here rather than in either notebook because 7 builds marker_panel.csv from Z, which
 4 produces -- reading that file from 4 would be circular. The panel itself depends only on
 the PanglaoDB library, so it is cheap to rebuild on both sides.
 """

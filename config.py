@@ -116,6 +116,7 @@ MOORE2025_DE_R = _MEM / "notebookscripts" / "GroupVsIndividual" / "moore2025_de.
 GLMM_FIT_R     = _MEM / "core" / "glmm_fit.R"
 GLMM_FIT_POOL_R = _MEM / "core" / "glmm_fit_pool.R"
 HPA_SINGLE_CELL_ZIP = ROOT / "Data" / "HPA" / "rna_single_cell_type.tsv.zip"  # HPA 25.1, Data/HPA/VERSION.txt
+HPA_ATLAS_ZIP = ROOT / "Data" / "HPA" / "proteinatlas.tsv.zip"  # HPA 25.1 gene-level specificity categories
 GTEX_WB_GCT = ROOT / "Data" / "GTEx" / "gene_reads_v10_whole_blood.gct"
 PANGLAO_TSV = ROOT / "Data" / "PalangoDB_CellTypeMarkers.tsv"
 RUVSEQ_RSCRIPT = Path.home() / "miniconda3" / "envs" / "ruvseq_env" / "bin" / "Rscript"
