@@ -1,0 +1,19 @@
+== cv ==
+  cv/fold0 curves done
+  cv/fold1 curves done
+  cv/fold2 curves done
+  cv/fold3 curves done
+  cv/fold4 curves done
+/home/mjcho/miniconda3/envs/scRNA/lib/python3.10/site-packages/numpy/lib/_nanfunctions_impl.py:1620: RuntimeWarning: All-NaN slice encountered
+  return fnb._ureduce(a,
+== lobo ==
+  lobo/lobo_Chen_et_al._Batch_1 curves done
+  lobo/lobo_Moore_et_al._Batch_1 curves done
+  lobo/lobo_Moufarrej_et_al._Batch_1 curves done
+  lobo/lobo_Moufarrej_et_al._Batch_4 curves done
+  lobo/lobo_Ward_Z_et_al._Batch_1 curves done
+/home/mjcho/miniconda3/envs/scRNA/lib/python3.10/site-packages/numpy/lib/_nanfunctions_impl.py:1620: RuntimeWarning: All-NaN slice encountered
+  return fnb._ureduce(a,
+wrote /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/MethodComparison/Figures/null_falsecalls.png
+wrote /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/MethodComparison/Figures/null_rejection.png
+wrote /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p3/MethodComparison/Figures/pr_grid.png

@@ -319,7 +319,8 @@ def compute_ood(data=None, out_dir=config.LOBO_MIXED_DIR, percentile=95, n_out_t
     normal ones and misses samples a per-axis count catches (see
     core/ood_filter.py:RangeFilter, tested 2026-07-31 against 4_disease_scoring.ipynb).
     Writes ood_mask.npy (True=inlier) + ood_distance.npy per batch, same
-    convention as the v1 engine's compute_lobo_ood.py."""
+    convention as the v1 engine's compute_lobo_ood.py. The filters always run on the raw BIAS_COLUMNS,
+    whatever the pipeline's covariates, so every pipeline screens the same samples."""
     data = data or load_full_data()
     name2row = {n: i for i, n in enumerate(data["names"])}
     small = np.array([b in data["small_hc_batches"] for b in data["batch"]])
@@ -331,7 +332,7 @@ def compute_ood(data=None, out_dir=config.LOBO_MIXED_DIR, percentile=95, n_out_t
         meta = json.loads(meta_path.read_text())
         batch_id = meta["batch_id"]
         tr_idx = np.where(data["is_hc"] & (data["batch"] != batch_id) & ~small)[0]
-        X = fold_X(data, tr_idx)
+        X = data["X_raw"]
         X_tr = X[tr_idx]
         mahal = MahalanobisFilter(percentile=percentile).fit(X_tr)
         rng_filter = RangeFilter(n_out_thr=n_out_thr).fit(X_tr)

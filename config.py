@@ -112,7 +112,7 @@ RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent /
 
 
 MOORE2025_REPO_DIR = ROOT / "Data" / "2024_ngolab_cfRNA" / "Analysis_Scripts"
-MOORE2025_DE_R = _MEM / "GroupVsIndividual" / "moore2025_de.R"
+MOORE2025_DE_R = _MEM / "notebookscripts" / "GroupVsIndividual" / "moore2025_de.R"
 GLMM_FIT_R     = _MEM / "core" / "glmm_fit.R"
 GLMM_FIT_POOL_R = _MEM / "core" / "glmm_fit_pool.R"
 HPA_SINGLE_CELL_ZIP = ROOT / "Data" / "HPA" / "rna_single_cell_type.tsv.zip"  # HPA 25.1, Data/HPA/VERSION.txt
@@ -172,7 +172,7 @@ PIPELINES = {
     "p0": dict(covariates=BIAS_COLUMNS, pcis_cut=3.83),  # frozen: from a null run before per-gene seeding, not regenerable
     "p3": dict(covariates=["log(Total Reads)"] + [f"W_{i}" for i in range(1, 7)] + ["Gene Length Bias", "GC Bias"],
                control_genes=_MEM / "core" / "control_genes_blood.txt",
-               pcis_cut=3.64878564170492),  # core/fit_pipeline.sh p3 calib (NREP 5, per-gene seeds)
+               pcis_cut=3.641121),  # frozen: FMMI p3 fit, null run before per-gene seeding (seeded NREP 5 rerun: 3.6488)
 }
 PIPELINE = os.environ.get("NM_PIPELINE")
 if PIPELINE is not None:

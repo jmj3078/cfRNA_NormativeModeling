@@ -1,0 +1,55 @@
+1_cv_analysis.ipynb ok 183s
+2_lobo_calibration.ipynb ok 10s
+4_disease_scoring.ipynb ok 145s
+3_detection_limit.ipynb ok 5784s
+5_in_silico_method_comparison.ipynb ok 4s
+0_outrider_comparison.ipynb ok 3s
+6_pancreatic_cancer_cohort_deepdive.ipynb FAILED after 2s:  = pd.Series(src['dis']).map(stage_all).values
+dis_idx, hc_idx = pd.Index(src['dis']), pd.Index(src['hc'])
+
+# all arm: every Moore Batch_1-3 pancreatic sample the engine scored
+a_moore = np.isin(src['dis_batch'], MOORE_BATCHES)
+a_neo, a_panc = a_moore & np.isin(dis_stage, NEOPLASTIC), a_moore & (dis_stage == 'Pancreatitis')
+a_hc = np.isin(src['hc_batch'], MOORE_BATCHES)
+Z_A, names_A, stage_A = src['Z_dis'][a_neo], src['dis'][a_neo], dis_stage[a_neo]
+Z_hc_A0, names_hc_A0 = src['Z_hc'][a_hc], src['hc'][a_hc]
+
+
+def deg_case_samples(case):
+    """The exact case+HC sample list the matched DESeq2 run was fitted on."""
+    s = pd.read_csv(DEG_DIR / 'ruvg_W' / f'moore_b1__{case}.csv')['sample'].values
+    st = pd.Series(s).map(stage_all).values
+    return s, st
+
+
+# matched arm: taken from the DESeq2 run rather than re-derived, so the two sides cannot drift
+mt, mt_stage = deg_case_samples('PancreaticNeoplasm')
+is_case = np.isin(mt_stage, NEOPLASTIC)
+pat_m, hcm = dis_idx.get_indexer(mt[is_case]), hc_idx.get_indexer(mt[~is_case])
+assert (pat_m >= 0).all() and (hcm >= 0).all(), 'DESeq2 sample missing from the Z matrices'
+Z_neo0, names_neo0, stage_neo0 = src['Z_dis'][pat_m], src['dis'][pat_m], mt_stage[is_case]
+Z_hc_m0, names_hc_m0 = src['Z_hc'][hcm], src['hc'][hcm]
+
+print(f'genes={len(genes)}')
+print(f'matched arm ({MATCHED_BATCH}, paired with {DEG_DIR.name}): '
+      f'neoplasm={len(names_neo0)}  HC={len(names_hc_m0)}')
+print(pd.Series(stage_neo0).value_counts().reindex(NEOPLASTIC).to_string())
+print(f'all arm (Moore Batch_1-3): neoplasm={len(names_A)}  pancreatitis={int(a_panc.sum())}  '
+      f'HC={len(names_hc_A0)}')
+print(pd.Series(stage_A).value_counts().reindex(NEOPLASTIC).to_string())
+
+------------------
+
+
+[0;31m---------------------------------------------------------------------------[0m
+[0;31mAssertionError[0m                            Traceback (most recent call last)
+Cell [0;32mIn[2], line 61[0m
+[1;32m     59[0m is_case [38;5;241m=[39m np[38;5;241m.[39misin(mt_stage, NEOPLASTIC)
+[1;32m     60[0m pat_m, hcm [38;5;241m=[39m dis_idx[38;5;241m.[39mget_indexer(mt[is_case]), hc_idx[38;5;241m.[39mget_indexer(mt[[38;5;241m~[39mis_case])
+[0;32m---> 61[0m [38;5;28;01massert[39;00m (pat_m [38;5;241m>[39m[38;5;241m=[39m [38;5;241m0[39m)[38;5;241m.[39mall() [38;5;129;01mand[39;00m (hcm [38;5;241m>[39m[38;5;241m=[39m [38;5;241m0[39m)[38;5;241m.[39mall(), [38;5;124m'[39m[38;5;124mDESeq2 sample missing from the Z matrices[39m[38;5;124m'[39m
+[1;32m     62[0m Z_neo0, names_neo0, stage_neo0 [38;5;241m=[39m src[[38;5;124m'[39m[38;5;124mZ_dis[39m[38;5;124m'[39m][pat_m], src[[38;5;124m'[39m[38;5;124mdis[39m[38;5;124m'[39m][pat_m], mt_stage[is_case]
+[1;32m     63[0m Z_hc_m0, names_hc_m0 [38;5;241m=[39m src[[38;5;124m'[39m[38;5;124mZ_hc[39m[38;5;124m'[39m][hcm], src[[38;5;124m'[39m[38;5;124mhc[39m[38;5;124m'[39m][hcm]
+
+[0;31mAssertionError[0m: DESeq2 sample missing from the Z matrices
+
+control_genes.ipynb ok 1155s

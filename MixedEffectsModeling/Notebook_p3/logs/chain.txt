@@ -5,3 +5,16 @@
 2026-10-26 15:24:20 calib
 2026-10-26 15:38:12 calib cut 3.64878564170492
 2026-10-26 15:38:12 fit
+2026-10-26 16:51:01 STOPPED by user request (transplant FMMI fits instead)
+2026-10-26 16:54:53 transplanted FMMI p3 fits; scoring-only chain
+2026-10-26 16:54:53 sweep
+2026-10-26 17:11:27 gate
+2026-10-26 17:18:15 plot_pr
+2026-10-26 17:18:37 ppc_full_stats
+2026-10-26 17:21:15 ppc_full_stats FAILED
+2026-10-26 17:21:15 p3 notebooks
+2026-10-26 17:25:26 ppc_full_stats rerun after nb1 rc ok
+2026-10-26 19:22:42 p3 notebooks done: 7 ok, 1 failed
+2026-10-26 19:22:42 p0 strict notebooks
+2026-10-26 19:22:42 p0 strict done:  ok,  failed
+2026-10-26 19:22:42 DONE

@@ -1,0 +1,48 @@
+Warning messages:
+1: package ‘glmmTMB’ was built under R version 4.3.3 
+2: In checkDepPackageVersion(dep_pkg = "TMB") :
+  Package version inconsistency detected.
+glmmTMB was built with TMB version 1.9.16
+Current TMB version is 1.9.17
+Please re-install glmmTMB from source or restore original ‘TMB’ package (see '?reinstalling' for more information)
+[13:27:55] chunk 1/10 done (200 genes, ok_rate=0.99, nbi_full_eb=200, out_genes=0) | elapsed=0.4min eta=3.6min | cum_ok_rate=0.990 (198/200)
+[13:28:17] chunk 2/10 done (200 genes, ok_rate=0.98, nbi_full_eb=200, out_genes=0) | elapsed=0.8min eta=3.1min | cum_ok_rate=0.985 (394/400)
+[13:28:39] chunk 3/10 done (200 genes, ok_rate=0.99, nbi_full_eb=200, out_genes=0) | elapsed=1.1min eta=2.7min | cum_ok_rate=0.988 (593/600)
+[13:29:00] chunk 4/10 done (200 genes, ok_rate=0.99, nbi_full_eb=200, out_genes=0) | elapsed=1.5min eta=2.2min | cum_ok_rate=0.990 (792/800)
+[13:29:22] chunk 5/10 done (200 genes, ok_rate=0.97, nbi_full_eb=200, out_genes=0) | elapsed=1.9min eta=1.9min | cum_ok_rate=0.986 (986/1000)
+[13:29:43] chunk 6/10 done (200 genes, ok_rate=0.97, nbi_full_eb=200, out_genes=0) | elapsed=2.2min eta=1.5min | cum_ok_rate=0.983 (1180/1200)
+[13:30:03] chunk 7/10 done (200 genes, ok_rate=0.95, nbi_full_eb=200, out_genes=0) | elapsed=2.5min eta=1.1min | cum_ok_rate=0.979 (1370/1400)
+[13:30:24] chunk 8/10 done (200 genes, ok_rate=0.97, nbi_full_eb=200, out_genes=0) | elapsed=2.9min eta=0.7min | cum_ok_rate=0.978 (1564/1600)
+[13:30:45] chunk 9/10 done (200 genes, ok_rate=0.94, nbi_full_eb=200, out_genes=0) | elapsed=3.2min eta=0.4min | cum_ok_rate=0.974 (1753/1800)
+[13:31:03] chunk 10/10 done (200 genes, ok_rate=0.93, nbi_full_eb=200, out_genes=0) | elapsed=3.5min eta=0.0min | cum_ok_rate=0.970 (1939/2000)
+DONE
+HC=592 genes=20097 nz_a_max=31 pool_route=2288 model_route=17809
+hyperparams from calib: trend -> /project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/runs/p3/full/dispersion_trend.json, prior -> /project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/runs/p3/full/disp_prior.json
+disp slope EB prior sd (n_calib=1939)
+  tau_slope[log(Total Reads)] = 0.1590
+  tau_slope[W_1] = 0.2432
+  tau_slope[W_2] = 0.1338
+  tau_slope[W_3] = 0.2924
+  tau_slope[W_4] = 0.1550
+  tau_slope[W_5] = 0.1986
+  tau_slope[W_6] = 0.1587
+  tau_slope[Gene Length Bias] = 0.3646
+  tau_slope[GC Bias] = 0.2272
+--calib-only: stopping before the full cascade. RES for pcis_recalibrate.py -> /project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/runs/p3/full/calib_fits.csv, WORK -> /project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/runs/p3/tmp/glmm_train
+Warning messages:
+1: package ‘glmmTMB’ was built under R version 4.3.3 
+2: In checkDepPackageVersion(dep_pkg = "TMB") :
+  Package version inconsistency detected.
+glmmTMB was built with TMB version 1.9.16
+Current TMB version is 1.9.17
+Please re-install glmmTMB from source or restore original ‘TMB’ package (see '?reinstalling' for more information)
+null sim done: genes=1939 reps=1 rows=96950 -> /project/cfRNA_NormativeModeling_method/_FinalModelingMethodImprovement/runs/p3/pcis_calibration/null_pcis.csv
+ target_per_obs_rate  population_percentile       cut  null_removed_per_gene  max_removed_per_gene  topk_saturation_frac
+             0.00100                0.99900  0.449081               0.591542                     5                  0.10
+             0.00050                0.99950  0.866477               0.295513                     3                  0.06
+             0.00030                0.99970  1.371377               0.176895                     3                  0.06
+             0.00020                0.99980  1.973941               0.118102                     2                  0.04
+             0.00015                0.99985  2.528802               0.088190                     2                  0.04
+             0.00010                0.99990  3.641121               0.058793                     2                  0.04
+             0.00005                0.99995  6.336053               0.028881                     1                  0.02
+             0.00001                0.99999 21.573082               0.005157                     1                  0.02
