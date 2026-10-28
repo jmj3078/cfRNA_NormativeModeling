@@ -191,7 +191,7 @@ if PIPELINE is not None:
     PCIS_CAL_FIG_DIR = PCIS_CAL_DIR / "Figures"
     DISEASE_SCORING_FIG_DIR = PIPELINE_DIR / "DiseaseScoring" / "Figures"
     DISEASE_REF_DIR = PIPELINE_DIR / "Benchmark" / "disease_reference"
-    GROUP_VS_INDIV_DIR = PIPELINE_DIR / "GroupVsIndividual"
+    GROUP_VS_INDIV_DIR = PIPELINE_DIR / "PancreaticCancerCohortsAnalysis"
     GROUP_VS_INDIV_FIG_DIR = GROUP_VS_INDIV_DIR / "Figures"
     MOORE2025_DE_DIR = GROUP_VS_INDIV_DIR / "moore2025_de"
     OUTRIDER_COMPARISON_DIR = PIPELINE_DIR / "OutriderComparison" / "insample_comparison"
