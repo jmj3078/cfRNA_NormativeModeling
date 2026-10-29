@@ -20,8 +20,8 @@ def main():
     ap.add_argument("--resume", action="store_true",
                     help="resume from an interrupted run's chunked results.csv in "
                          f"{TMP_DIR} instead of starting fresh (only safe against the same code version)")
-    ap.add_argument("--out-dir", type=Path, default=config.ENGINE_MIXED_DIR,
-                    help="directory to save the trained engine into (defaults to the production engine_state_mixed)")
+    ap.add_argument("--out-dir", type=Path, default=config.ENGINE_DIR,
+                    help="directory to save the trained engine into (defaults to the production EngineState)")
     ap.add_argument("--calib-only", action="store_true",
                     help="stop after prepare_hyperparams (calib_fits.csv/trend/disp_prior) -- skip the "
                          "full cascade. Used by fit_pipeline.sh calib (PCIS null cut) before committing "

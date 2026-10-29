@@ -25,7 +25,7 @@ from scipy.stats import norm
 from common import CACHE, size_factors
 
 HERE = Path(__file__).resolve().parent
-PEER_DIR = CACHE / "peer_fits"
+PEER_DIR = CACHE / "PeerFits"
 CONDA_SH = "/home/mjcho/miniconda3/etc/profile.d/conda.sh"
 # Matched to the autoencoder and PCA arms' q, so the latent dimension is not a free
 # variable between arms. ARD prunes below this anyway. (K=60, the GTEx rule-of-thumb for

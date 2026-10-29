@@ -6,7 +6,7 @@ the whole scoring path ports to numpy. That matters because normative-mode scori
 re-run for every injection level: in R that is a round trip per level, here it is a matmul.
 
 validate() checks the port end-to-end against the mu matrices the R pipeline already wrote
-(held_out_comparison/cv_fold{i}_mu.csv), i.e. on real data, not a toy.
+(HeldOutComparison/cv_fold{i}_mu.csv), i.e. on real data, not a toy.
 """
 import sys
 from pathlib import Path
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
 from common import CACHE, size_factors
 
-FITS = CACHE / "latent_fits"
+FITS = CACHE / "LatentFits"
 
 
 def load_fit(implementation, fold_tag):

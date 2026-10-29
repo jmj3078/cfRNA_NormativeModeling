@@ -38,7 +38,7 @@ def safe_dir(batch):
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", batch)
 
 
-def selected_batches(lobo_dir=config.LOBO_MIXED_DIR):
+def selected_batches(lobo_dir=config.LOBO_DIR):
     """Batches scoreable for held-out evaluation: >= config.LOBO_MIN_TEST_HC held-out HC
     and, when config.LOBO_REQUIRE_DISEASE, disease samples of their own. Read from each
     fit's own meta.json so the selection cannot drift from what was actually fitted, and
@@ -308,8 +308,8 @@ def save_batch_result(res, tier, n_dis, out_dir):
     return bdir
 
 
-def compute_ood(data=None, out_dir=config.LOBO_MIXED_DIR, percentile=95, n_out_thr=2):
-    """Inference-only OOD flag for each LOBO_Results_mixed/<batch>/ held-out
+def compute_ood(data=None, out_dir=config.LOBO_DIR, percentile=95, n_out_thr=2):
+    """Inference-only OOD flag for each 2_LOBOResults/<batch>/ held-out
     sample -- run_one_batch already refits per batch, so this only needs a
     filter fit per batch (on that batch's OWN train-fold HC, excluding the
     held-out batch, never the held-out batch itself) applied to the
@@ -356,8 +356,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", type=str, default=None, help="run a single Batch_ID only (default: all usable batches)")
     ap.add_argument("--limit-genes", type=int, default=None, help="smoke test")
-    ap.add_argument("--engine-dir", type=Path, default=config.ENGINE_MIXED_DIR)
-    ap.add_argument("--out-dir", type=Path, default=config.LOBO_MIXED_DIR)
+    ap.add_argument("--engine-dir", type=Path, default=config.ENGINE_DIR)
+    ap.add_argument("--out-dir", type=Path, default=config.LOBO_DIR)
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)

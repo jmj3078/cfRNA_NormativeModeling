@@ -32,7 +32,7 @@ def main():
     hc = pd.read_csv(config.OUTRIDER_COMPARISON_DIR / "hc_meta.csv")
     metas = selected_batches()
     if not metas:
-        raise SystemExit(f"no LOBO fit in {config.LOBO_MIXED_DIR} qualifies "
+        raise SystemExit(f"no LOBO fit in {config.LOBO_DIR} qualifies "
                          f"(n_test_hc >= {config.LOBO_MIN_TEST_HC}"
                          f"{', n_dis > 0' if config.LOBO_REQUIRE_DISEASE else ''})")
     print(f"held-out batches: {len(metas)} of {hc['batch'].nunique()} in the HC pool")

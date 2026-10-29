@@ -6,7 +6,7 @@ universe, shared perturbed-gene draw (by gene name), and BH restricted to that u
 (oracle-mu scoring for the OUTRIDER arms, 500 perturbed genes, fold-shared draw) is left
 exactly as it was so the diff isolates the three fixes.
 
-The engine arm uses CV_Results_mixed/fold_params/, i.e. a genuine per-fold refit on the
+The engine arm uses 1_CVResults/FoldParams/, i.e. a genuine per-fold refit on the
 same StratifiedKFold(5, seed 42) split the OUTRIDER folds were built from.
 
 Run:  python gate.py
@@ -34,7 +34,7 @@ from common import (CACHE, LOG2FCS, count_rejections, draw_perturbed, eval_unive
                     injection_reference, nb_pvals, perturb, summarize, z_pvals)
 
 N_PERTURB = 500
-FOLD_PARAMS = config.CV_MIXED_DIR / "fold_params"
+FOLD_PARAMS = config.CV_DIR / "FoldParams"
 
 
 def load_counts(universe):

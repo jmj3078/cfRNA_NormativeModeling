@@ -1,6 +1,6 @@
 """PPC p-values + calibration stats for an OUTRIDER comparison directory.
 
-Run:  python compute_ppc_full_stats.py [insample_comparison|held_out_comparison]
+Run:  python compute_ppc_full_stats.py [InsampleComparison|HeldOutComparison]
 """
 import pickle
 import sys
@@ -38,7 +38,7 @@ def pvalue_summary(y_mu_alpha_tau2_iter, seed0=2000):
 
 
 def our_engine_iter():
-    d = pickle.load(open(config.CV_MIXED_DIR / "cv_ppc.pkl", "rb"))
+    d = pickle.load(open(config.CV_DIR / "cv_ppc.pkl", "rb"))
     for g, v in d.items():
         yield g, np.asarray(v["y"], float), np.asarray(v["mu"], float), np.asarray(v["alpha"], float), np.asarray(v["tau2"], float)
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     else:
         print(f"already cached -> {out_outr}")
 
-    eng_calib = gene_level_calib_table(config.CV_MIXED_DIR / "cv_calibration_moments.csv")
+    eng_calib = gene_level_calib_table(config.CV_DIR / "cv_calibration_moments.csv")
     outr_calib = gene_level_calib_table(DIR / "outrider_cv_calibration_moments.csv")
     print("\nour engine calib_stats (all genes):", eng_calib)
     print("\nOUTRIDER calib_stats:", outr_calib)
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     # our-engine calib_stats restricted to the gene subset OUTRIDER covers, for a
     # like-for-like comparison alongside the all-gene number.
-    eng_cal_full = pd.read_csv(config.CV_MIXED_DIR / "cv_calibration_moments.csv")
+    eng_cal_full = pd.read_csv(config.CV_DIR / "cv_calibration_moments.csv")
     outr_genes = pd.read_csv(DIR / "outrider_cv_calibration_moments.csv")["gene"]
     eng_cal_sub = eng_cal_full[eng_cal_full["gene"].isin(outr_genes)]
     sub_path = DIR / "our_engine_cv_calibration_moments_outrider_genes.csv"

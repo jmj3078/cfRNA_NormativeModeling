@@ -36,7 +36,7 @@ def eval_universe():
     if path.exists():
         return path.read_text().split()
 
-    summary = pd.read_csv(config.ENGINE_MIXED_DIR / "training_summary.csv")
+    summary = pd.read_csv(config.ENGINE_DIR / "training_summary.csv")
     genes = set(summary.loc[summary["ok"].fillna(False) & (summary["route"] == "model"), "gene"])
     for d in (config.OUTRIDER_COMPARISON_DIR, config.OUTRIDER_HELD_OUT_DIR):
         for f in sorted(glob.glob(str(d / "cv_fold*_theta.csv"))):

@@ -13,7 +13,7 @@ cfg() { $PY -c "import sys; sys.path.insert(0, '.'); import config; print(config
 LOG=$(cfg PIPELINE_DIR)/logs
 mkdir -p $LOG
 if [ "$2" = calib ]; then
-  ENGINE=$(cfg ENGINE_MIXED_DIR); CAL=$(cfg PCIS_CAL_DIR)
+  ENGINE=$(cfg ENGINE_DIR); CAL=$(cfg PCIS_CAL_DIR)
   mkdir -p $CAL
   $PY $M/core/run_engine.py --calib-only > $LOG/fit_calib.txt 2>&1
   $(cfg RSCRIPT) $M/core/pcis_null.R $ENGINE/calib_fits.csv $(cfg TMP_ROOT)/glmm_train $CAL/null_pcis.csv \

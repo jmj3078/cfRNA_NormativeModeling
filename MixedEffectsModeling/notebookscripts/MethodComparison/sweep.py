@@ -59,11 +59,11 @@ def fold_spec(split):
     if split == "cv":
         folds = json.load(open(config.OUTRIDER_COMPARISON_DIR / "cv_folds.json"))
         return [(k, f"fold{k}", folds[k]["train"], folds[k]["test"],
-                 config.CV_MIXED_DIR / "fold_params")
+                 config.CV_DIR / "FoldParams")
                 for k in sorted(folds, key=int)]
     folds = json.load(open(CACHE / "lobo_folds.json"))
     return [(k, f"lobo_{folds[k]['batch_dir']}", folds[k]["train"], folds[k]["test"],
-             config.LOBO_MIXED_DIR / folds[k]["batch_dir"])
+             config.LOBO_DIR / folds[k]["batch_dir"])
             for k in sorted(folds)]
 
 
@@ -73,7 +73,7 @@ def eval_universe_nm():
     path = CACHE / "eval_universe_nm.txt"
     if path.exists():
         return path.read_text().split()
-    summary = pd.read_csv(config.ENGINE_MIXED_DIR / "training_summary.csv")
+    summary = pd.read_csv(config.ENGINE_DIR / "training_summary.csv")
     genes = set(summary.loc[summary["ok"].fillna(False) & (summary["route"] == "model"), "gene"])
     for split in SPLITS:
         for _, tag, _, _, _ in fold_spec(split):
@@ -94,7 +94,7 @@ def engine_params(source, tag, universe, X_tr, X_te):
     if (source / "model_fits.csv").exists():        # LOBO layout
         fits = pd.read_csv(source / "model_fits.csv").set_index("gene")
         shash = pd.read_csv(source / "shash_params.csv").set_index("gene")
-    else:                                            # CV fold_params layout
+    else:                                            # CV FoldParams layout
         fi = tag.replace("fold", "")
         fits = pd.read_csv(source / f"model_fold{fi}.csv").set_index("gene")
         shash = pd.read_csv(source / f"shash_model_fold{fi}.csv").set_index("gene")

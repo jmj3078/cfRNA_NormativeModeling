@@ -1,6 +1,6 @@
 """PPC moment cache for an OUTRIDER comparison directory.
 
-Run:  python compute_outrider_ppc.py [insample_comparison|held_out_comparison]
+Run:  python compute_outrider_ppc.py [InsampleComparison|HeldOutComparison]
 """
 import sys
 from pathlib import Path

@@ -16,7 +16,7 @@ source("/project/cfRNA_NormativeModeling/MixedEffectsModeling/notebookscripts/Me
 args <- commandArgs(trailingOnly = TRUE)
 IN_DIR <- args[1]
 CACHE <- args[2]
-OUT_DIR <- file.path(CACHE, "latent_fits")
+OUT_DIR <- file.path(CACHE, "LatentFits")
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 split <- if (length(args) >= 3) args[3] else "cv"
 

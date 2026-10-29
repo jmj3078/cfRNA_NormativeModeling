@@ -33,7 +33,7 @@ def _standardize(counts, loggeomeans, center, scale):
 def fit_train(y_train, tag=None):
     """y_train: samples x genes of raw counts. Returns the frozen reference.
     With a tag, the basis is cached so reruns and later analyses reuse the same one."""
-    path = (CACHE / "outsingle_fits" / f"{tag}.npz") if tag else None
+    path = (CACHE / "OutsingleFits" / f"{tag}.npz") if tag else None
     if path is not None and path.exists():
         return dict(np.load(path))
 

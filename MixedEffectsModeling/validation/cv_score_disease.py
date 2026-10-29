@@ -1,4 +1,4 @@
-"""Score disease samples with the cached CV fold models (fold_params/), so disease Z come from the same
+"""Score disease samples with the cached CV fold models (FoldParams/), so disease Z come from the same
 80%-HC fold models as the out-of-fold HC Z in cv_zscores_shash.pkl. No refit: reuses model_fold*/pool_fold*
 fits and their per-fold SHASH params. Each disease sample is scored by one fold (KFold, seed 42).
 
@@ -32,10 +32,10 @@ def shash(z, srow):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine-dir", type=Path, default=config.ENGINE_MIXED_DIR)
-    ap.add_argument("--cv-dir", type=Path, default=config.CV_MIXED_DIR)
+    ap.add_argument("--engine-dir", type=Path, default=config.ENGINE_DIR)
+    ap.add_argument("--cv-dir", type=Path, default=config.CV_DIR)
     args = ap.parse_args()
-    fp = args.cv_dir / "fold_params"
+    fp = args.cv_dir / "FoldParams"
     out = args.cv_dir / "Z_disease_cv_shash.npy"
 
     e2 = NormativeModelEngineMixed()
@@ -47,9 +47,9 @@ def main():
 
     data = load_full_data()
     dis = np.where(~data["is_hc"])[0]
-    meta = pd.read_csv(config.ZSCORES_MIXED_DIR / "sample_meta.csv")
+    meta = pd.read_csv(config.ZSCORES_DIR / "sample_meta.csv")
     assert (meta["sample"].values == data["names"][dis]).all()
-    genes = pd.read_pickle(config.ZSCORES_MIXED_DIR / "gene_names.pkl")
+    genes = pd.read_pickle(config.ZSCORES_DIR / "gene_names.pkl")
     col = {g: j for j, g in enumerate(genes)}
     obs, Y, gcol = data["obs"][dis], data["Y"][dis], data["gene_col"]
 

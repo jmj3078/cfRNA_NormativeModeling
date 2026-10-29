@@ -285,9 +285,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit-genes", type=int, default=None,
                     help="smoke test: only run CV on the first N genes per route")
-    ap.add_argument("--engine-dir", type=Path, default=config.ENGINE_MIXED_DIR,
+    ap.add_argument("--engine-dir", type=Path, default=config.ENGINE_DIR,
                     help="directory to load the trained engine's training_summary.csv from (read-only)")
-    ap.add_argument("--out-dir", type=Path, default=config.CV_MIXED_DIR,
+    ap.add_argument("--out-dir", type=Path, default=config.CV_DIR,
                     help="directory to write fold_stats/cv_stats/cv_zscores/cv_ppc into")
     args = ap.parse_args()
 
@@ -320,7 +320,7 @@ def main():
 
     tmp = str(config.TMP_ROOT / "cv_glmm")
     Path(tmp).mkdir(parents=True, exist_ok=True)
-    cache_dir = out_dir / "fold_params"
+    cache_dir = out_dir / "FoldParams"
 
     print(f"CV: {len(model_genes)} model-route genes, {len(pool_genes)} pool-route genes")
     zdict_m, zcorr_m, ppc_dict_m, fold_stat_rows = cv_model_route(

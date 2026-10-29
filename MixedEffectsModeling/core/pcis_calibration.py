@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import MixedEffectsModeling.config as config
 from viz_style import apply_style
 
-ENGINE_MIXED_DIR = config.ENGINE_MIXED_DIR
+ENGINE_DIR = config.ENGINE_DIR
 PCIS_CAL_DIR = config.PCIS_CAL_DIR
 PCIS_CAL_FIG_DIR = config.PCIS_CAL_FIG_DIR
 TARGET_RATES = [1e-3, 5e-4, 3e-4, 2e-4, 1.5e-4, 1e-4, 5e-5, 1e-5]
@@ -70,7 +70,7 @@ def run_all(null_path, outdir=None, fig_dir=None, real_summary_path=None):
 
     d = load_null(null_path)
     real = None
-    rsp = str(ENGINE_MIXED_DIR / "training_summary.csv") if real_summary_path is None else str(real_summary_path)
+    rsp = str(ENGINE_DIR / "training_summary.csv") if real_summary_path is None else str(real_summary_path)
     if os.path.isfile(rsp):
         real = pd.read_csv(rsp)
 

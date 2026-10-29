@@ -33,7 +33,7 @@ OUT = config.OUTRIDER_COMPARISON_DIR
 def export_lobo_test_meta():
     metas = selected_batches()
     if not metas:
-        raise SystemExit(f"no qualifying LOBO fit in {config.LOBO_MIXED_DIR}")
+        raise SystemExit(f"no qualifying LOBO fit in {config.LOBO_DIR}")
     payload = {m["batch_id"]: dict(test_names=m["test_names"], test_is_hc=m["test_is_hc"])
                for m in metas}
     (OUT / "lobo_test_meta.json").write_text(json.dumps(payload, indent=1))
@@ -53,7 +53,7 @@ def main():
         export_lobo_test_meta()
         return
 
-    summary = pd.read_csv(config.ENGINE_MIXED_DIR / "training_summary.csv")
+    summary = pd.read_csv(config.ENGINE_DIR / "training_summary.csv")
     genes = summary.loc[summary["route"] != "excluded", "gene"].tolist()
 
     data = load_full_data()
