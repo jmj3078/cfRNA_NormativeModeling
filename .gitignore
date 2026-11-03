@@ -24,8 +24,7 @@
 _external/
 /Backups/
 #others
-/논문화/
-/특허/
+/Library/
 _temp_*
 # 3.1 GB of frozen fits and per-cell Z/p matrices; regenerate with sweep.py
 /MixedEffectsModeling/Notebook_p*/5_MethodComparison/cache/
