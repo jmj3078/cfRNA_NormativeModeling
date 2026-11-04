@@ -2,7 +2,7 @@
 80%-HC fold models as the out-of-fold HC Z in cv_zscores_shash.pkl. No refit: reuses model_fold*/pool_fold*
 fits and their per-fold SHASH params. Each disease sample is scored by one fold (KFold, seed 42).
 
-Run from the repo root: NM_PIPELINE=p0 python -m MixedEffectsModeling.validation.cv_score_disease
+Run from the repo root: NM_PIPELINE=p0 python -m MixedEffectsModeling.notebookscripts.CV.cv_score_disease
 """
 import argparse
 import json
@@ -15,15 +15,15 @@ import pandas as pd
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.covariates import Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import _poisson_rqr, marginal_nb_rqr
 from MixedEffectsModeling.core.model_engine_mixed import NormativeModelEngineMixed
 from MixedEffectsModeling.core.shash import shash_transform_to_z
-from MixedEffectsModeling.validation.cv_engine import MP, POISSON_ALPHA_EPS, _mu_alpha
-from MixedEffectsModeling.validation.lobo_engine import load_full_data
+from MixedEffectsModeling.notebookscripts.CV.cv_engine import MP, POISSON_ALPHA_EPS, _mu_alpha
+from MixedEffectsModeling.notebookscripts.LOBO.lobo_engine import load_full_data
 
 
 def shash(z, srow):

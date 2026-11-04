@@ -11,7 +11,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
-from MixedEffectsModeling.validation.ppc_simulate import calib_stats, ppc_moment_pvalues
+from MixedEffectsModeling.notebookscripts.CV.ppc_simulate import calib_stats, ppc_moment_pvalues
 
 DIR = config.OUTRIDER_COMPARISON_DIR.parent / sys.argv[1] if len(sys.argv) > 1 else config.OUTRIDER_COMPARISON_DIR
 N_REPS = 200

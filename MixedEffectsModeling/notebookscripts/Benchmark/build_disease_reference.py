@@ -16,7 +16,7 @@ DISGENET_KEY_PATH = Path(__file__).parent / "disgenet_api.key"
 PAGE_SIZE = 1000
 SUPPLEMENT_MIN_GENES = 100  # below this, top up with DisGeNET curated gene-disease associations
 
-# phenotype (post-OOD sample-level label, MixedEffectsModeling/3_disease_scoring.ipynb) -> Open
+# phenotype (post-OOD sample-level label, MixedEffectsModeling/5_disease_scoring.ipynb) -> Open
 # Targets disease search query. Heterogeneous / undefined-cohort phenotypes map to None
 # (no OT gene reference; literature-only).
 PHENO_QUERY = {

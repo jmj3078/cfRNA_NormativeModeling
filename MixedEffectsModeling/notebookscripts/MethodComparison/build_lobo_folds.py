@@ -1,6 +1,6 @@
 """Write lobo_folds.json using exactly the engine's own LOBO definition.
 
-From validation/lobo_engine.py and 3_detection_limit.ipynb:
+From notebookscripts/LOBO/lobo_engine.py and 4_detection_limit.ipynb:
   train = all HC except the held-out batch (and except batches with < MIN_HC_BATCH_SIZE
           HC -- already excluded from hc_meta.csv)
   test  = that batch's HC only (disease samples are never scored here: they carry real
@@ -23,7 +23,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
-from MixedEffectsModeling.validation.lobo_engine import selected_batches
+from MixedEffectsModeling.notebookscripts.LOBO.lobo_engine import selected_batches
 
 from common import CACHE
 

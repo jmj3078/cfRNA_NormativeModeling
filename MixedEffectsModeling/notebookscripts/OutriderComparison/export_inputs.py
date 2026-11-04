@@ -25,7 +25,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
-from MixedEffectsModeling.validation.lobo_engine import load_full_data, selected_batches
+from MixedEffectsModeling.notebookscripts.LOBO.lobo_engine import load_full_data, selected_batches
 
 OUT = config.OUTRIDER_COMPARISON_DIR
 

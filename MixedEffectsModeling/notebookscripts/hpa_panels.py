@@ -8,7 +8,7 @@ panel stay in even when the tissue cell type section misses them (e.g. CTRB2), s
 superset of panel_table before the cap. Genes are ranked enriched before
 enhanced, then by HPA specificity score, and capped per panel. Panels HPA has no tissue cell type
 for fall back to the single-cell enriched rule under the same cap. Shared by
-6_disease_tissue_signal and 7_pancreatic_cancer_cohort_deepdive.
+7_disease_tissue_signal and 8_pancreatic_cancer_cohort_deepdive.
 """
 import pandas as pd
 

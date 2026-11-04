@@ -5,7 +5,7 @@ across the (log2fc x FDR q) grid, plus the full injected-count and Z matrices.
 Two splits, both genuinely inductive:
   cv   -- StratifiedKFold(5, seed 42), the engine's own CV split. Held-out samples are
           unseen, but every batch is represented in train.
-  lobo -- leave-one-batch-out on the five batches 3_detection_limit.ipynb evaluates the
+  lobo -- leave-one-batch-out on the five batches 4_detection_limit.ipynb evaluates the
           engine on. Train has never seen the held-out batch at all: the normative claim's
           actual setting.
 
@@ -37,8 +37,8 @@ from MixedEffectsModeling.core.covariates import Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import marginal_nb_rqr
 from MixedEffectsModeling.core.shash import shash_transform_to_z
-from MixedEffectsModeling.validation.cv_engine import _mu_alpha
-from MixedEffectsModeling.validation.lobo_engine import load_full_data
+from MixedEffectsModeling.notebookscripts.CV.cv_engine import _mu_alpha
+from MixedEffectsModeling.notebookscripts.LOBO.lobo_engine import load_full_data
 
 import outsingle
 import peer_arm

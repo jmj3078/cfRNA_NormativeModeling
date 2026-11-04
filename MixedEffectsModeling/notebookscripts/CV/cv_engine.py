@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.calibration import calibration_metrics
 from MixedEffectsModeling.core.dispersion_trend import load_trend

@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 _TAU2_EPS = 1e-12
 

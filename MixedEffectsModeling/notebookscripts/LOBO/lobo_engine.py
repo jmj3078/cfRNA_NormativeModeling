@@ -13,14 +13,14 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 from sklearn.preprocessing import StandardScaler
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import MixedEffectsModeling.config as config
 from MixedEffectsModeling.core.covariates import OBS_COLUMNS, Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import _poisson_rqr, marginal_nb_rqr
 from MixedEffectsModeling.core.ood_filter import MahalanobisFilter, RangeFilter
 from MixedEffectsModeling.core.shash import fit_and_correct, shash_transform_to_z
-from MixedEffectsModeling.validation.cv_engine import squeeze_fold
+from MixedEffectsModeling.notebookscripts.CV.cv_engine import squeeze_fold
 
 MP = config.SPIKE_PARAMS
 
@@ -114,7 +114,7 @@ def usable_batches(data):
 def _refit_model_genes(tr_idx, data, X, genes, stage_of, scaler, tmp, trend_path, disp_prior_path, cache_path=None):
     """cache_path persists the post-squeeze GLMM fit for this batch's
     leave-one-batch-out train set -- a rerun with the cache present skips
-    Rscript entirely, same cache-first contract as validation/cv_engine.py."""
+    Rscript entirely, same cache-first contract as notebookscripts/CV/cv_engine.py."""
     if cache_path and cache_path.exists():
         return pd.read_csv(cache_path).set_index("gene")
     Xs_tr = scaler.transform(X[tr_idx])
@@ -309,7 +309,7 @@ def save_batch_result(res, tier, n_dis, out_dir):
 
 
 def compute_ood(data=None, out_dir=config.LOBO_DIR, percentile=95, n_out_thr=2):
-    """Inference-only OOD flag for each 2_LOBOResults/<batch>/ held-out
+    """Inference-only OOD flag for each 3_LOBOResults/<batch>/ held-out
     sample -- run_one_batch already refits per batch, so this only needs a
     filter fit per batch (on that batch's OWN train-fold HC, excluding the
     held-out batch, never the held-out batch itself) applied to the
@@ -317,7 +317,7 @@ def compute_ood(data=None, out_dir=config.LOBO_DIR, percentile=95, n_out_thr=2):
     (>=n_out_thr covariates individually outside HC's p1-p99) -- a quadratic
     distance alone dilutes several mildly-extreme covariates across the
     normal ones and misses samples a per-axis count catches (see
-    core/ood_filter.py:RangeFilter, tested 2026-07-31 against 4_disease_scoring.ipynb).
+    core/ood_filter.py:RangeFilter, tested 2026-07-31 against 5_disease_scoring.ipynb).
     Writes ood_mask.npy (True=inlier) + ood_distance.npy per batch, same
     convention as the v1 engine's compute_lobo_ood.py. The filters always run on the raw BIAS_COLUMNS,
     whatever the pipeline's covariates, so every pipeline screens the same samples."""

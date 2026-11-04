@@ -25,7 +25,7 @@ _META = {}
 
 
 def _decode(grp):
-    from MixedEffectsModeling.validation.lobo_engine import _decode_cat
+    from MixedEffectsModeling.notebookscripts.LOBO.lobo_engine import _decode_cat
     return _decode_cat(grp)
 
 

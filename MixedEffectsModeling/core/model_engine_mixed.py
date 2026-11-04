@@ -339,7 +339,7 @@ class NormativeModelEngineMixed:
         to validate that this train-fit transform generalizes to genuinely
         held-out HC, not to supply the production params themselves (fitting
         on held-out Z here would mean the params never face a held-out check
-        at all -- see validation/cv_engine.py, validation/lobo_engine.py).
+        at all -- see notebookscripts/CV/cv_engine.py, notebookscripts/LOBO/lobo_engine.py).
 
         progress_path, if given, appends each gene's fit to a CSV the moment
         it's done (flushed immediately -- watchable with `tail -f`) and, on a

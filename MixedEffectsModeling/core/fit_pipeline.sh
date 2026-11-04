@@ -22,8 +22,8 @@ if [ "$2" = calib ]; then
   $PY -c "import pandas as pd; t = pd.read_csv('$CAL/pcis_rate_table.csv'); print('pcis_cut (1e-4):', t.loc[t.target_per_obs_rate == 1e-4, 'cut'].item())" | tee -a $LOG/fit_calib.txt
 elif [ "$2" = fit ]; then
   $PY $M/core/run_engine.py > $LOG/fit_full.txt 2>&1
-  $PY $M/validation/cv_engine.py > $LOG/fit_cv.txt 2>&1
-  $PY $M/validation/lobo_engine.py > $LOG/fit_lobo.txt 2>&1
+  $PY $M/notebookscripts/CV/cv_engine.py > $LOG/fit_cv.txt 2>&1
+  $PY $M/notebookscripts/LOBO/lobo_engine.py > $LOG/fit_lobo.txt 2>&1
 else
   echo "usage: bash MixedEffectsModeling/core/fit_pipeline.sh <pipeline> calib|fit"; exit 1
 fi

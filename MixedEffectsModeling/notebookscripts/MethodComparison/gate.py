@@ -6,7 +6,7 @@ universe, shared perturbed-gene draw (by gene name), and BH restricted to that u
 (oracle-mu scoring for the OUTRIDER arms, 500 perturbed genes, fold-shared draw) is left
 exactly as it was so the diff isolates the three fixes.
 
-The engine arm uses 1_CVResults/FoldParams/, i.e. a genuine per-fold refit on the
+The engine arm uses 2_CVResults/FoldParams/, i.e. a genuine per-fold refit on the
 same StratifiedKFold(5, seed 42) split the OUTRIDER folds were built from.
 
 Run:  python gate.py
@@ -27,8 +27,8 @@ from MixedEffectsModeling.core.covariates import OBS_COLUMNS, Covariates
 from MixedEffectsModeling.core.dispersion_trend import load_trend
 from MixedEffectsModeling.core.marginal_rqr import marginal_nb_rqr
 from MixedEffectsModeling.core.shash import shash_transform_to_z
-from MixedEffectsModeling.validation.cv_engine import _mu_alpha
-from MixedEffectsModeling.validation.lobo_engine import load_full_data
+from MixedEffectsModeling.notebookscripts.CV.cv_engine import _mu_alpha
+from MixedEffectsModeling.notebookscripts.LOBO.lobo_engine import load_full_data
 
 from common import (CACHE, LOG2FCS, count_rejections, draw_perturbed, eval_universe,
                     injection_reference, nb_pvals, perturb, summarize, z_pvals)

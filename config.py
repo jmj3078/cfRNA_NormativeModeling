@@ -131,7 +131,7 @@ NZ_A_MAX = 31
 MIN_HC_BATCH_SIZE = 5
 
 # Held-out batch selection for LOBO-based evaluation (build_lobo_folds.py,
-# 3_detection_limit.ipynb). Derived from the fitted HC pool instead of a hardcoded
+# 4_detection_limit.ipynb). Derived from the fitted HC pool instead of a hardcoded
 # batch list, so a change to the Batch_ID definition propagates automatically.
 LOBO_MIN_TEST_HC = 25       # held-out HC needed for a batch to be scoreable
 LOBO_REQUIRE_DISEASE = True # tier A: batch must also carry disease samples
@@ -184,23 +184,24 @@ if PIPELINE is not None:
     PIPELINE_DIR = _MEM / f"Notebook_{PIPELINE}"
     TMP_ROOT = Path(os.environ.get("NM_TMP", f"/tmp/nm_{PIPELINE}"))
     ENGINE_DIR = PIPELINE_DIR / "EngineState"
-    CV_DIR = PIPELINE_DIR / "1_CVResults"
-    LOBO_DIR = PIPELINE_DIR / "2_LOBOResults"
+    CV_DIR = PIPELINE_DIR / "2_CVResults"
+    LOBO_DIR = PIPELINE_DIR / "3_LOBOResults"
     ZSCORES_DIR = PIPELINE_DIR / "ZScores"
-    PCIS_CAL_DIR = PIPELINE_DIR / "PCISCalibration"
+    PCIS_CAL_DIR = PIPELINE_DIR / "0_EngineDiagnostics" / "PCISCalibration"
     PCIS_CAL_FIG_DIR = PCIS_CAL_DIR / "Figures"
-    DISEASE_SCORING_FIG_DIR = PIPELINE_DIR / "4_DiseaseScoring" / "Figures"
+    DISEASE_SCORING_FIG_DIR = PIPELINE_DIR / "5_DiseaseScoring" / "Figures"
     DISEASE_REF_DIR = PIPELINE_DIR / "Benchmark" / "DiseaseReference"
-    GROUP_VS_INDIV_DIR = PIPELINE_DIR / "7_PancreaticCancerCohortsAnalysis"
+    GROUP_VS_INDIV_DIR = PIPELINE_DIR / "8_PancreaticCancerCohortsAnalysis"
     GROUP_VS_INDIV_FIG_DIR = GROUP_VS_INDIV_DIR / "Figures"
     MOORE2025_DE_DIR = GROUP_VS_INDIV_DIR / "Moore2025DE"
-    OUTRIDER_COMPARISON_DIR = PIPELINE_DIR / "0_OutriderComparison" / "InsampleComparison"
-    OUTRIDER_HELD_OUT_DIR = PIPELINE_DIR / "0_OutriderComparison" / "HeldOutComparison"
-    DETECTION_LIMIT_DIR = PIPELINE_DIR / "3_DetectionLimitResults"
-    METHOD_COMP_DIR = PIPELINE_DIR / "5_MethodComparison"
+    OUTRIDER_COMPARISON_DIR = PIPELINE_DIR / "1_OutriderComparison" / "InsampleComparison"
+    OUTRIDER_HELD_OUT_DIR = PIPELINE_DIR / "1_OutriderComparison" / "HeldOutComparison"
+    DETECTION_LIMIT_DIR = PIPELINE_DIR / "4_DetectionLimitResults"
+    METHOD_COMP_DIR = PIPELINE_DIR / "6_MethodComparison"
     METHOD_COMP_CACHE_DIR = METHOD_COMP_DIR / "cache"
     METHOD_COMP_FIG_DIR = METHOD_COMP_DIR / "Figures"
-    DISEASE_TISSUE_DIR = PIPELINE_DIR / "6_DiseaseTissue"
+    DISEASE_TISSUE_DIR = PIPELINE_DIR / "7_DiseaseTissue"
     CONTROL_GENE_DIR = PIPELINE_DIR / "ControlGenes"
+    ENGINE_DIAG_DIR = PIPELINE_DIR / "0_EngineDiagnostics"
     DISPERSION_TREND_PATH = ENGINE_DIR / "dispersion_trend.json"
     DISP_PRIOR_PATH = ENGINE_DIR / "disp_prior.json"

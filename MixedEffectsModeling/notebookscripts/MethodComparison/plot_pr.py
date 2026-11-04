@@ -7,7 +7,7 @@ Reads the aggregated cache written by sweep.py and draws three things:
   plot             -- precision-recall grid, rows = injected log2FC, columns = split
 
 All aggregation is cached in cache/plot_data.pkl, so redrawing never re-reads the
-several-GB matrix cache. The companion notebook 4_in_silico_method_comparison.ipynb
+several-GB matrix cache. The companion notebook 6_in_silico_method_comparison.ipynb
 loads the same cache and only draws.
 
 Run:  python plot_pr.py [--refresh]
