@@ -118,3 +118,4 @@ Please re-install glmmTMB from source or restore original ‘TMB’ package (see
 [19:10:55] chunk 6/18 done (200 genes, ok_rate=0.72, nbi_full_eb=159,nbi_intercept_eb=41, out_genes=5) | elapsed=1.3min eta=2.6min | cum_ok_rate=0.730 (876/1200)
 [19:11:09] chunk 7/18 done (200 genes, ok_rate=0.61, nbi_full_eb=135,nbi_intercept_eb=65, out_genes=4) | elapsed=1.5min eta=2.4min | cum_ok_rate=0.714 (999/1400)
 [19:11:21] chunk 8/18 done (200 genes, ok_rate=0.60, nbi_full_eb=124,nbi_intercept_eb=76, out_genes=6) | elapsed=1.7min eta=2.2min | cum_ok_rate=0.699 (1119/1600)
+[19:11:35] chunk 9/18 done (200 genes, ok_rate=0.58, nbi_full_eb=129,nbi_intercept_eb=71, out_genes=5) | elapsed=2.0min eta=2.0min | cum_ok_rate=0.687 (1236/1800)
