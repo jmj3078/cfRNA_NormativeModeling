@@ -119,3 +119,50 @@ Please re-install glmmTMB from source or restore original ‘TMB’ package (see
 [19:11:09] chunk 7/18 done (200 genes, ok_rate=0.61, nbi_full_eb=135,nbi_intercept_eb=65, out_genes=4) | elapsed=1.5min eta=2.4min | cum_ok_rate=0.714 (999/1400)
 [19:11:21] chunk 8/18 done (200 genes, ok_rate=0.60, nbi_full_eb=124,nbi_intercept_eb=76, out_genes=6) | elapsed=1.7min eta=2.2min | cum_ok_rate=0.699 (1119/1600)
 [19:11:35] chunk 9/18 done (200 genes, ok_rate=0.58, nbi_full_eb=129,nbi_intercept_eb=71, out_genes=5) | elapsed=2.0min eta=2.0min | cum_ok_rate=0.687 (1236/1800)
+[19:11:47] chunk 10/18 done (200 genes, ok_rate=0.62, nbi_full_eb=123,nbi_intercept_eb=77, out_genes=4) | elapsed=2.2min eta=1.7min | cum_ok_rate=0.680 (1361/2000)
+Timing stopped at: 0.08 0 0.088
+[19:12:01] chunk 11/18 done (200 genes, ok_rate=0.61, nbi_full_eb=125,nbi_intercept_eb=75, out_genes=5) | elapsed=2.4min eta=1.5min | cum_ok_rate=0.675 (1484/2200)
+[19:12:12] chunk 12/18 done (200 genes, ok_rate=0.58, nbi_full_eb=127,nbi_intercept_eb=73, out_genes=5) | elapsed=2.6min eta=1.3min | cum_ok_rate=0.667 (1601/2400)
+[19:12:26] chunk 13/18 done (200 genes, ok_rate=0.53, nbi_full_eb=117,nbi_intercept_eb=83, out_genes=3) | elapsed=2.8min eta=1.1min | cum_ok_rate=0.657 (1707/2600)
+[19:12:40] chunk 14/18 done (200 genes, ok_rate=0.54, nbi_full_eb=118,nbi_intercept_eb=82, out_genes=4) | elapsed=3.1min eta=0.9min | cum_ok_rate=0.648 (1815/2800)
+[19:12:51] chunk 15/18 done (200 genes, ok_rate=0.52, nbi_full_eb=120,nbi_intercept_eb=80, out_genes=2) | elapsed=3.3min eta=0.7min | cum_ok_rate=0.640 (1919/3000)
+[19:13:06] chunk 16/18 done (200 genes, ok_rate=0.58, nbi_full_eb=127,nbi_intercept_eb=73, out_genes=6) | elapsed=3.5min eta=0.4min | cum_ok_rate=0.636 (2036/3200)
+[19:13:17] chunk 17/18 done (200 genes, ok_rate=0.56, nbi_full_eb=116,nbi_intercept_eb=84, out_genes=6) | elapsed=3.7min eta=0.2min | cum_ok_rate=0.632 (2149/3400)
+[19:13:21] chunk 18/18 done (49 genes, ok_rate=0.45, nbi_full_eb=22,nbi_intercept_eb=27, out_genes=1) | elapsed=3.8min eta=0.0min | cum_ok_rate=0.629 (2171/3449)
+DONE
+Warning messages:
+1: package ‘glmmTMB’ was built under R version 4.3.3 
+2: In checkDepPackageVersion(dep_pkg = "TMB") :
+  Package version inconsistency detected.
+glmmTMB was built with TMB version 1.9.16
+Current TMB version is 1.9.17
+Please re-install glmmTMB from source or restore original ‘TMB’ package (see '?reinstalling' for more information)
+[19:13:37] chunk 1/18 done (200 genes, ok_rate=0.78, nbi_full_eb=157,nbi_intercept_eb=43, out_genes=6) | elapsed=0.2min eta=4.0min | cum_ok_rate=0.780 (156/200)
+[19:13:49] chunk 2/18 done (200 genes, ok_rate=0.73, nbi_full_eb=150,nbi_intercept_eb=50, out_genes=5) | elapsed=0.4min eta=3.3min | cum_ok_rate=0.755 (302/400)
+[19:14:02] chunk 3/18 done (200 genes, ok_rate=0.71, nbi_full_eb=149,nbi_intercept_eb=51, out_genes=3) | elapsed=0.6min eta=3.2min | cum_ok_rate=0.740 (444/600)
+[19:14:13] chunk 4/18 done (200 genes, ok_rate=0.74, nbi_full_eb=155,nbi_intercept_eb=45, out_genes=3) | elapsed=0.8min eta=2.9min | cum_ok_rate=0.741 (593/800)
+[19:14:26] chunk 5/18 done (200 genes, ok_rate=0.69, nbi_full_eb=147,nbi_intercept_eb=53, out_genes=2) | elapsed=1.0min eta=2.7min | cum_ok_rate=0.730 (730/1000)
+[19:14:37] chunk 6/18 done (200 genes, ok_rate=0.80, nbi_full_eb=159,nbi_intercept_eb=41, out_genes=1) | elapsed=1.2min eta=2.5min | cum_ok_rate=0.742 (890/1200)
+[19:14:51] chunk 7/18 done (200 genes, ok_rate=0.66, nbi_full_eb=135,nbi_intercept_eb=65, out_genes=7) | elapsed=1.5min eta=2.3min | cum_ok_rate=0.729 (1021/1400)
+[19:15:05] chunk 8/18 done (200 genes, ok_rate=0.57, nbi_full_eb=124,nbi_intercept_eb=76, out_genes=6) | elapsed=1.7min eta=2.1min | cum_ok_rate=0.710 (1136/1600)
+[19:15:16] chunk 9/18 done (200 genes, ok_rate=0.59, nbi_full_eb=129,nbi_intercept_eb=71, out_genes=0) | elapsed=1.9min eta=1.9min | cum_ok_rate=0.697 (1254/1800)
+[19:15:30] chunk 10/18 done (200 genes, ok_rate=0.61, nbi_full_eb=123,nbi_intercept_eb=77, out_genes=1) | elapsed=2.1min eta=1.7min | cum_ok_rate=0.688 (1376/2000)
+[19:15:41] chunk 11/18 done (200 genes, ok_rate=0.59, nbi_full_eb=125,nbi_intercept_eb=75, out_genes=4) | elapsed=2.3min eta=1.5min | cum_ok_rate=0.679 (1494/2200)
+[19:15:54] chunk 12/18 done (200 genes, ok_rate=0.59, nbi_full_eb=127,nbi_intercept_eb=73, out_genes=3) | elapsed=2.5min eta=1.3min | cum_ok_rate=0.672 (1612/2400)
+[19:16:05] chunk 13/18 done (200 genes, ok_rate=0.54, nbi_full_eb=117,nbi_intercept_eb=83, out_genes=1) | elapsed=2.7min eta=1.0min | cum_ok_rate=0.661 (1719/2600)
+[19:16:18] chunk 14/18 done (200 genes, ok_rate=0.57, nbi_full_eb=118,nbi_intercept_eb=82, out_genes=4) | elapsed=2.9min eta=0.8min | cum_ok_rate=0.655 (1833/2800)
+[19:16:32] chunk 15/18 done (200 genes, ok_rate=0.53, nbi_full_eb=120,nbi_intercept_eb=80, out_genes=4) | elapsed=3.1min eta=0.6min | cum_ok_rate=0.646 (1938/3000)
+[19:16:44] chunk 16/18 done (200 genes, ok_rate=0.56, nbi_full_eb=127,nbi_intercept_eb=73, out_genes=6) | elapsed=3.3min eta=0.4min | cum_ok_rate=0.641 (2051/3200)
+[19:16:58] chunk 17/18 done (200 genes, ok_rate=0.47, nbi_full_eb=116,nbi_intercept_eb=84, out_genes=5) | elapsed=3.6min eta=0.2min | cum_ok_rate=0.631 (2146/3400)
+[19:17:02] chunk 18/18 done (49 genes, ok_rate=0.41, nbi_full_eb=22,nbi_intercept_eb=27, out_genes=2) | elapsed=3.6min eta=0.0min | cum_ok_rate=0.628 (2166/3449)
+DONE
+HC=592 genes with nz in [1, 61): 3449
+saved -> /project/cfRNA_NormativeModeling/MixedEffectsModeling/Notebook_p0/8_EngineDiagnostics/low_nz_convergence.csv
+            n  full_ok   all5
+nz                           
+(0, 10]   886    0.233  0.012
+(10, 20]  730    0.722  0.212
+(20, 30]  564    0.869  0.539
+(30, 40]  488    0.906  0.701
+(40, 50]  411    0.937  0.788
+(50, 60]  370    0.954  0.881

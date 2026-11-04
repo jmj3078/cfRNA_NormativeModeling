@@ -59,7 +59,9 @@ def masking_sim(e, tmp, fp, prior):
     print(f"masking sim genes:\n{sim_genes.to_string(index=False)}")
     subprocess.run([config.RSCRIPT, str(SIM_R), str(tmp), str(calib_path), str(tmp / "genes_sim.csv"),
                     prior, str(fp), str(OUT_SIM), str(SIM_NREP)], check=True)
-    pd.read_csv(OUT_SIM).merge(sim_genes, on=["gene", "trend_alpha"]).to_csv(OUT_SIM, index=False)
+    sim = pd.read_csv(OUT_SIM).merge(sim_genes[["gene", "mean_hc"]], on="gene", how="left")
+    assert len(sim) and sim.mean_hc.notna().all()
+    sim.to_csv(OUT_SIM, index=False)
     print(f"saved -> {OUT_SIM}")
 
 
