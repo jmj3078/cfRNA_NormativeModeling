@@ -1,9 +1,6 @@
-"""Two PCIS checks, both with the deployed stage, prior, trend and cut.
-1. Case study: re-fit every deployed gene that had PCIS removals, with and without the removal,
+"""PCIS case study with the deployed stage, prior, trend and cut: re-fit every deployed gene that had PCIS removals, with and without the removal,
    scoring the same observations by PCIS (trend dispersion), PCIS with the gene's own dispersion,
    and classical Cook's distance (own dispersion, fixed-effect leverage).
-2. Masking simulation on a few calibration genes: clean counts regenerated from their fitted
-   parameters, 2-3 outliers injected (random or within one batch), same three scores.
 
 Run:  NM_PIPELINE=p0 nohup python MixedEffectsModeling/notebookscripts/EngineDiagnostics/pcis_case_study.py > MixedEffectsModeling/Notebook_p0/0_EngineDiagnostics/logs/pcis_case_study.txt 2>&1 &
 """
@@ -22,15 +19,11 @@ from MixedEffectsModeling.core.model_engine_mixed import NormativeModelEngineMix
 R_SCRIPT = Path(__file__).resolve().parent / "pcis_case_study.R"
 OUT_GENE = config.ENGINE_DIAG_DIR / "pcis_cases_gene.csv"
 OUT_OBS = config.ENGINE_DIAG_DIR / "pcis_cases_obs.csv.gz"
-OUT_SIM = config.ENGINE_DIAG_DIR / "pcis_masking_sim.csv"
-SIM_R = Path(__file__).resolve().parent / "pcis_masking_sim.R"
-SIM_QUANTILES = [0.2, 0.5, 0.8, 0.95]
-SIM_NREP = 30
 
 
 def main():
-    if OUT_GENE.exists() and OUT_SIM.exists():
-        print(f"exists: {OUT_GENE}, {OUT_SIM}")
+    if OUT_GENE.exists():
+        print(f"exists: {OUT_GENE}")
         return
     summ = pd.read_csv(config.ENGINE_DIR / "training_summary.csv", index_col="gene")
     cases = summ[(summ.route == "model") & summ.ok.astype(bool) & (summ.n_outliers > 0)]
@@ -44,25 +37,6 @@ def main():
     OUT_GENE.parent.mkdir(parents=True, exist_ok=True)
     if not OUT_GENE.exists():
         case_study(e, cases, tmp, fp, prior)
-    if not OUT_SIM.exists():
-        masking_sim(e, tmp, fp, prior)
-
-
-def masking_sim(e, tmp, fp, prior):
-    calib_path = config.ENGINE_DIR / "calib_fits.csv"
-    calib = pd.read_csv(calib_path)
-    calib = calib[calib.ok.astype(bool) & (calib.stage == "nbi_full_eb")].copy()
-    calib["mean_hc"] = [e.Y_hc[:, e._gene_col[g]].mean() for g in calib.gene]
-    picks = [(calib.mean_hc - calib.mean_hc.quantile(q)).abs().idxmin() for q in SIM_QUANTILES]
-    sim_genes = calib.loc[picks, ["gene", "mean_hc", "trend_alpha"]]
-    sim_genes.to_csv(tmp / "genes_sim.csv", index=False)
-    print(f"masking sim genes:\n{sim_genes.to_string(index=False)}")
-    subprocess.run([config.RSCRIPT, str(SIM_R), str(tmp), str(calib_path), str(tmp / "genes_sim.csv"),
-                    prior, str(fp), str(OUT_SIM), str(SIM_NREP)], check=True)
-    sim = pd.read_csv(OUT_SIM).merge(sim_genes[["gene", "mean_hc"]], on="gene", how="left")
-    assert len(sim) and sim.mean_hc.notna().all()
-    sim.to_csv(OUT_SIM, index=False)
-    print(f"saved -> {OUT_SIM}")
 
 
 def case_study(e, cases, tmp, fp, prior):
