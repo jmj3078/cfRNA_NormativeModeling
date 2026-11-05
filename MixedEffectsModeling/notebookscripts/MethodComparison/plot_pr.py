@@ -30,7 +30,7 @@ from sweep import MATRIX_DIR, SPLITS, fold_spec
 
 apply_style()
 
-LOG2FCS_SHOWN = [2.0, 3.0, 4.0, 5.0]
+LOG2FCS_SHOWN = [2.0, 3.0, 4.0]
 RECALL_GRID = np.linspace(0.0, 1.0, 201)
 # BH levels swept to trace the realized operating curve; the reported q values are
 # marked on it, so curve and markers are the same procedure.
@@ -302,7 +302,7 @@ def null_panel():
     print(f"wrote {out}", flush=True)
 
 
-PLOT_DATA = CACHE / "plot_data.pkl"
+PLOT_DATA = CACHE / f"plot_data_l2fc{'-'.join(f'{f:g}' for f in LOG2FCS_SHOWN)}.pkl"
 
 
 def plot_data(refresh=False):
