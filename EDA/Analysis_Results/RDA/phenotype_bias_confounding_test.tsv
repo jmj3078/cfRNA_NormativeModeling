@@ -1,0 +1,325 @@
+Batch	Bias	p_value	padj_FDR
+Chalasani et al._Batch_1	log(Total Reads)	0.7039422657111232	0.862416526652161
+Chalasani et al._Batch_1	Spliced Reads (%)	3.355130810338606e-14	1.5433601727557587e-12
+Chalasani et al._Batch_1	gDNA Contamination (Intron/Exon)	0.27344802690744097	0.5536183688307568
+Chalasani et al._Batch_1	rRNA Fraction	0.000404633116746725	0.0036025400071643906
+Chalasani et al._Batch_1	RNA Degradation (3' Bias)	5.789939527286038e-08	1.1414452210935332e-06
+Chalasani et al._Batch_1	Platelet Score	2.8171621063817153e-18	7.775367413613534e-16
+Chalasani et al._Batch_1	GC Bias	0.36866898682100974	0.6440091726164058
+Chalasani et al._Batch_1	Gene Length Bias	0.000842402652525161	0.0068383274146160125
+Chalasani et al._Batch_1	NG80	1.02567692961491e-17	9.436227752457172e-16
+Chalasani et al._Batch_1	(NP80/NG80)	1.0392660661573293e-06	1.4341871712971143e-05
+Chalasani et al._Batch_1	Sample Volume (mL)		
+Chalasani et al._Batch_1	Total Centrifugation Force (g)		
+Chalasani et al._Batch_2	log(Total Reads)	0.7061816486354651	0.862416526652161
+Chalasani et al._Batch_2	Spliced Reads (%)	4.28730811762047e-14	1.6904243435189279e-12
+Chalasani et al._Batch_2	gDNA Contamination (Intron/Exon)	0.4060830932367344	0.6560332918970505
+Chalasani et al._Batch_2	rRNA Fraction	0.00016518734863760697	0.0015721278697923974
+Chalasani et al._Batch_2	RNA Degradation (3' Bias)	2.776542092685421e-08	5.894812442932125e-07
+Chalasani et al._Batch_2	Platelet Score	7.654299454871222e-18	9.436227752457172e-16
+Chalasani et al._Batch_2	GC Bias	0.3776019472207509	0.6473176238070015
+Chalasani et al._Batch_2	Gene Length Bias	0.0038586959537272518	0.026028376556465407
+Chalasani et al._Batch_2	NG80	1.6177325507246478e-16	8.929883680000055e-15
+Chalasani et al._Batch_2	(NP80/NG80)	1.8305023023216753e-06	2.4058030259084876e-05
+Chalasani et al._Batch_2	Sample Volume (mL)		
+Chalasani et al._Batch_2	Total Centrifugation Force (g)		
+Chang et al._Batch_1	log(Total Reads)	0.02929549604793838	0.12727410322906815
+Chang et al._Batch_1	Spliced Reads (%)	0.3694863646195379	0.6440091726164058
+Chang et al._Batch_1	gDNA Contamination (Intron/Exon)	0.158463984539003	0.40124825442903517
+Chang et al._Batch_1	rRNA Fraction	0.05447039002747683	0.18792284559479505
+Chang et al._Batch_1	RNA Degradation (3' Bias)	0.03332007983584021	0.13725883633868505
+Chang et al._Batch_1	Platelet Score	0.009604744317428106	0.053018188632203145
+Chang et al._Batch_1	GC Bias	0.03332007983584021	0.13725883633868505
+Chang et al._Batch_1	Gene Length Bias	0.7779041884556623	0.9254377414386328
+Chang et al._Batch_1	NG80	0.001350023335347952	0.010350178904334298
+Chang et al._Batch_1	(NP80/NG80)	0.07685537135191893	0.22566045205457047
+Chang et al._Batch_1	Sample Volume (mL)	0.9557640140388983	0.9839855889209846
+Chang et al._Batch_1	Total Centrifugation Force (g)		
+Chang et al._Batch_2	log(Total Reads)	0.01807105190219362	0.08453576822043117
+Chang et al._Batch_2	Spliced Reads (%)	0.029566778494835775	0.12727410322906815
+Chang et al._Batch_2	gDNA Contamination (Intron/Exon)	0.05053075287760404	0.17880112556690664
+Chang et al._Batch_2	rRNA Fraction	0.41402944610933745	0.6643728321289368
+Chang et al._Batch_2	RNA Degradation (3' Bias)	0.35552808404070746	0.6382203464852287
+Chang et al._Batch_2	Platelet Score	0.3733386507921193	0.6440091726164058
+Chang et al._Batch_2	GC Bias	0.5276565057299425	0.7354030814828307
+Chang et al._Batch_2	Gene Length Bias	0.871875023421368	0.951136389186947
+Chang et al._Batch_2	NG80	0.07381382966225547	0.22351462881537637
+Chang et al._Batch_2	(NP80/NG80)	0.03962596066088272	0.1518995158667171
+Chang et al._Batch_2	Sample Volume (mL)	0.8619334325051649	0.951136389186947
+Chang et al._Batch_2	Total Centrifugation Force (g)		
+Chang et al._Batch_3	log(Total Reads)	0.03766080229574681	0.1518995158667171
+Chang et al._Batch_3	Spliced Reads (%)	0.2123547874732746	0.4843795152282958
+Chang et al._Batch_3	gDNA Contamination (Intron/Exon)	0.5059681189012906	0.7161394913679805
+Chang et al._Batch_3	rRNA Fraction	0.29868209290655584	0.5672792335355161
+Chang et al._Batch_3	RNA Degradation (3' Bias)	0.24443398503429226	0.5258658055333131
+Chang et al._Batch_3	Platelet Score	0.835343944721337	0.951136389186947
+Chang et al._Batch_3	GC Bias	0.27977083184696616	0.5536183688307568
+Chang et al._Batch_3	Gene Length Bias	0.5329177397262718	0.735426480822255
+Chang et al._Batch_3	NG80	0.10496372547007375	0.2868315666310926
+Chang et al._Batch_3	(NP80/NG80)	0.017811127659650178	0.08453576822043117
+Chang et al._Batch_3	Sample Volume (mL)	0.2775607052474221	0.5536183688307568
+Chang et al._Batch_3	Total Centrifugation Force (g)		
+Chang et al._Batch_4	log(Total Reads)	0.011561652872225773	0.059092892458042834
+Chang et al._Batch_4	Spliced Reads (%)	0.0008908715614817602	0.0070251585991133085
+Chang et al._Batch_4	gDNA Contamination (Intron/Exon)	0.00045265331950521435	0.0039041348807324736
+Chang et al._Batch_4	rRNA Fraction	0.12699178590814847	0.3401970011466339
+Chang et al._Batch_4	RNA Degradation (3' Bias)	0.18761053321697554	0.4423843225548031
+Chang et al._Batch_4	Platelet Score	0.26850113076956156	0.5536183688307568
+Chang et al._Batch_4	GC Bias	0.007106841348688376	0.040864337754958166
+Chang et al._Batch_4	Gene Length Bias	0.007694847722197063	0.043342407578089576
+Chang et al._Batch_4	NG80	0.07352437839979027	0.22351462881537637
+Chang et al._Batch_4	(NP80/NG80)	0.02990656015855167	0.12727410322906815
+Chang et al._Batch_4	Sample Volume (mL)	0.06185156310072735	0.20611403350446472
+Chang et al._Batch_4	Total Centrifugation Force (g)		
+Chang et al._Batch_5	log(Total Reads)	0.004417021335680979	0.02816289484897593
+Chang et al._Batch_5	Spliced Reads (%)	0.8266659696701234	0.951136389186947
+Chang et al._Batch_5	gDNA Contamination (Intron/Exon)	0.011793457077064905	0.059181711877634796
+Chang et al._Batch_5	rRNA Fraction	0.07082757569879078	0.2228487207902807
+Chang et al._Batch_5	RNA Degradation (3' Bias)	0.5470451478128783	0.7474478257245267
+Chang et al._Batch_5	Platelet Score	0.20798248689412763	0.47835971985649356
+Chang et al._Batch_5	GC Bias	0.11237640771440516	0.3040773385213316
+Chang et al._Batch_5	Gene Length Bias	0.7015609271498066	0.862416526652161
+Chang et al._Batch_5	NG80	0.6222217429155985	0.8242298182311681
+Chang et al._Batch_5	(NP80/NG80)	0.048744920739706564	0.17702102794946067
+Chang et al._Batch_5	Sample Volume (mL)	0.4868655999071628	0.7161394913679805
+Chang et al._Batch_5	Total Centrifugation Force (g)		
+Chang et al._Batch_11	log(Total Reads)	0.9846701138676384	0.9954906645694805
+Chang et al._Batch_11	Spliced Reads (%)	0.06412759102817861	0.21070494194972972
+Chang et al._Batch_11	gDNA Contamination (Intron/Exon)	0.215924108444819	0.48848404861286915
+Chang et al._Batch_11	rRNA Fraction	0.3617022040901502	0.6440091726164058
+Chang et al._Batch_11	RNA Degradation (3' Bias)	0.24578510476013546	0.5258658055333131
+Chang et al._Batch_11	Platelet Score	0.22931289484111272	0.5145557640337164
+Chang et al._Batch_11	GC Bias	0.7036629977534808	0.862416526652161
+Chang et al._Batch_11	Gene Length Bias	0.5302362797647946	0.7354030814828307
+Chang et al._Batch_11	NG80	0.022982450839720062	0.10398617101250389
+Chang et al._Batch_11	(NP80/NG80)	0.15742880777742208	0.40124825442903517
+Chang et al._Batch_11	Sample Volume (mL)		
+Chang et al._Batch_11	Total Centrifugation Force (g)		
+Chang et al._Batch_12	log(Total Reads)	1.0	1.0
+Chang et al._Batch_12	Spliced Reads (%)	0.47950012218695504	0.7153623444518897
+Chang et al._Batch_12	gDNA Contamination (Intron/Exon)	0.2888443663464818	0.5536183688307568
+Chang et al._Batch_12	rRNA Fraction	0.2888443663464818	0.5536183688307568
+Chang et al._Batch_12	RNA Degradation (3' Bias)	0.7236736098317629	0.8722005079195045
+Chang et al._Batch_12	Platelet Score	0.7236736098317629	0.8722005079195045
+Chang et al._Batch_12	GC Bias	0.2888443663464818	0.5536183688307568
+Chang et al._Batch_12	Gene Length Bias	0.47950012218695504	0.7153623444518897
+Chang et al._Batch_12	NG80	0.47950012218695504	0.7153623444518897
+Chang et al._Batch_12	(NP80/NG80)	1.0	1.0
+Chang et al._Batch_12	Sample Volume (mL)	0.853041076171313	0.951136389186947
+Chang et al._Batch_12	Total Centrifugation Force (g)		
+Chen et al._Batch_1	log(Total Reads)	5.69012502881995e-05	0.0006040286569055024
+Chen et al._Batch_1	Spliced Reads (%)	0.07531471188344203	0.22351462881537637
+Chen et al._Batch_1	gDNA Contamination (Intron/Exon)	4.215138830358451e-12	1.4542228964736656e-10
+Chen et al._Batch_1	rRNA Fraction	8.548719516795799e-09	1.9662054888630338e-07
+Chen et al._Batch_1	RNA Degradation (3' Bias)	0.44393113146628815	0.684497163601651
+Chen et al._Batch_1	Platelet Score	1.9242184408100167e-07	3.540561931090431e-06
+Chen et al._Batch_1	GC Bias	2.143529548133769e-07	3.6975884705307516e-06
+Chen et al._Batch_1	Gene Length Bias	0.6963829145917175	0.862416526652161
+Chen et al._Batch_1	NG80	2.2240616684627727e-11	6.138410204957252e-10
+Chen et al._Batch_1	(NP80/NG80)	7.871782512179137e-05	0.0008046711012449784
+Chen et al._Batch_1	Sample Volume (mL)		
+Chen et al._Batch_1	Total Centrifugation Force (g)		
+Gardella et al._Batch_1	log(Total Reads)	0.6729657901312491	0.844266173073749
+Gardella et al._Batch_1	Spliced Reads (%)	0.6729657901312491	0.844266173073749
+Gardella et al._Batch_1	gDNA Contamination (Intron/Exon)	0.1891353263096622	0.4423843225548031
+Gardella et al._Batch_1	rRNA Fraction	0.6390846111407367	0.8263728662500073
+Gardella et al._Batch_1	RNA Degradation (3' Bias)	0.42529750029732827	0.6707549147546434
+Gardella et al._Batch_1	Platelet Score	0.962594597857485	0.9839855889209846
+Gardella et al._Batch_1	GC Bias	0.07472960164433841	0.22351462881537637
+Gardella et al._Batch_1	Gene Length Bias	0.42529750029732827	0.6707549147546434
+Gardella et al._Batch_1	NG80	0.1891353263096622	0.4423843225548031
+Gardella et al._Batch_1	(NP80/NG80)	0.39857872416501194	0.6545840872762728
+Gardella et al._Batch_1	Sample Volume (mL)		
+Gardella et al._Batch_1	Total Centrifugation Force (g)		
+Gardella et al._Batch_3	log(Total Reads)	0.6407383818025418	0.8263728662500073
+Gardella et al._Batch_3	Spliced Reads (%)	0.6407383818025418	0.8263728662500073
+Gardella et al._Batch_3	gDNA Contamination (Intron/Exon)	0.9468470713992656	0.9839855889209846
+Gardella et al._Batch_3	rRNA Fraction	0.9468470713992656	0.9839855889209846
+Gardella et al._Batch_3	RNA Degradation (3' Bias)	0.4633551492696	0.7065526033061303
+Gardella et al._Batch_3	Platelet Score	0.038765574177637166	0.1518995158667171
+Gardella et al._Batch_3	GC Bias	0.07186063822585138	0.2228487207902807
+Gardella et al._Batch_3	Gene Length Bias	0.9468470713992656	0.9839855889209846
+Gardella et al._Batch_3	NG80	0.038765574177637166	0.1518995158667171
+Gardella et al._Batch_3	(NP80/NG80)	0.9468470713992656	0.9839855889209846
+Gardella et al._Batch_3	Sample Volume (mL)		
+Gardella et al._Batch_3	Total Centrifugation Force (g)		
+Gardella et al._Batch_4	log(Total Reads)	0.162876468697434	0.40867186691356167
+Gardella et al._Batch_4	Spliced Reads (%)	0.8925765001210438	0.9660828001310121
+Gardella et al._Batch_4	gDNA Contamination (Intron/Exon)	0.7187579134662925	0.8722005079195045
+Gardella et al._Batch_4	rRNA Fraction	0.6364581993171685	0.8263728662500073
+Gardella et al._Batch_4	RNA Degradation (3' Bias)	0.9103974090141365	0.9815222065933659
+Gardella et al._Batch_4	Platelet Score	0.4308365236815993	0.6756300030461444
+Gardella et al._Batch_4	GC Bias	0.2700856284739379	0.5536183688307568
+Gardella et al._Batch_4	Gene Length Bias	0.35610845419827986	0.6382203464852287
+Gardella et al._Batch_4	NG80	0.35610845419827986	0.6382203464852287
+Gardella et al._Batch_4	(NP80/NG80)	0.5890736184278627	0.7892442654664568
+Gardella et al._Batch_4	Sample Volume (mL)		
+Gardella et al._Batch_4	Total Centrifugation Force (g)		
+Gardella et al._Batch_5	log(Total Reads)	0.24941817143906103	0.5295339639783142
+Gardella et al._Batch_5	Spliced Reads (%)	0.4388502020212508	0.6804643581902541
+Gardella et al._Batch_5	gDNA Contamination (Intron/Exon)	0.022333586961209004	0.10273450002156143
+Gardella et al._Batch_5	rRNA Fraction	0.23423255471112828	0.5185373452067283
+Gardella et al._Batch_5	RNA Degradation (3' Bias)	0.09287131526398008	0.25891396982685355
+Gardella et al._Batch_5	Platelet Score	0.16809827258556287	0.4179740831857239
+Gardella et al._Batch_5	GC Bias	0.0038665341986053683	0.026028376556465407
+Gardella et al._Batch_5	Gene Length Bias	0.039583449330206244	0.1518995158667171
+Gardella et al._Batch_5	NG80	0.010803684532845347	0.057195795354399004
+Gardella et al._Batch_5	(NP80/NG80)	0.04741837179812479	0.17449960821709923
+Gardella et al._Batch_5	Sample Volume (mL)		
+Gardella et al._Batch_5	Total Centrifugation Force (g)		
+Gardella et al._Batch_6	log(Total Reads)	0.1762963744405072	0.43059999420867245
+Gardella et al._Batch_6	Spliced Reads (%)	0.4989622986037584	0.7161394913679805
+Gardella et al._Batch_6	gDNA Contamination (Intron/Exon)	0.8657723749926134	0.951136389186947
+Gardella et al._Batch_6	rRNA Fraction	0.2367235706378542	0.5185373452067283
+Gardella et al._Batch_6	RNA Degradation (3' Bias)	0.4989622986037584	0.7161394913679805
+Gardella et al._Batch_6	Platelet Score	0.1762963744405072	0.43059999420867245
+Gardella et al._Batch_6	GC Bias	0.09096894797535769	0.2561982616448849
+Gardella et al._Batch_6	Gene Length Bias	0.8657723749926134	0.951136389186947
+Gardella et al._Batch_6	NG80	0.735316690637341	0.8823800287648091
+Gardella et al._Batch_6	(NP80/NG80)	0.12819017434510843	0.3401970011466339
+Gardella et al._Batch_6	Sample Volume (mL)		
+Gardella et al._Batch_6	Total Centrifugation Force (g)		
+Gardella et al._Batch_7	log(Total Reads)	0.8452520242196516	0.951136389186947
+Gardella et al._Batch_7	Spliced Reads (%)	1.0	1.0
+Gardella et al._Batch_7	gDNA Contamination (Intron/Exon)	0.49452466788386984	0.7161394913679805
+Gardella et al._Batch_7	rRNA Fraction	0.49452466788386984	0.7161394913679805
+Gardella et al._Batch_7	RNA Degradation (3' Bias)	0.5581846494226539	0.7551909962777082
+Gardella et al._Batch_7	Platelet Score	0.9222578596520477	0.9827921593203288
+Gardella et al._Batch_7	GC Bias	0.24156658696897032	0.5249793543577623
+Gardella et al._Batch_7	Gene Length Bias	0.28305128705188176	0.5536183688307568
+Gardella et al._Batch_7	NG80	0.5581846494226539	0.7551909962777082
+Gardella et al._Batch_7	(NP80/NG80)	0.9222578596520477	0.9827921593203288
+Gardella et al._Batch_7	Sample Volume (mL)		
+Gardella et al._Batch_7	Total Centrifugation Force (g)		
+Moore et al._Batch_1	log(Total Reads)	0.5289222899925239	0.7354030814828307
+Moore et al._Batch_1	Spliced Reads (%)	0.13284639332788273	0.3491962338904346
+Moore et al._Batch_1	gDNA Contamination (Intron/Exon)	0.857075101998327	0.951136389186947
+Moore et al._Batch_1	rRNA Fraction	0.9773750286726209	0.9917481908589829
+Moore et al._Batch_1	RNA Degradation (3' Bias)	0.8560891990392132	0.951136389186947
+Moore et al._Batch_1	Platelet Score	0.5191679877212794	0.7310732888320056
+Moore et al._Batch_1	GC Bias	0.6458126024709634	0.8290431547999344
+Moore et al._Batch_1	Gene Length Bias	0.9578021394995548	0.9839855889209846
+Moore et al._Batch_1	NG80	0.27568292882442985	0.5536183688307568
+Moore et al._Batch_1	(NP80/NG80)	0.47064386056957297	0.7137236566879238
+Moore et al._Batch_1	Sample Volume (mL)		
+Moore et al._Batch_1	Total Centrifugation Force (g)		
+Moore et al._Batch_2	log(Total Reads)	0.9368151548904118	0.9839855889209846
+Moore et al._Batch_2	Spliced Reads (%)	0.670505702770111	0.844266173073749
+Moore et al._Batch_2	gDNA Contamination (Intron/Exon)	0.42520035177641313	0.6707549147546434
+Moore et al._Batch_2	rRNA Fraction	0.9517473278248451	0.9839855889209846
+Moore et al._Batch_2	RNA Degradation (3' Bias)	0.382017096566878	0.6508439422991255
+Moore et al._Batch_2	Platelet Score	0.8770361843142281	0.9529999483099487
+Moore et al._Batch_2	GC Bias	0.27684667556720305	0.5536183688307568
+Moore et al._Batch_2	Gene Length Bias	0.8695724466830457	0.951136389186947
+Moore et al._Batch_2	NG80	0.3662110565491863	0.6440091726164058
+Moore et al._Batch_2	(NP80/NG80)	0.6598347515204502	0.843122182498353
+Moore et al._Batch_2	Sample Volume (mL)		
+Moore et al._Batch_2	Total Centrifugation Force (g)		
+Moore et al._Batch_3	log(Total Reads)	0.3730925322047819	0.6440091726164058
+Moore et al._Batch_3	Spliced Reads (%)	0.6873456862394864	0.8584045674303089
+Moore et al._Batch_3	gDNA Contamination (Intron/Exon)	0.6318292647634212	0.8263728662500073
+Moore et al._Batch_3	rRNA Fraction	0.34302094772195735	0.6269786859023856
+Moore et al._Batch_3	RNA Degradation (3' Bias)	0.26609638038879946	0.5536183688307568
+Moore et al._Batch_3	Platelet Score	0.5421146501442939	0.7443962360190305
+Moore et al._Batch_3	GC Bias	0.8292924410082658	0.951136389186947
+Moore et al._Batch_3	Gene Length Bias	0.9396090240314575	0.9839855889209846
+Moore et al._Batch_3	NG80	0.39690916813774524	0.6545840872762728
+Moore et al._Batch_3	(NP80/NG80)	0.3000824931021209	0.5672792335355161
+Moore et al._Batch_3	Sample Volume (mL)		
+Moore et al._Batch_3	Total Centrifugation Force (g)		
+Moufarrej et al._Batch_1	log(Total Reads)	0.13586265039378767	0.353755580270617
+Moufarrej et al._Batch_1	Spliced Reads (%)	0.7893827550332095	0.9324368236500168
+Moufarrej et al._Batch_1	gDNA Contamination (Intron/Exon)	0.002560131572175045	0.019097197673521957
+Moufarrej et al._Batch_1	rRNA Fraction	0.07138703353443947	0.2228487207902807
+Moufarrej et al._Batch_1	RNA Degradation (3' Bias)	0.06629902959194027	0.21527684902794725
+Moufarrej et al._Batch_1	Platelet Score	0.005213318011263792	0.031279908067582754
+Moufarrej et al._Batch_1	GC Bias	0.04634780063280178	0.17286476992774716
+Moufarrej et al._Batch_1	Gene Length Bias	0.9202116773235358	0.9827921593203288
+Moufarrej et al._Batch_1	NG80	0.010983250557185315	0.057195795354399004
+Moufarrej et al._Batch_1	(NP80/NG80)	0.39763342665381896	0.6545840872762728
+Moufarrej et al._Batch_1	Sample Volume (mL)		
+Moufarrej et al._Batch_1	Total Centrifugation Force (g)		
+Moufarrej et al._Batch_4	log(Total Reads)	0.32911739800444334	0.609640280867291
+Moufarrej et al._Batch_4	Spliced Reads (%)	0.00011532233665931809	0.001136748747070421
+Moufarrej et al._Batch_4	gDNA Contamination (Intron/Exon)	0.5014042030894537	0.7161394913679805
+Moufarrej et al._Batch_4	rRNA Fraction	0.009860156083437125	0.05336084468683621
+Moufarrej et al._Batch_4	RNA Degradation (3' Bias)	0.8656748665551927	0.951136389186947
+Moufarrej et al._Batch_4	Platelet Score	0.006203278927286722	0.036427765615556065
+Moufarrej et al._Batch_4	GC Bias	0.002725823780360871	0.019798088509989483
+Moufarrej et al._Batch_4	Gene Length Bias	0.8656748665551927	0.951136389186947
+Moufarrej et al._Batch_4	NG80	2.692193462609188e-06	3.377479071273345e-05
+Moufarrej et al._Batch_4	(NP80/NG80)	8.412411276523798e-06	9.674272968002368e-05
+Moufarrej et al._Batch_4	Sample Volume (mL)		
+Moufarrej et al._Batch_4	Total Centrifugation Force (g)		
+Raissadati et al._Batch_1	log(Total Reads)	0.17825971780582217	0.4315761588983063
+Raissadati et al._Batch_1	Spliced Reads (%)	0.49051961104151287	0.7161394913679805
+Raissadati et al._Batch_1	gDNA Contamination (Intron/Exon)	0.8182257854330172	0.951136389186947
+Raissadati et al._Batch_1	rRNA Fraction	0.6695085659968634	0.844266173073749
+Raissadati et al._Batch_1	RNA Degradation (3' Bias)	0.45016041088680636	0.6902459633597697
+Raissadati et al._Batch_1	Platelet Score	0.06128234531845087	0.20611403350446472
+Raissadati et al._Batch_1	GC Bias	0.08183746008958756	0.23775935773395968
+Raissadati et al._Batch_1	Gene Length Bias	0.09404066637444114	0.25955223919345755
+Raissadati et al._Batch_1	NG80	0.2785986718379616	0.5536183688307568
+Raissadati et al._Batch_1	(NP80/NG80)	0.576740190747277	0.7764892324207242
+Raissadati et al._Batch_1	Sample Volume (mL)		
+Raissadati et al._Batch_1	Total Centrifugation Force (g)		
+Reggiardo et al._Batch_1	log(Total Reads)	0.04231527490571408	0.15998651882160392
+Reggiardo et al._Batch_1	Spliced Reads (%)	0.40081416938293524	0.6545840872762728
+Reggiardo et al._Batch_1	gDNA Contamination (Intron/Exon)	0.014266186701446843	0.07031192017141658
+Reggiardo et al._Batch_1	rRNA Fraction	0.3403525292189833	0.6262486537629293
+Reggiardo et al._Batch_1	RNA Degradation (3' Bias)	0.005101399646005019	0.031279908067582754
+Reggiardo et al._Batch_1	Platelet Score	0.8336348830246775	0.951136389186947
+Reggiardo et al._Batch_1	GC Bias	0.20757844233562173	0.47835971985649356
+Reggiardo et al._Batch_1	Gene Length Bias	0.029973973586555906	0.12727410322906815
+Reggiardo et al._Batch_1	NG80	0.049949976454746775	0.17880112556690664
+Reggiardo et al._Batch_1	(NP80/NG80)	0.18343061898217472	0.4402334855572193
+Reggiardo et al._Batch_1	Sample Volume (mL)		
+Reggiardo et al._Batch_1	Total Centrifugation Force (g)		
+Roskams-Hieter B et al._Batch_1	log(Total Reads)	0.061983568046632506	0.20611403350446472
+Roskams-Hieter B et al._Batch_1	Spliced Reads (%)	0.28490894551743196	0.5536183688307568
+Roskams-Hieter B et al._Batch_1	gDNA Contamination (Intron/Exon)	0.09055443456967499	0.2561982616448849
+Roskams-Hieter B et al._Batch_1	rRNA Fraction	0.8480213326484587	0.951136389186947
+Roskams-Hieter B et al._Batch_1	RNA Degradation (3' Bias)	0.39548220141510093	0.6545840872762728
+Roskams-Hieter B et al._Batch_1	Platelet Score	0.05407207043757656	0.18792284559479505
+Roskams-Hieter B et al._Batch_1	GC Bias	0.504733292527332	0.7161394913679805
+Roskams-Hieter B et al._Batch_1	Gene Length Bias	0.43748777717883014	0.6804643581902541
+Roskams-Hieter B et al._Batch_1	NG80	0.0832890005578805	0.23945587660390644
+Roskams-Hieter B et al._Batch_1	(NP80/NG80)	0.30920162396133816	0.5805418245804717
+Roskams-Hieter B et al._Batch_1	Sample Volume (mL)		
+Roskams-Hieter B et al._Batch_1	Total Centrifugation Force (g)		
+Roskams-Hieter B et al._Batch_2	log(Total Reads)	0.38655100511796975	0.6545280822856421
+Roskams-Hieter B et al._Batch_2	Spliced Reads (%)	0.7640322343521166	0.9128696826025289
+Roskams-Hieter B et al._Batch_2	gDNA Contamination (Intron/Exon)	0.790993275934273	0.9324368236500168
+Roskams-Hieter B et al._Batch_2	rRNA Fraction	0.07084168415316386	0.2228487207902807
+Roskams-Hieter B et al._Batch_2	RNA Degradation (3' Bias)	0.0042954785577501734	0.02816289484897593
+Roskams-Hieter B et al._Batch_2	Platelet Score	0.7939226578179491	0.9324368236500168
+Roskams-Hieter B et al._Batch_2	GC Bias	0.23653826215028392	0.5185373452067283
+Roskams-Hieter B et al._Batch_2	Gene Length Bias	0.4995972568426793	0.7161394913679805
+Roskams-Hieter B et al._Batch_2	NG80	0.6241450435156309	0.8242298182311681
+Roskams-Hieter B et al._Batch_2	(NP80/NG80)	0.31132338717002456	0.5805760463440998
+Roskams-Hieter B et al._Batch_2	Sample Volume (mL)		
+Roskams-Hieter B et al._Batch_2	Total Centrifugation Force (g)		
+Toden et al._Batch_1	log(Total Reads)	0.00023058523381862898	0.0021213841511313865
+Toden et al._Batch_1	Spliced Reads (%)	0.15438036999163973	0.3982147861466595
+Toden et al._Batch_1	gDNA Contamination (Intron/Exon)	1.6183826423198376e-05	0.00017866944371211006
+Toden et al._Batch_1	rRNA Fraction	0.39403314120677	0.6545840872762728
+Toden et al._Batch_1	RNA Degradation (3' Bias)	6.662580875989483e-07	9.678275377753144e-06
+Toden et al._Batch_1	Platelet Score	3.930601652020766e-17	2.7121151398943282e-15
+Toden et al._Batch_1	GC Bias	0.0044897368599816695	0.02816289484897593
+Toden et al._Batch_1	Gene Length Bias	0.01646975112426921	0.0797482686017246
+Toden et al._Batch_1	NG80	2.0241452953184183e-09	5.078764559162577e-08
+Toden et al._Batch_1	(NP80/NG80)	0.0007084359032358799	0.005925100281609177
+Toden et al._Batch_1	Sample Volume (mL)		
+Toden et al._Batch_1	Total Centrifugation Force (g)		
+Ward Z et al._Batch_1	log(Total Reads)	0.4064554091101291	0.6560332918970505
+Ward Z et al._Batch_1	Spliced Reads (%)	1.0502842273506848e-11	3.2208716305421e-10
+Ward Z et al._Batch_1	gDNA Contamination (Intron/Exon)	0.8286763338803773	0.951136389186947
+Ward Z et al._Batch_1	rRNA Fraction	0.002856444828591637	0.02021484032541774
+Ward Z et al._Batch_1	RNA Degradation (3' Bias)	5.2031190387546505e-06	6.24374284650558e-05
+Ward Z et al._Batch_1	Platelet Score	0.6045015836983925	0.8060021115978566
+Ward Z et al._Batch_1	GC Bias	0.9591332960729685	0.9839855889209846
+Ward Z et al._Batch_1	Gene Length Bias	0.9767104668917744	0.9917481908589829
+Ward Z et al._Batch_1	NG80	3.958725946797393e-07	6.070046451756003e-06
+Ward Z et al._Batch_1	(NP80/NG80)	3.1828182225821366e-07	5.167398996662763e-06
+Ward Z et al._Batch_1	Sample Volume (mL)		
+Ward Z et al._Batch_1	Total Centrifugation Force (g)		

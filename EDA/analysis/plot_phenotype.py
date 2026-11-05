@@ -66,7 +66,6 @@ def plot_model_auc_grid(final_df, author_col="Author", n_cols=6, save_path=None)
         sns.stripplot(data=sub, x="Model", y="AUC", color="black",
                       alpha=0.3, jitter=True, size=3, ax=ax)
         ax.axhline(0.5, color="gray", linestyle="--", alpha=0.6)
-        ax.axhline(0.7, color="red", linestyle=":", linewidth=1.5)
         ax.set_title(author)
         ax.set_ylim(0, 1.1)
         ax.set_xlabel("")

@@ -230,11 +230,8 @@ def plot_covariate_auc_heatmap(df_auc, save_path=None):
         linewidths=0.5, ax=ax,
         cbar_kws={"label": "Mean AUC (macro-OVR)"},
     )
-    ax.set_title(
-        "Discrete Covariate Separability via Bias Metrics  (HC only)\n"
-        "AUC > 0.7 indicates meaningful batch signal",
-        fontweight="bold", pad=14,
-    )
+    ax.set_title("Discrete Covariate Separability via Bias Metrics  (HC only)\n",
+            fontweight="bold", pad=14)
     ax.set_xlabel("Classifier")
     ax.set_ylabel("")
     plt.xticks(rotation=0)
@@ -263,7 +260,6 @@ def plot_covariate_auc_violins(df_auc, n_cols=4, save_path=None):
         sns.stripplot(data=sub, x="Model", y="AUC",
                       color="black", alpha=0.3, jitter=True, size=3, ax=ax)
         ax.axhline(0.5, color="gray", linestyle="--", alpha=0.6, linewidth=1)
-        ax.axhline(0.7, color="red", linestyle=":", linewidth=1.5)
         ax.set_title(COVARIATE_LABELS.get(covar, covar), fontweight="bold", fontsize=10)
         ax.set_ylim(0, 1.1)
         ax.set_xlabel("")
@@ -275,8 +271,7 @@ def plot_covariate_auc_violins(df_auc, n_cols=4, save_path=None):
         fig.delaxes(axes_flat[j])
 
     plt.suptitle(
-        "Discrete Covariates ~ Bias Metrics AUC  (HC only, 20-repeat shuffle CV)\n"
-        "Red dotted line = AUC 0.7 concern threshold",
+        "Discrete Covariates ~ Bias Metrics AUC  (HC only, 20-repeat shuffle CV)\n",
         fontsize=13, fontweight="bold",
     )
     plt.tight_layout()

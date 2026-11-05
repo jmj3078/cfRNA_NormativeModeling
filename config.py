@@ -86,18 +86,9 @@ BIAS_COLUMNS = [
     "(NP80/NG80)",
 ]
 
-EDA_BIAS_METRICS = [
-    "log(Total Reads)", "Spliced Reads (%)", "gDNA Contamination (Intron/Exon)",
-    "rRNA Fraction", "Platelet Score", "GC Bias", "Gene Length Bias",
-    "RNA Degradation (3' Bias)", "NG80", "NP80", "(NP80/NG80)",
-]
+EDA_BIAS_METRICS = BIAS_COLUMNS
 
-EDA_COMBINED_METRICS = [
-    "log(Total Reads)", "Spliced Reads (%)", "gDNA Contamination (Intron/Exon)",
-    "rRNA Fraction", "RNA Degradation (3' Bias)", "Platelet Score",
-    "GC Bias", "Gene Length Bias", "NG80", "NP80", "(NP80/NG80)",
-    "Sample Volume (mL)", "Total Centrifugation Force (g)",
-]
+EDA_COMBINED_METRICS = BIAS_COLUMNS + ["Sample Volume (mL)", "Total Centrifugation Force (g)"]
 
 # Used by EDA/control_composition/run_control_composition.py's MahalanobisFilter.
 MODELING_PARAMS = {"ood_percentile": 95}
