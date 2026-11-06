@@ -169,3 +169,109 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design="ruvg_k2", rank
                ms=8, mec="k", mew=1, clip_on=False)
     _save(fig, save_path)
     return fig
+
+
+def private_calls(D, max_detect=0.2, min_reads=3):
+    """A sample's private expression: gene detected (>=1 read) in fewer than max_detect of the
+    reference controls, and the sample has >= min_reads with CPM above every reference control.
+    Patients use all controls; each control uses the other controls (leave-one-out)."""
+    C, P = D["counts"], D["cpm"]
+    hc, pat = D["is_hc"], D["is_case"]
+    Ch, Ph, n = C[hc], P[hc], int(hc.sum())
+    nz = (Ch > 0).sum(axis=0)
+    top2 = -np.sort(-Ph, axis=0)[:2]
+    Mp = ((nz / n) < max_detect) & (P[pat] > top2[0]) & (C[pat] >= min_reads)
+    loo_max = np.where(Ph >= top2[0], top2[1], top2[0])
+    Mh = (((nz - (Ch > 0)) / (n - 1)) < max_detect) & (Ph > loo_max) & (Ch >= min_reads)
+    return Mp, Mh
+
+
+def _loo_median(A):
+    n = A.shape[0]
+    S = np.sort(A, axis=0)
+    r = np.argsort(np.argsort(A, axis=0, kind="stable"), axis=0, kind="stable")
+    pick = lambda k: np.where(k < r, S[k][None, :], S[k + 1][None, :])
+    m = n - 1
+    return pick(m // 2) if m % 2 else (pick(m // 2 - 1) + pick(m // 2)) / 2
+
+
+def quiet_calls(D, spread=1.0, lift=2.0, min_reads=3):
+    """Conservative private expression, restricted to genes that are quiet in the reference
+    controls: no control lies more than `spread` log2(CPM + 1) above the control median (stable,
+    no control outlier). A sample is called when it sits >= `lift` above that median with
+    >= min_reads. Patients use all controls; each control uses the other controls."""
+    Y, C = np.log2(D["cpm"] + 1), D["counts"]
+    hc, pat = D["is_hc"], D["is_case"]
+    Yh = Y[hc]
+    med, top2 = np.median(Yh, axis=0), -np.sort(-Yh, axis=0)[:2]
+    Mp = ((top2[0] - med) <= spread) & (Y[pat] - med >= lift) & (C[pat] >= min_reads)
+    med_l = _loo_median(Yh)
+    max_l = np.where(Yh >= top2[0], top2[1], top2[0])
+    Mh = ((max_l - med_l) <= spread) & (Yh - med_l >= lift) & (C[hc] >= min_reads)
+    return Mp, Mh
+
+
+def _call_row(D, Mp, Mh, de_any, **rule):
+    g = Mp.any(axis=0)
+    return dict(scope=COHORT_LABEL[D["cohort"]], **rule, private_genes=int(g.sum()),
+                single_patient=int((Mp.sum(0) == 1).sum()), also_DE_any_design=int((g & de_any).sum()),
+                per_patient_med=np.median(Mp.sum(1)), per_control_med=np.median(Mh.sum(1)),
+                patients_with_any=int(Mp.any(1).sum()), controls_with_any=int(Mh.any(1).sum()),
+                n_patients=len(Mp), n_controls=len(Mh))
+
+
+def private_sensitivity(Ds, detects=(0.05, 0.1, 0.2, 0.3), reads=(3, 5, 10)):
+    rows = []
+    for D in Ds:
+        de_any = np.isin(D["genes"], list(set().union(*[de_genes(D, d) for d in DESIGNS])))
+        for md in detects:
+            for mr in reads:
+                rows.append(_call_row(D, *private_calls(D, md, mr), de_any, rule="detect",
+                                      max_hc_detect=md, min_reads=mr))
+    return pd.DataFrame(rows)
+
+
+def quiet_sensitivity(Ds, spreads=(0.5, 1.0, 1.5), lifts=(1.0, 2.0, 3.0), min_reads=3):
+    rows = []
+    for D in Ds:
+        de_any = np.isin(D["genes"], list(set().union(*[de_genes(D, d) for d in DESIGNS])))
+        for sp in spreads:
+            for lf in lifts:
+                if lf <= sp:
+                    continue
+                rows.append(_call_row(D, *quiet_calls(D, sp, lf, min_reads), de_any, rule="quiet",
+                                      spread=sp, lift=lf, min_reads=min_reads))
+    return pd.DataFrame(rows)
+
+
+def plot_deg_vs_private(D, Mp, rule, design="no_covariate", save_path=None):
+    Y = np.log2(D["cpm"] + 1)
+    Y = Y - np.median(Y[D["is_hc"]], axis=0)
+    hc_i, pat_i = np.where(D["is_hc"])[0], np.where(D["is_case"])[0]
+    rows = np.concatenate([hc_i, pat_i])
+    G = de_genes(D, design)
+    deg = np.array([D["pos"][g] for g in G], dtype=int)
+    deg = deg[np.argsort(Y[pat_i][:, deg].mean(axis=0))]
+    n_pat = Mp.sum(axis=0)
+    pv = np.where((n_pat > 0) & ~np.isin(D["genes"], G))[0]
+    first = Mp[:, pv].argmax(axis=0)
+    pv = pv[np.lexsort((first, -n_pat[pv]))]
+    blocks = [(deg, f"{len(deg)} group DE genes (DESeq2, RUVg {DESIGN_SHORT[design]})"),
+              (pv, f"{len(pv)} patient-level signals undetected by the group test "
+                   f"({int((n_pat[pv] == 1).sum())} in a single patient)")]
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=True, constrained_layout=True,
+                             gridspec_kw=dict(width_ratios=[1, 2]))
+    for ax, (cols, lab) in zip(axes, blocks):
+        if len(cols):
+            im = ax.imshow(Y[np.ix_(rows, cols)], cmap="RdBu_r", vmin=-4, vmax=4, aspect="auto",
+                           interpolation="nearest")
+        ax.axhline(len(hc_i) - 0.5, color="k", lw=1.2)
+        ax.set_xlabel(lab)
+        ax.set_xticks([])
+    axes[0].set_yticks([len(hc_i) / 2, len(hc_i) + len(pat_i) / 2],
+                       [f"controls ({len(hc_i)})", f"patients ({len(pat_i)})"])
+    fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01).set_label("log2(CPM + 1) - control median")
+    fig.suptitle(f"{COHORT_LABEL[D['cohort']]}: group DE genes vs patient-private expression ({rule})",
+                 fontsize=11)
+    _save(fig, save_path)
+    return fig
