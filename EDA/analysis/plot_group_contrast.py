@@ -65,11 +65,17 @@ def de_genes(D, design):
     return sorted(D["deg"][("PancreaticNeoplasm", design)] | D["deg"][("PDAC", design)])
 
 
-def standardized(D, design, gene_list):
+CENTER_LABEL = {"z": "HC-standardized", "median": "TMM-log2 - HC median"}
+
+
+def standardized(D, design, gene_list, center="z"):
     idx = np.array([D["pos"][g] for g in gene_list])
     X = D["X"][design]
     Xh = X[D["is_hc"]][:, idx]
-    m, s = Xh.mean(axis=0), Xh.std(axis=0, ddof=1)
+    if center == "median":
+        m, s = np.median(Xh, axis=0), 1.0
+    else:
+        m, s = Xh.mean(axis=0), Xh.std(axis=0, ddof=1)
     return (X[D["is_case"]][:, idx] - m) / s, (Xh - m) / s
 
 
@@ -92,38 +98,42 @@ def representativeness(D, save_path=None):
     return out
 
 
-def plot_direction(D, save_path=None):
-    G = de_genes(D, PICK)
-    Z, _ = standardized(D, PICK, G)
-    mz = Z.mean(axis=0)
-
-    curves, labels, cols = [], [], []
+def _direction_data(D, center):
+    curves, labels, cols, Zs = [], [], [], []
     for design in DESIGNS:
         Gd = de_genes(D, design)
         if not Gd:
             continue
-        Zd, _ = standardized(D, design, Gd)
+        Zd, _ = standardized(D, design, Gd, center)
         md = Zd.mean(axis=0)
         curves.append((np.sign(Zd) == np.sign(md)[None, :]).mean(axis=0))
         labels.append(design)
         cols.append(DESIGN_C[design])
+        Zs.append(Zd[:, np.argsort(md)])
+    return curves, labels, cols, Zs
 
-    fig, axes = plt.subplots(1, 2, figsize=(11.0, 3.8), constrained_layout=True,
-                             gridspec_kw=dict(width_ratios=[1.3, 1.0]))
 
-    ax = axes[0]
-    im = ax.imshow(Z[:, np.argsort(mz)], cmap="RdBu_r", vmin=-3, vmax=3, aspect="auto",
-                   interpolation="nearest")
-    ax.set_xlabel(f"{len(G)} group DE genes (sorted by group mean)")
-    ax.set_ylabel(f"{Z.shape[0]} patients")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    cb = fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
-    cb.set_label("HC-standardized")
-    for s in ax.spines.values():
-        s.set_visible(False)
+def plot_direction(D, save_path=None, center="z"):
+    _, labels, _, Zs = _direction_data(D, center)
+    n = len(Zs)
+    fig, axes = plt.subplots(1, n, figsize=(4.0 * n, 3.8), constrained_layout=True)
+    for ax, Zd, lab in zip(axes, Zs, labels):
+        im = ax.imshow(Zd, cmap="RdBu_r", vmin=-3, vmax=3, aspect="auto", interpolation="nearest")
+        ax.set_title(f"RUVg {DESIGN_SHORT[lab]}", fontsize=11)
+        ax.set_xlabel(f"{Zd.shape[1]} DE genes (by group mean)")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+    axes[0].set_ylabel(f"{Zs[0].shape[0]} patients")
+    fig.colorbar(im, ax=axes, fraction=0.02, pad=0.01).set_label(CENTER_LABEL[center])
+    _save(fig, save_path)
+    return fig
 
-    ax = axes[1]
+
+def plot_direction_concordance(D, save_path=None, center="z"):
+    curves, labels, cols, _ = _direction_data(D, center)
+    fig, ax = plt.subplots(figsize=(4.5, 3.8), constrained_layout=True)
     parts = ax.violinplot(curves, positions=range(len(curves)), widths=0.85, showextrema=False)
     for b, c in zip(parts["bodies"], cols):
         b.set_facecolor(c)
@@ -144,15 +154,58 @@ def plot_direction(D, save_path=None):
     ax.text(-0.45, 0.5, "0.5 = no shared direction", va="bottom", ha="left", fontsize=10,
             color="0.35")
 
-    for a, l in zip(axes, "ab"):
-        a.text(-0.05, 1.12, l, transform=a.transAxes, fontweight="bold", va="top")
     _save(fig, save_path)
     return fig, pd.DataFrame(dict(design=labels, median=[np.median(v) for v in curves],
                                   frac_below_05=[(v < 0.5).mean() for v in curves],
                                   frac_below_06=[(v < 0.6).mean() for v in curves]))
 
 
-def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc"):
+def plot_direction_blocks(D, design=PICK, save_path=None):
+    G = de_genes(D, design)
+    Z, _ = standardized(D, design, G)
+    mz = Z.mean(axis=0)
+    up = (Z > 0).mean(axis=0)
+    conc = np.where(mz > 0, up, 1 - up)
+    order = np.concatenate([np.where(mz < 0)[0][np.argsort(-conc[mz < 0])],
+                            np.where(mz > 0)[0][np.argsort(-conc[mz > 0])]])
+    n_dn = int((mz < 0).sum())
+    x = np.arange(len(order))
+
+    fig, (ax, hm) = plt.subplots(2, 1, figsize=(12.0, 5.6), sharex=True, constrained_layout=True,
+                                 gridspec_kw=dict(height_ratios=[1.0, 1.6]))
+    ax.bar(x, 1 - up[order], width=1.0, color="#2166AC", label="patients below HC mean")
+    ax.bar(x, up[order], bottom=1 - up[order], width=1.0, color="#B2182B",
+           label="patients above HC mean")
+    ax.axhline(0.5, color="k", lw=0.9, ls=":")
+    ax.axvline(n_dn - 0.5, color="k", lw=1.2)
+    ax.set_ylim(0, 1.22)
+    ax.set_yticks([0, 0.5, 1])
+    ax.set_ylabel("fraction of patients")
+    ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.32), ncol=2, frameon=False, fontsize=10)
+    rows = []
+    for lab, sl in [("group-down DE genes", slice(0, n_dn)),
+                    ("group-up DE genes", slice(n_dn, len(order)))]:
+        c = conc[order[sl]]
+        rows.append(dict(block=lab, n_genes=len(c), median_concordance=np.median(c),
+                         frac_below_05=(c < 0.5).mean()))
+        ax.text((sl.start + (sl.stop or len(order))) / 2 - 0.5, 1.04,
+                f"{lab} (n={len(c)}): median {np.median(c):.0%} on group side, "
+                f"{(c < 0.5).mean():.0%} of genes < 50%", ha="center", va="bottom", fontsize=10)
+
+    im = hm.imshow(Z[:, order], cmap="RdBu_r", vmin=-3, vmax=3, aspect="auto",
+                   interpolation="nearest")
+    hm.axvline(n_dn - 0.5, color="k", lw=1.2)
+    hm.set_xlabel(f"{len(G)} group DE genes, sorted by share of patients on the group side")
+    hm.set_ylabel(f"{Z.shape[0]} patients")
+    hm.set_xticks([])
+    hm.set_yticks([])
+    fig.colorbar(im, ax=hm, fraction=0.025, pad=0.01).set_label("HC-standardized")
+    fig.suptitle(f"RUVg factors: {DESIGN_SHORT[design]}", fontsize=11)
+    _save(fig, save_path)
+    return fig, pd.DataFrame(rows).assign(design=design)
+
+
+def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc", center="z"):
     G = de_genes(D, design)
     pa = D["padj"][("PancreaticNeoplasm", design)].combine_first(D["padj"][("PDAC", design)])
     order = pa.reindex(G).sort_values()
@@ -161,7 +214,7 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc
             D["lfc"][("PDAC", design)])
         order = order.reindex(lf.reindex(G).sort_values(ascending=False).index)
     if rank == "outliers":
-        Za, _ = standardized(D, design, list(order.index))
+        Za, _ = standardized(D, design, list(order.index), center)
         n_out = (Za > thr).sum(axis=0)
         order = order.iloc[np.argsort(-n_out, kind="stable")]
     top = list(order.index[:n_show])
@@ -174,7 +227,7 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc
                            index=dec(h["var/_index"][()]))
     sym = [sym_of.get(g, g.split(".")[0]) for g in top]
     sym = [x if len(x) <= 10 else f"{x[:4]}..{x[-4:]}" for x in sym]
-    Zp, Zh = standardized(D, design, top)
+    Zp, Zh = standardized(D, design, top, center)
 
     ext = Zp > thr
     ext_h = Zh > thr
@@ -214,7 +267,7 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc
     top_ax.tick_params(axis="x", length=0)
     ep, eh = Zp.size * 0.025, Zh.size * 0.025
     top_ax.text(0.0, 1.30,
-                f"above {thr:g} SD: {int(ext.sum())} patient values ({int(ext.sum()) / ep:.1f}x "
+                f"above {thr:g} {'SD' if center == 'z' else 'log2'}: {int(ext.sum())} patient values ({int(ext.sum()) / ep:.1f}x "
                 f"the {ep:.0f} expected of a healthy cohort this size), "
                 f"{int(ext_h.sum())} healthy (grey, left) ({int(ext_h.sum()) / eh:.1f}x)\n"
                 f"one colour per patient, no colour repeated ({len(carriers)} of {Zp.shape[0]} "
@@ -234,7 +287,7 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc
             jit = np.random.default_rng(SEED + k).normal(0, 0.03, len(arr))
             ax.plot(k + off + jit[inside], arr[inside], ".", ms=2.4, color=col, alpha=0.6)
     ax.axhline(0, color="k", lw=0.8)
-    if thr > 2.1:
+    if thr > 2.1 and center == "z":
         ax.axhline(1.96, color="k", lw=0.7, ls=":")
         ax.text(len(top) - 0.4, 1.96, " 1.96 SD", va="center", ha="left", fontsize=10, color="0.4")
     ax.set_ylim(ylo, thr)
@@ -245,7 +298,7 @@ def plot_top_degs(D, n_show=20, thr=1.96, save_path=None, design=PICK, rank="lfc
         rank, "$p_{adj}$")
     ax.set_xlabel(f"{len(top)} of the {len(G)} group DE genes ({by}), "
                   f"patients (red) vs healthy (grey), RUVg {DESIGN_SHORT[design]}")
-    ax.set_ylabel("HC-standardized TMM-log2")
+    ax.set_ylabel(CENTER_LABEL[center])
 
     for a, y in [(top_ax, 0), (ax, 1)]:
         a.plot([0, 1], [y, y], transform=a.transAxes, ls="none", marker=[(-1, -0.5), (1, 0.5)],
