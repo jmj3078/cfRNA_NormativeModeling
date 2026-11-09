@@ -18,10 +18,10 @@ from analysis.bias_metrics import DEFAULT_METRICS
 from analysis.plot_pca_rda import (
     plot_pca_scree_and_bias,
     plot_pca_scatter_grid,
-    plot_rda_unique_heatmap,
     plot_rda_variance_partition,
     plot_cascade_spaghetti,
     plot_normalization_partition,
+    plot_normalization_unique_r2_grid,
     plot_hc_rda_results,
 )
 
@@ -350,11 +350,6 @@ class DataAnalysisPipeline:
         if save_dir:
             os.makedirs(save_dir, exist_ok=True)
         hvg_tag = "hvg" if use_hvg else "all"
-        plot_rda_unique_heatmap(
-            df_unique, use_hvg,
-            save_path=os.path.join(save_dir, f"rda_unique_{hvg_tag}.png") if save_dir else None,
-        )
-
         if pheno_in_vars and conf_vars:
             plot_rda_variance_partition(
                 df_partition,
@@ -523,6 +518,9 @@ class DataAnalysisPipeline:
         if (show_plots or save_path) and not df_partition_all.empty and phenotype_var in target_vars:
             studies = df_partition_all.index.get_level_values("Study").unique()
             plot_normalization_partition(df_partition_all, studies, save_path=save_path)
+            stem, ext = os.path.splitext(save_path) if save_path else (None, "")
+            plot_normalization_unique_r2_grid(df_unique_all, studies, phenotype_var,
+                                              save_path=f"{stem}_unique{ext or '.png'}" if stem else None)
 
         return {"unique_contributions": df_unique_all,
                 "variance_partition": df_partition_all,

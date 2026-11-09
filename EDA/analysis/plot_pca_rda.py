@@ -114,29 +114,11 @@ def plot_pca_scatter_grid(adata_pca, plot_keys, var_ratios, key_title_map=None, 
     plt.show()
 
 
-def plot_rda_unique_heatmap(df_unique, use_hvg, save_path=None):
-    """Heatmap of per-variable unique R² contributions across studies."""
-    fig_w = max(10, len(df_unique.columns) * .8)
-    fig_h = max(6, len(df_unique) * 0.4 + 2)
-    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-    sns.heatmap(df_unique, annot=True, fmt=".3f", cmap="Reds", annot_kws={"size": 11},
-                linewidths=0.5, mask=df_unique.isna(), ax=ax)
-    sns.heatmap(df_unique.isna(), cmap=["white", "lightgrey"],
-                cbar=False, ax=ax, mask=~df_unique.isna(), linewidths=0.5)
-    ax.set_title(f"Per-Variable Unique Contribution (Partial RDA)\n(HVG: {use_hvg})", pad=15)
-    ax.set_ylabel("Studies (Authors)")
-    ax.set_xlabel("Covariates")
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    _save(fig, save_path)
-    plt.show()
-
-
 def plot_rda_variance_partition(df_partition, title, x_label="Studies (Authors)",
                                  figsize=None, save_path=None):
     """Stacked horizontal bar chart of variance partition."""
     part_cols = ["pheno_unique", "conf_unique", "shared", "unexplained"]
-    part_labels = ["Phenotype Unique", "Covariate Unique", "Shared", "Unexplained"]
+    part_labels = ["Phenotype unique", "Indicators + batch unique", "Shared", "Unexplained"]
     part_colors = ["steelblue", "coral", "mediumseagreen", "lightgrey"]
     df_plot = df_partition[part_cols].fillna(0)
     fig_h = figsize[1] if figsize else max(5, len(df_plot) * 0.4 + 2)
@@ -189,7 +171,7 @@ def plot_normalization_partition(df_partition_all, studies, save_path=None):
     axes_flat = [axes] if n_rows * n_cols == 1 else axes.flatten()
 
     part_cols = ["pheno_unique", "conf_unique", "shared", "unexplained"]
-    part_labels = ["Phenotype Unique", "Covariate Unique", "Shared", "Unexplained"]
+    part_labels = ["Phenotype unique", "Indicators + batch unique", "Shared", "Unexplained"]
     part_colors = ["steelblue", "coral", "mediumseagreen", "lightgrey"]
     for i, study in enumerate(studies):
         ax = axes_flat[i]
@@ -204,8 +186,9 @@ def plot_normalization_partition(df_partition_all, studies, save_path=None):
             bottom += vals
         ax.set_xticks(x)
         ax.set_xticklabels(layers_plot, rotation=90, ha="right")
+        ax.set_title(study)
         if i % n_cols == 0:
-            ax.set_ylabel("Proportion of Variance")
+            ax.set_ylabel("Proportion of total variance")
         ax.set_ylim(0, 1)
         ax.grid(axis="y", linestyle="--", alpha=0.4)
 
@@ -214,6 +197,48 @@ def plot_normalization_partition(df_partition_all, studies, save_path=None):
 
     patches = [mpatches.Patch(color=c, label=l) for c, l in zip(part_colors, part_labels)]
     fig.legend(handles=patches, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.05), frameon=False)
+    plt.tight_layout()
+    _save(fig, save_path)
+    plt.show()
+
+
+def _unique_r2_order_colors(df_layer_mean, phenotype_var, rank_on):
+    tech = [c for c in df_layer_mean.columns if c != phenotype_var]
+    rank_rows = df_layer_mean.loc[df_layer_mean.index.str.contains(rank_on)] if rank_on else df_layer_mean
+    order = rank_rows[tech].mean().sort_values(ascending=False).index.tolist()
+    pastels = list(plt.get_cmap("Pastel1").colors) + list(plt.get_cmap("Pastel2").colors)
+    return order, ["#E63946"] + pastels[:len(order)]
+
+
+def plot_normalization_unique_r2_grid(df_unique_all, studies, phenotype_var="Phenotype_Processed",
+                                       rank_on="EDAseq|RUVg", save_path=None):
+    """Per-study composition of partial-RDA unique R2 across normalization layers."""
+    order, cols = _unique_r2_order_colors(df_unique_all.groupby("Layer", sort=False).mean(), phenotype_var, rank_on)
+    n_cols = min(5, len(studies))
+    n_rows = math.ceil(len(studies) / n_cols)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 4.5, n_rows * 6.5), sharey=True)
+    axes_flat = [axes] if n_rows * n_cols == 1 else axes.flatten()
+    for i, study in enumerate(studies):
+        ax = axes_flat[i]
+        comp = df_unique_all.xs(study, level="Study")[[phenotype_var] + order].fillna(0.0)
+        frac = comp.div(comp.sum(axis=1), axis=0)
+        x = np.arange(len(frac))
+        bottom = np.zeros(len(frac))
+        for col, c in zip(frac.columns, cols):
+            ax.bar(x, frac[col].values, bottom=bottom, color=c, width=0.6, edgecolor="black", linewidth=0.5)
+            bottom += frac[col].values
+        ax.set_xticks(x)
+        ax.set_xticklabels(frac.index, rotation=90, ha="right")
+        ax.set_title(study)
+        if i % n_cols == 0:
+            ax.set_ylabel("Share of the uniquely attributable variance")
+        ax.set_ylim(0, 1)
+        ax.grid(axis="y", linestyle="--", alpha=0.4)
+    for j in range(i + 1, len(axes_flat)):
+        axes_flat[j].set_visible(False)
+    labels = ["Phenotype"] + order
+    patches = [mpatches.Patch(facecolor=c, edgecolor="black", label=l) for c, l in zip(cols, labels)]
+    fig.legend(handles=patches, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.07), frameon=False)
     plt.tight_layout()
     _save(fig, save_path)
     plt.show()
@@ -231,20 +256,13 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     if isinstance(r2_results, str):
         r2_results = pd.read_csv(r2_results, sep="\t")
     df = r2_results.groupby("Layer", sort=False).mean(numeric_only=True)
-
-    tech = [c for c in df.columns if c != phenotype_var]
-    rank_rows = df.loc[df.index.str.contains(rank_on)] if rank_on else df
-    order = df.loc[rank_rows.index, tech].mean().sort_values(ascending=False).index.tolist()
+    order, cols = _unique_r2_order_colors(df, phenotype_var, rank_on)
+    pheno_color = cols[0]
 
     comp = df[[phenotype_var] + order].fillna(0.0)
     total = comp.sum(axis=1)
     frac = comp.div(total, axis=0)
     fold = (total - comp[phenotype_var]) / comp[phenotype_var]
-
-    pheno_color = "#E63946"
-    tech_cmap = plt.get_cmap("Pastel1" if len(order) <= 9 else "Pastel2")
-    tech_cols = [tech_cmap(i % tech_cmap.N) for i in range(len(order))]
-    cols = [pheno_color] + tech_cols
     y = np.arange(len(df))[::-1]
     corrected = df.index.str.contains(rank_on) if rank_on else np.ones(len(df), bool)
 
@@ -281,8 +299,8 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     for tick, c in zip(ax1.get_yticklabels(), corrected):
         tick.set_color("#1F1F1F" if c else "#7A7A7A")
     ax1.set_xlim(0, 1)
-    ax1.set_xlabel("Share of total unique R² (partial RDA)", fontsize=fs)
-    ax1.set_title("Phenotype vs technical covariates", fontsize=fs + 1)
+    ax1.set_xlabel("Share of the uniquely attributable variance (not of total variance)", fontsize=fs)
+    ax1.set_title("Phenotype vs pre-analytical indicators", fontsize=fs + 1)
     ax1.tick_params(axis="x", labelsize=fs - 1)
     ax1.grid(axis="x", linestyle="--", alpha=0.4)
     for spine in ax1.spines.values():
@@ -307,8 +325,8 @@ def plot_normalization_unique_r2_summary(r2_results, phenotype_var="Phenotype_Pr
     ax2.set_yticklabels(df.index, fontsize=fs)
     for tick, c in zip(ax2.get_yticklabels(), corrected):
         tick.set_color("#1F1F1F" if c else "#7A7A7A")
-    ax2.set_xlabel("Technical / phenotype unique R²  (log scale)", fontsize=fs)
-    ax2.set_title("Technical variance dominance", fontsize=fs + 1)
+    ax2.set_xlabel("Indicator / phenotype unique R²  (log scale)", fontsize=fs)
+    ax2.set_title("Indicator variance dominance", fontsize=fs + 1)
     ax2.tick_params(axis="x", labelsize=fs - 1)
     ax2.grid(axis="x", linestyle="--", alpha=0.4)
     for spine in ax2.spines.values():
@@ -350,3 +368,4 @@ def plot_hc_rda_results(sr_unique, r2_all, batch_col, layer, unique_dict, save_p
     plt.tight_layout()
     _save(fig2, f"{stem}_partition{ext}" if stem else None)
     plt.show()
+
