@@ -46,7 +46,7 @@ def jaccard(a, b):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n-null", type=int, default=10)
+    ap.add_argument("--n-null", type=int, default=60)
     ap.add_argument("--draws", default=None, help="comma-separated draw indices (shard); default 0..n_null-1")
     ap.add_argument("--designs", default=None, help="comma-separated designs; default all four")
     ap.add_argument("--out", default=None, help="output CSV (shard); merged into the scope summary later")

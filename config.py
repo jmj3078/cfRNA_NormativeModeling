@@ -64,6 +64,12 @@ CTRL_COMP_N_SPLITS = {"b1": 2, "b123": 3}
 def ctrl_comp_n_splits(scope=None):
     return CTRL_COMP_N_SPLITS[scope or CTRL_COMP_DEFAULT_SCOPE]
 
+# Control-overlap sweep: half-pool control subsets with designed pairwise overlap 0-90%,
+# 6 circular windows per random permutation (DESeq2 only). Permutations per scope come from
+# n >= (1.96 sigma / 0.02)^2 with sigma from the cross-draw pilot.
+CTRL_COMP_OVERLAP_DIR = CTRL_COMP_DIR / "overlap_sweep"
+CTRL_COMP_OVERLAP_N_PERM = {"b1": 48, "b123": 18}
+
 EDA_GROUP_CONTRAST_DIR = EDA_RESULTS_DIR / "GroupContrastLimits"
 EDA_GROUP_CONTRAST_FIG_DIR = EDA_GROUP_CONTRAST_DIR / "Figures"
 # Two DEG runs of the same Moore pancreatic cohort, kept side by side rather than one

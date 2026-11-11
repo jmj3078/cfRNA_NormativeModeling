@@ -16,7 +16,7 @@ from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
 from pydeseq2.utils import fit_alpha_mle, irls_solver
 from scipy.stats import f as f_dist
-from scipy.stats import norm
+from scipy.stats import norm, spearmanr
 
 import config
 
@@ -218,3 +218,93 @@ def refit_check(R):
     g = R["genes"]
     max_dlogp = float(np.abs(np.log10(g.p_recomputed) - np.log10(g.p_deseq2)).max())
     return pd.DataFrame(rows), max_dlogp
+
+
+def bias_max_z(obs, samples, ref):
+    x = obs.loc[ref, config.BIAS_COLUMNS].astype(float)
+    med, mad = x.median(), 1.4826 * (x - x.median()).abs().median()
+    return ((obs.loc[samples, config.BIAS_COLUMNS].astype(float) - med) / mad).abs().max(axis=1)
+
+
+def load_nm():
+    d = config.ZSCORES_DIR
+    meta = pd.concat([pd.read_csv(d / "sample_meta.csv").assign(Z_row=lambda t: range(len(t)), Z="disease"),
+                      pd.read_csv(d / "hc_meta.csv").assign(Z_row=lambda t: range(len(t)), Z="hc")])
+    meta = meta.merge(pd.read_csv(d / "sample_bh_sig.csv")[["sample", "n_sig"]], on="sample", how="left")
+    Z = dict(disease=np.load(d / "Z_disease_shash.npy"), hc=np.load(d / "Z_hc_shash.npy"))
+    return meta.set_index("sample"), Z, pd.Index(pd.read_pickle(d / "gene_names.pkl"))
+
+
+def driver_bias_nm(genes, obs, nm, cut=3):
+    meta, Z, gn = nm
+    hc_pool = meta.index[meta.Z == "hc"]
+    rows, base = [], []
+    for s in SCOPES:
+        smp = pd.read_csv(SCOPES[s] / "ruvg_W" / f"{SUBSET}.csv", index_col=0).index
+        cond = load_scope(s)[1] == "case"
+        local = bias_max_z(obs, smp, smp[~cond])
+        pool = bias_max_z(obs, smp, hc_pool)
+        for grp, m in [("patient", cond), ("control", ~cond)]:
+            base.append(dict(scope=LABEL[s], group=grp, n=int(m.sum()), extreme_local=(local[m] > cut).mean(),
+                             extreme_pool=(pool[m] > cut).mean()))
+        t = genes[genes.scope == LABEL[s]].copy()
+        t["bias_z_local"] = t.first_removed.map(local)
+        t["bias_z_pool"] = t.first_removed.map(pool)
+        rows.append(t)
+    t = pd.concat(rows)
+    t = t[t.gene.isin(gn)].copy()
+    m = meta.loc[t.first_removed]
+    t["nm_z"] = [Z[k][r, gn.get_loc(g)] for k, r, g in zip(m.Z, m.Z_row, t.gene)]
+    t["nm_z_de_dir"] = t.nm_z * np.sign(t.log2FC) * np.where(t.first_removed_group == "patient", 1, -1)
+    t["boundary_lfc"] = t.log2FC.abs() > 10
+    return t, pd.DataFrame(base)
+
+
+def driver_summary(t, cut=3):
+    hit = lambda v: (v > 1.96).mean()
+    out = []
+    for (s, grp), u in t.groupby(["scope", "first_removed_group"], sort=False):
+        d = u.drop_duplicates("first_removed")
+        out.append(dict(scope=s, group=grp, n_genes=len(u), n_samples=len(d),
+                        extreme_local_genes=(u.bias_z_local > cut).mean(), extreme_local_samples=(d.bias_z_local > cut).mean(),
+                        extreme_pool_genes=(u.bias_z_pool > cut).mean(), extreme_pool_samples=(d.bias_z_pool > cut).mean(),
+                        nm_hit=hit(u.nm_z_de_dir), nm_hit_pool_extreme=hit(u.nm_z_de_dir[u.bias_z_pool > cut]),
+                        nm_hit_pool_normal=hit(u.nm_z_de_dir[u.bias_z_pool <= cut]),
+                        nm_hit_boundary=hit(u.nm_z_de_dir[u.boundary_lfc]), nm_hit_nonboundary=hit(u.nm_z_de_dir[~u.boundary_lfc])))
+    return pd.DataFrame(out)
+
+
+def nm_bias_association(obs, nm):
+    meta, Z, _ = nm
+    meta = meta.copy()
+    meta["bias_z_pool"] = bias_max_z(obs, meta.index, meta.index[meta.Z == "hc"])
+    meta["frac_z196"] = np.nan
+    for k in Z:
+        m = meta.Z == k
+        meta.loc[m, "frac_z196"] = np.nanmean(np.abs(Z[k][meta.Z_row[m]]) > 1.96, axis=1)
+    rank = lambda d, c: d.groupby("batch")[c].rank(pct=True)
+    rows = []
+    for k, y in [("disease", "frac_z196"), ("disease", "n_sig"), ("hc", "frac_z196")]:
+        d = meta[meta.Z == k].dropna(subset=[y])
+        rows.append(dict(Z=k, outcome=y, n=len(d), rho=spearmanr(d.bias_z_pool, d[y])[0],
+                         rho_within_batch=spearmanr(rank(d, "bias_z_pool"), rank(d, y))[0]))
+    return pd.DataFrame(rows), meta
+
+
+NM_CLASS = ["normal in NM (Z <= 1.96)", "deviation (1.96 < Z <= 5)", "very high (Z > 5)"]
+
+
+def nm_class_bias(drivers, cut=3):
+    p = drivers[drivers.first_removed_group == "patient"].dropna(subset=["nm_z_de_dir"]).copy()
+    p["nm_class"] = pd.cut(p.nm_z_de_dir, [-np.inf, 1.96, 5, np.inf], labels=NM_CLASS)
+    rows = []
+    for scope, u in [("all genes", p), ("|log2FC| <= 10", p[~p.boundary_lfc])]:
+        for c, v in u.groupby("nm_class", observed=True):
+            top = v.first_removed.value_counts()
+            rows.append(dict(genes=scope, nm_class=c, degs=len(v), patients=top.size, bias_median=v.bias_z_pool.median(),
+                             bias_extreme=(v.bias_z_pool > cut).mean(), top_patient=top.index[0],
+                             top_patient_share=top.iloc[0] / len(v)))
+        s = u.groupby("first_removed").agg(bias=("bias_z_pool", "first"), z=("nm_z_de_dir", "median"))
+        rows.append(dict(genes=scope, nm_class="all (patient level)", patients=len(s),
+                         rho_bias_median_z=spearmanr(s.bias, s.z)[0]))
+    return p, pd.DataFrame(rows)

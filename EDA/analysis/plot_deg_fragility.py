@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from analysis.deg_fragility import DESIGNS, K_BINS, LABEL, MAX_STEPS, SCOPES, SHORT, run_genes
+from analysis.deg_fragility import DESIGNS, K_BINS, LABEL, MAX_STEPS, NM_CLASS, SCOPES, SHORT, run_genes
 from viz_style import FS_ANNOT_SM
 
 DESIGN_C = {"no_covariate": "#A2A2A2", "ruvg_k1": "#489ACA", "ruvg_k2": "#009E73", "ruvg_k3": "#CC79A7"}
@@ -175,3 +176,73 @@ def plot_all_conditions(R):
     _grid(ax, "x")
     ax.legend(frameon=False, title="significance lost after", loc="upper right", borderaxespad=0)
     return fig, pd.DataFrame(count_rows), tab.assign(total=tab.sum(axis=1))
+
+
+def plot_driver_bias_nm(drivers, nm_meta, assoc, classed, cut=3):
+    fig, axes = plt.subplots(4, 1, figsize=(7, 15), height_ratios=[1, 0.45, 1, 1], constrained_layout=True)
+    pat = drivers[drivers.first_removed_group == "patient"]
+    dis = nm_meta[nm_meta.Z == "disease"]
+    ax = axes[0]
+    d = pat.drop_duplicates("first_removed")
+    ax.hist(d.bias_z_pool, bins=np.arange(0, d.bias_z_pool.max() + 0.5, 0.25), color=C_PAT, alpha=0.7, edgecolor="k",
+            linewidth=0.3)
+    ax.axvline(cut, color="k", ls=":", lw=0.8)
+    n_ext = int((d.bias_z_pool > cut).sum())
+    ax.text(0.98, 0.98, f"BIAS-extreme (|z| > {cut}): {n_ext}/{len(d)} = {n_ext / len(d):.0%}\n"
+            f"all disease samples: {(dis.bias_z_pool > cut).mean():.0%}", transform=ax.transAxes, ha="right", va="top",
+            fontsize=FS_ANNOT_SM)
+    ax.set(xlabel="BIAS max |robust z| vs the NM HC pool (n=592)", ylabel="Patients driving a DEG",
+           title="A. Most patients driving DEGs are not BIAS-extreme")
+    _grid(ax, "y")
+
+    ax = axes[1]
+    labels = ["|log2FC| <= 10", "|log2FC| > 10"]
+    for i, b in enumerate([False, True]):
+        v = pat.loc[pat.boundary_lfc == b, "nm_z_de_dir"].dropna()
+        n_kept, n_lost = int((v > 1.96).sum()), int((v <= 1.96).sum())
+        ax.barh(i, n_kept, color=C_PAT, alpha=0.7, edgecolor="k", linewidth=0.3)
+        ax.barh(i, n_lost, left=n_kept, color="white", edgecolor="k", linewidth=0.3, hatch="//")
+        ax.text(n_kept + n_lost + 3, i, f"{n_kept} kept / {n_lost} normal in NM", va="center", fontsize=FS_ANNOT_SM)
+    ax.legend(handles=[Patch(facecolor=C_PAT, alpha=0.7, edgecolor="k", label="still a deviation in NM (Z > 1.96)"),
+                       Patch(facecolor="white", edgecolor="k", hatch="//", label="normal in NM (Z <= 1.96)")],
+              frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.35), ncol=2, fontsize=FS_ANNOT_SM)
+    ax.set_yticks([0, 1], labels)
+    ax.invert_yaxis()
+    ax.set_xlim(right=ax.get_xlim()[1] * 1.35)
+    ax.set(xlabel="DEGs (judged at the driving patient)", title="B. Part of the DEG signal is normal under NM")
+
+    ax = axes[2]
+    edges = [0, 1, 2, 3, 5, np.inf]
+    names = ["<1", "1-2", "2-3", "3-5", ">5"]
+    y = 100 * (dis.frac_z196 - dis.groupby("batch").frac_z196.transform("median"))
+    b = pd.cut(dis.bias_z_pool, edges, labels=names, right=False)
+    v = [y[b == n].dropna() for n in names]
+    bp = ax.boxplot(v, positions=range(len(names)), widths=0.5, showfliers=False, patch_artist=True,
+                    medianprops=dict(color="k"))
+    for box in bp["boxes"]:
+        box.set(facecolor=C_PAT, alpha=0.5)
+    for x, u in enumerate(v):
+        ax.text(x, 0.02, f"n={len(u)}", transform=ax.get_xaxis_transform(), ha="center", fontsize=FS_ANNOT_SM)
+    rho = assoc.loc[(assoc.Z == "disease") & (assoc.outcome == "frac_z196"), "rho_within_batch"].iloc[0]
+    ax.text(0.02, 0.98, f"within-batch Spearman rho = {rho:.2f}", transform=ax.transAxes, va="top", fontsize=FS_ANNOT_SM)
+    ax.axhline(0, color="k", ls=":", lw=0.8)
+    ax.set_xticks(range(len(names)), names)
+    ax.set(xlabel="BIAS max |robust z| vs the NM HC pool (n=592)",
+           ylabel="NM hit rate minus batch median (%p)\n(% of genes with |Z| > 1.96)",
+           title="C. NM hit rate does not rise with BIAS (disease samples)")
+    _grid(ax, "y")
+
+    ax = axes[3]
+    rng = np.random.default_rng(0)
+    for i, c in enumerate(NM_CLASS):
+        v = classed[classed.nm_class == c]
+        ax.boxplot(v.bias_z_pool, positions=[i], widths=0.5, showfliers=False, medianprops=dict(color="k"))
+        ax.scatter(i + rng.normal(0, 0.08, len(v)), v.bias_z_pool, s=10, alpha=0.5, color=C_PAT)
+    ax.axhline(cut, color="k", ls=":", lw=0.8)
+    ax.set_xticks(range(len(NM_CLASS)), [f"{c.replace(' (', chr(10) + '(')}\n{(classed.nm_class == c).sum()} DEGs\n"
+                                         f"{classed.loc[classed.nm_class == c, 'first_removed'].nunique()} patients"
+                                         for c in NM_CLASS])
+    ax.set(ylabel="BIAS max |robust z| vs the NM HC pool (n=592)",
+           title="D. BIAS of the driving patient by NM call", xlabel="NM Z of the driving patient at its DE gene")
+    _grid(ax, "y")
+    return fig

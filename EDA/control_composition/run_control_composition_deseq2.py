@@ -119,7 +119,7 @@ def process_group(data, counts, g, layers=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n-null", type=int, default=30)
+    ap.add_argument("--n-null", type=int, default=60)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--disease", default=None, help="restrict to one phenotype (default: all)")
     ap.add_argument("--scope", default=config.CTRL_COMP_DEFAULT_SCOPE,
