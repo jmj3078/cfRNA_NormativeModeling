@@ -110,6 +110,7 @@ RSCRIPT = shutil.which("Rscript") or str(Path(sys.executable).resolve().parent /
 
 MOORE2025_REPO_DIR = ROOT / "Data" / "2024_ngolab_cfRNA" / "Analysis_Scripts"
 MOORE2025_DE_R = _MEM / "notebookscripts" / "GroupVsIndividual" / "moore2025_de.R"
+MOORE2025_NORM_R = _MEM / "notebookscripts" / "GroupVsIndividual" / "moore2025_norm.R"
 GLMM_FIT_R     = _MEM / "core" / "glmm_fit.R"
 GLMM_FIT_POOL_R = _MEM / "core" / "glmm_fit_pool.R"
 HPA_SINGLE_CELL_ZIP = ROOT / "Data" / "HPA" / "rna_single_cell_type.tsv.zip"  # HPA 25.1, Data/HPA/VERSION.txt
@@ -191,6 +192,8 @@ if PIPELINE is not None:
     GROUP_VS_INDIV_DIR = PIPELINE_DIR / "8_PancreaticCancerCohortsAnalysis"
     GROUP_VS_INDIV_FIG_DIR = GROUP_VS_INDIV_DIR / "Figures"
     MOORE2025_DE_DIR = GROUP_VS_INDIV_DIR / "Moore2025DE"
+    WEAK_CLAIM_DIR = PIPELINE_DIR / "9_WeakClaim"
+    WEAK_CLAIM_FIG_DIR = WEAK_CLAIM_DIR / "Figures"
     OUTRIDER_COMPARISON_DIR = PIPELINE_DIR / "1_OutriderComparison" / "InsampleComparison"
     OUTRIDER_HELD_OUT_DIR = PIPELINE_DIR / "1_OutriderComparison" / "HeldOutComparison"
     DETECTION_LIMIT_DIR = PIPELINE_DIR / "4_DetectionLimitResults"
